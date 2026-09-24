@@ -8,5 +8,5 @@ Trois jeux pour une soirée, avec :
 ## Jeux
 
 1. [Le Chemin](docs/jeu1-le-chemin.md) — cahier des charges validé, [maquette](docs/maquettes/le-chemin.html)
-2. À définir
+2. [Duel au Far West](docs/jeu2-duel-far-west.md) — cahier des charges validé, [maquette](docs/maquettes/duel-far-west.html)
 3. À définir
