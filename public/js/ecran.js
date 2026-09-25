@@ -272,6 +272,29 @@ function gpOverlay(g) {
   requestAnimationFrame(sportLoop);
 })();
 
+// ---------- classement de la soirée ----------
+function soireeView(c, final) {
+  const rows = c.rows;
+  if (!rows.length) return '';
+  const pts = x => String(Math.round(x * 10) / 10).replace('.', ',');
+  if (final) {
+    const [a, b, d] = rows;
+    const step = (r, h, medal) => r ? `<div class="stack" style="align-items:center;gap:1vh;flex:1"><div style="font-size:clamp(40px,5vw,80px)">${medal}</div>
+      <div style="font:400 clamp(26px,3.4vw,58px)/1 var(--display);text-align:center">${esc(r.name)}</div><div class="mono" style="color:var(--accent);font-size:clamp(18px,2vw,32px)">${pts(r.total)} pts</div>
+      <div style="width:100%;height:${h}vh;background:var(--accent-soft);border:1px solid var(--accent);border-radius:12px 12px 0 0"></div></div>` : '<div style="flex:1"></div>';
+    return `<header class="sc-head"><h1 class="sc-title">Champion de la soirée</h1><div class="sc-sub muted">${rows.length} joueurs</div></header>
+      <div style="flex:1;display:flex;align-items:flex-end;gap:3vw;padding:0 6vw">${step(b, 22, '🥈')}${step(a, 34, '🥇')}${step(d, 14, '🥉')}</div>
+      <div class="names" style="justify-content:center">${rows.slice(3, 15).map(r => `<span>${r.rank}. ${esc(r.name)} · ${pts(r.total)}</span>`).join('')}</div>`;
+  }
+  const now = Date.now();
+  return `<header class="sc-head"><h1 class="sc-title">Classement de la soirée</h1><div class="sc-sub muted">${c.held.map(h => esc(h.name)).join(' · ')}</div></header>
+    <ol class="board" id="board-soiree" style="columns:${rows.length > 12 ? 2 : 1};column-gap:3vw;display:block">${rows.slice(0, 24).map((r, i) => {
+      const d = deltas['s:' + r.pid] && deltas['s:' + r.pid].until > now ? deltas['s:' + r.pid].d : 0;
+      const cls = d > 0 ? 'up' : d < 0 ? 'down' : '';
+      return `<li class="${cls}" data-pid="s:${r.pid}" style="break-inside:avoid;margin-bottom:8px;font-size:clamp(16px,1.5vw,24px)"><span class="rk">${i + 1}</span><span class="nm">${esc(r.name)}${r.mult > 1 ? ` <span class="muted" style="font-size:.7em">×${String(r.mult).replace('.', ',')}</span>` : ''}</span><span class="amt">${pts(r.total)} pts</span><span class="dl ${cls}">${d > 0 ? '▲ ' + d : d < 0 ? '▼ ' + -d : ''}</span></li>`;
+    }).join('')}</ol>`;
+}
+
 // ---------- rendu ----------
 function draw() {
   if (!V) return;
@@ -294,14 +317,22 @@ function draw() {
     html = waiting();
     Sons.marcher(false);
   }
+  // Classement de la soirée : à la demande de l'admin, ou automatiquement 20 s après la fin d'un jeu (pendant 40 s).
+  const since = V.status === 'finished' && V.finishedAt ? SJ.now() - V.finishedAt : -1;
+  const mode = V.show || (since > 20000 && since < 60000 ? 'classement' : null);
+  if (mode && V.classement?.rows.length) {
+    trackBettors(V.classement.rows.map(r => ({ pid: 's:' + r.pid })));
+    ov = soireeView(V.classement, mode === 'final');
+    if (mode === 'final' && celebrated !== 'final') { celebrated = 'final'; SJ.confetti(15000); Sons.fanfare(); }
+  }
   const before = {};
-  document.querySelectorAll('#board li').forEach(li => { before[li.dataset.pid] = li.getBoundingClientRect().top; });
+  document.querySelectorAll('#board li, #board-soiree li').forEach(li => { before[li.dataset.pid] = li.getBoundingClientRect().top; });
   SJ.render(app, html);
   overlay.hidden = !ov;
   if (ov) SJ.render(overlay, ov);
   // Classement des parieurs : les lignes glissent vers leur nouvelle place.
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    document.querySelectorAll('#board li').forEach(li => {
+    document.querySelectorAll('#board li, #board-soiree li').forEach(li => {
       const old = before[li.dataset.pid];
       if (old === undefined) return;
       const dy = old - li.getBoundingClientRect().top;

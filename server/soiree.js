@@ -3,6 +3,7 @@ import * as chemin from './games/chemin.js';
 import * as duel from './games/duel.js';
 import * as grandpari from './games/grandpari.js';
 import { uid, normName, setPath, mergeDefaults } from './util.js';
+import * as classement from './classement.js';
 
 export const GAMES = { chemin, duel, grandpari };
 
@@ -12,11 +13,14 @@ export function defaultState() {
       decompte: 2700,
       inscriptions: 900,
       orgaCode: '1234',
+      classement: classement.defaultConfig(),
       games: Object.fromEntries(Object.values(GAMES).map(m => [m.id, m.defaultConfig()])),
     },
     people: {},
     session: newSession('chemin'),
     history: [],
+    bonus: {},
+    show: null, // null | 'classement' | 'final' : classement affiché sur l'écran public
   };
 }
 
@@ -40,6 +44,7 @@ export function restore(saved) {
     ...def,
     ...saved,
     config: mergeDefaults(def.config, saved.config),
+    bonus: saved.bonus || {},
   };
 }
 
@@ -148,6 +153,19 @@ export class Soiree {
       case 'reinitialiser':
         this.s.session = newSession(sess.gameId);
         return { ok: true };
+      case 'bonus': {
+        const cur = Number(this.s.bonus[a.pid] || 0) + Number(a.delta || 0);
+        if (cur) this.s.bonus[a.pid] = cur; else delete this.s.bonus[a.pid];
+        return { ok: true };
+      }
+      case 'afficherClassement':
+        this.s.show = ['classement', 'final'].includes(a.mode) ? a.mode : null;
+        return { ok: true };
+      case 'reinitialiserSoiree':
+        this.s.history = [];
+        this.s.bonus = {};
+        this.s.show = null;
+        return { ok: true, msg: 'Classement de la soirée remis à zéro.' };
       case 'retirerInscrit':
         sess.registered = sess.registered.filter(x => x !== a.pid);
         return { ok: true };
@@ -178,6 +196,15 @@ export class Soiree {
 
   finishGame() {
     this.sess.status = 'finished';
+    this.sess.finishedAt = this.now();
+  }
+
+  // Classement de la soirée : jeux archivés + jeu en cours s'il est terminé.
+  classement() {
+    const recs = this.s.history.slice();
+    const sess = this.sess;
+    if (sess.game && sess.status === 'finished') recs.push({ gameId: sess.gameId, results: this.module.results(this.ctx(), sess.game) });
+    return classement.compute(this.s.config.classement, recs, pid => this.s.people[pid]?.name ?? '?', this.s.bonus);
   }
 
   archive() {
@@ -245,8 +272,12 @@ export class Soiree {
 
   screenView() {
     const sess = this.sess;
+    const c = this.classement();
     return {
       ...this.common(),
+      show: this.s.show,
+      finishedAt: sess.finishedAt || 0,
+      classement: { rows: c.rows.slice(0, 30).map(r => ({ pid: r.pid, rank: r.rank, name: r.name, total: r.total, mult: r.mult, games: r.games })), held: c.held },
       registered: sess.registered.map(p => this.s.people[p]?.name).filter(Boolean),
       game: sess.game ? this.module.screenView(this.ctx(), sess.game) : null,
     };
@@ -258,6 +289,9 @@ export class Soiree {
     const v = { ...this.common(), me: null };
     if (!me) return v;
     v.me = { name: me.name, registered: sess.registered.includes(me.id) };
+    const c = this.classement();
+    const row = c.rows.find(r => r.pid === me.id);
+    if (row) v.me.soiree = { rank: row.rank, total: row.total, mult: row.mult, count: c.rows.length };
     if (sess.game && (sess.status === 'playing' || sess.status === 'finished')) v.game = this.module.playerView(this.ctx(), sess.game, me.id);
     return v;
   }
@@ -271,7 +305,10 @@ export class Soiree {
     const sess = this.sess;
     return {
       ...this.common(),
-      config: { decompte: this.s.config.decompte, inscriptions: this.s.config.inscriptions, orgaCode: this.s.config.orgaCode },
+      config: { decompte: this.s.config.decompte, inscriptions: this.s.config.inscriptions, orgaCode: this.s.config.orgaCode, classement: this.s.config.classement },
+      show: this.s.show,
+      classement: this.classement(),
+      people: Object.values(this.s.people).map(p => ({ pid: p.id, name: p.name })).sort((a, b) => a.name.localeCompare(b.name, 'fr')),
       gameConfig: this.gameCfg(),
       registered: sess.registered.map(p => ({ pid: p, name: this.s.people[p]?.name })),
       game: sess.game ? this.module.adminView(this.ctx(), sess.game) : null,

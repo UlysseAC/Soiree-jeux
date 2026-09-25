@@ -194,6 +194,36 @@ function partie() {
   return V.gameId === 'chemin' ? partieChemin(V.game) : V.gameId === 'grandpari' ? partieGrandPari(V.game) : partieDuel(V.game);
 }
 
+// ---------- onglet Classement ----------
+function classementTab() {
+  const c = V.classement, k = V.config.classement;
+  const pts = x => (x == null ? '—' : String(x).replace('.', ','));
+  const shown = { classement: 'Classement affiché', final: 'Grand final affiché' }[V.show] || 'Rien d\'affiché';
+  let h = `<div class="spread"><div class="row"><span class="pill accent">${shown}</span><span class="muted">Jeux comptés : ${c.held.map(x => esc(x.name)).join(', ') || 'aucun pour l\'instant'}</span></div>
+    <div class="row"><button class="btn" data-act="afficherClassement" data-mode="classement">📊 Afficher le classement</button>
+      <button class="btn primary" data-act="afficherClassement" data-mode="final">🏆 Grand final</button>
+      <button class="btn sm" data-act="afficherClassement" data-mode="">Masquer</button></div></div>`;
+  h += `<div class="box"><h2>Classement de la soirée</h2><div class="scroll"><table><thead><tr><th>#</th><th>Joueur</th>${c.held.map(x => `<th>${esc(x.name)} <span class="muted">/${x.max}</span></th>`).join('')}<th>Bonus jeu raté</th><th>Bonus manuel</th><th>Total</th></tr></thead><tbody>
+    ${c.rows.map(r => `<tr><td class="mono">${r.rank}</td><td>${esc(r.name)}</td>${c.held.map(x => `<td class="mono">${pts(r.games[x.id])}</td>`).join('')}
+      <td class="mono">${r.mult > 1 ? '×' + pts(r.mult) : ''}</td>
+      <td class="nowrap"><div class="row"><button class="btn sm" data-act="bonus" data-pid="${r.pid}" data-delta="-5">−5</button><span class="mono">${r.bonus || 0}</span><button class="btn sm" data-act="bonus" data-pid="${r.pid}" data-delta="5">+5</button></div></td>
+      <td class="mono"><strong>${pts(r.total)}</strong></td></tr>`).join('') || `<tr><td colspan="${5 + c.held.length}" class="muted">Le classement se remplit à la fin de chaque jeu.</td></tr>`}
+    </tbody></table></div>
+    <div class="row"><select class="in" id="bonus-pid" style="width:auto"><option value="">Bonus pour…</option>${V.people.map(p => `<option value="${p.pid}">${esc(p.name)}</option>`).join('')}</select>
+      <input class="in" id="bonus-val" inputmode="numeric" placeholder="points" style="width:100px"><button class="btn sm" data-act="bonusLibre">Ajouter</button></div></div>
+  <div class="box"><h2>Points</h2><div class="grid-auto">
+    ${cfgInput('classement.chemin.gagnant', k.chemin.gagnant, 'num', { scope: 'soiree', label: 'Le Chemin : équipe gagnante' })}
+    ${cfgInput('classement.chemin.perdant', k.chemin.perdant, 'num', { scope: 'soiree', label: 'Le Chemin : équipe perdante' })}
+    ${cfgInput('classement.grandpari.max', k.grandpari.max, 'num', { scope: 'soiree', label: 'Grand Pari : 1er' })}
+    ${cfgInput('classement.grandpari.min', k.grandpari.min, 'num', { scope: 'soiree', label: 'Grand Pari : dernier' })}
+    ${cfgInput('classement.duel.max', k.duel.max, 'num', { scope: 'soiree', label: 'Duel : 1er' })}
+    ${cfgInput('classement.duel.min', k.duel.min, 'num', { scope: 'soiree', label: 'Duel : dernier' })}
+    ${cfgInput('classement.bonusMax', k.bonusMax, 'num', { scope: 'soiree', label: 'Bonus jeu raté (max)' })}
+  </div><p class="muted" style="margin:0;font-size:14px">Bonus jeu raté = points max des jeux joués à la soirée ÷ points max des jeux joués par le joueur, plafonné. Égalités : jeux gagnés, puis résultat au Duel.</p>
+  <button class="btn sm danger" data-act="reinitialiserSoiree" data-confirm="Remettre à zéro le classement de la soirée ?" style="align-self:flex-start">Remettre le classement à zéro</button></div>`;
+  return h;
+}
+
 // ---------- onglet Réglages ----------
 function reglagesChemin(c) {
   const T = ui.team;
@@ -299,8 +329,8 @@ function draw() {
     return;
   }
   if (!V) return;
-  const tabs = [['soiree', 'Soirée'], ['partie', 'Partie en cours'], ['reglages', 'Réglages du jeu']];
-  const body = ui.tab === 'partie' ? partie() : ui.tab === 'reglages' ? reglages() : soiree();
+  const tabs = [['soiree', 'Soirée'], ['partie', 'Partie en cours'], ['reglages', 'Réglages du jeu'], ['classement', 'Classement']];
+  const body = ui.tab === 'partie' ? partie() : ui.tab === 'reglages' ? reglages() : ui.tab === 'classement' ? classementTab() : soiree();
   SJ.render(app, `<div class="spread"><h1 class="sc-title" style="font-size:34px">${esc(V.gameName)}</h1>
     <nav class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${ui.tab === k}">${l}</button>`).join('')}</nav></div>${body}`);
 }
@@ -331,6 +361,13 @@ app.addEventListener('click', e => {
   if (a === 'ajuster') return admin({ type: 'ajuster', sec: Number(t.dataset.sec) });
   if (a === 'inscriptions') return admin({ type: 'inscriptions', value: t.dataset.v });
   if (a === 'retirerInscrit') return admin({ type: 'retirerInscrit', pid: t.dataset.pid });
+  if (a === 'bonus') return admin({ type: 'bonus', pid: t.dataset.pid, delta: Number(t.dataset.delta) });
+  if (a === 'bonusLibre') {
+    const pid = document.getElementById('bonus-pid').value, delta = Number(document.getElementById('bonus-val').value);
+    if (!pid || !delta) return SJ.toast({ ok: false, msg: 'Choisis un joueur et un nombre de points.' });
+    return admin({ type: 'bonus', pid, delta });
+  }
+  if (a === 'afficherClassement') return admin({ type: 'afficherClassement', mode: t.dataset.mode });
   if (a) return admin({ type: a });
   const j = t.dataset.jeu;
   const action = { type: j, pid: t.dataset.pid, team: t.dataset.team, duel: t.dataset.duel, winner: t.dataset.winner, sec: t.dataset.sec };

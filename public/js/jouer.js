@@ -65,7 +65,9 @@ app.addEventListener('click', e => {
 
 // ---------- écrans ----------
 function head(right = '') {
-  return `<header class="ph-head"><h1 class="ph-title">${esc(V.gameName)}</h1>${right}</header>`;
+  const so = V.me?.soiree;
+  const line = so ? `<p class="muted" style="margin:0;font-size:14px">🏆 Soirée : <strong style="color:var(--text)">${so.rank}<sup>e</sup></strong> sur ${so.count} · ${String(so.total).replace('.', ',')} pts${so.mult > 1 ? ` · bonus ×${String(so.mult).replace('.', ',')} (jeu raté)` : ''}</p>` : '';
+  return `<header class="ph-head"><h1 class="ph-title">${esc(V.gameName)}</h1>${right}</header>${line}`;
 }
 
 function joinScreen() {
@@ -192,7 +194,7 @@ function duel(g) {
       : `<div class="card danger center"><p style="font-size:22px">${g.last.reason === 'bon numéro' || g.last.reason === 'plus rapide' ? '🔫 Touché' : '💥 ' + esc(g.last.reason)}</p><p>${esc(g.last.opp)} gagne le duel.</p></div>`;
   }
   if (g.finished) {
-    h += `<div class="card ${g.iWon ? 'accent' : ''} center"><div class="huge">🏆</div><p style="font-size:22px">${g.iWon ? 'Tu remportes le duel !' : `${esc(g.winner || '—')} remporte le duel`}</p><p class="muted">Ta prime : ${money(g.prime)}</p></div>`;
+    h += `<div class="card ${g.iWon ? 'accent' : ''} center"><div class="huge">🏆</div><p style="font-size:22px">${g.iWon ? 'Tu remportes le duel !' : g.winner ? `${esc(g.winner)} remporte le duel` : 'Partie terminée'}</p><p class="muted">Ta prime : ${money(g.prime)}</p></div>`;
     if (g.bet) h += betPart(g);
     return h;
   }

@@ -12,6 +12,8 @@ Trois jeux pour une soirée, avec :
 2. [Duel au Far West](docs/jeu2-duel-far-west.md) — jouable, [maquette](docs/maquettes/duel-far-west.html)
 3. [Le Grand Pari](docs/jeu3-grand-pari.md) — jouable, [croquis](docs/maquettes/jeu3-croquis.html)
 
+Les trois jeux comptent pour le [classement de la soirée](docs/classement-soiree.md).
+
 ## Lancer la soirée
 
 ### Sur Linux (une seule fois : installer Node.js)
@@ -57,7 +59,8 @@ Tout est sauvegardé dans `data/soiree.json` : si l'ordi redémarre, la partie r
 2. Les invités s'inscrivent sur leur téléphone quand les inscriptions ouvrent.
 3. À la fin du décompte, la partie commence toute seule (ou bouton **Lancer le jeu maintenant**).
 4. Onglet **Partie en cours** : suivi en direct et actions (safe zone, joueur parti, arbitrage des duels…).
-5. Onglet **Réglages du jeu** : indices, codes, armes, durées, primes… Enregistrés dès que tu quittes un champ.
+5. Onglet **Classement** : points de la soirée, bonus manuels, **Grand final** sur l'écran.
+6. Onglet **Réglages du jeu** : indices, codes, armes, durées, primes… Enregistrés dès que tu quittes un champ.
 
 Pour le Duel au Far West : après le lancement, saisis les **numéros de dossard** de chaque joueur dans l'onglet Partie en cours, puis **Lancer le premier tour**.
 
