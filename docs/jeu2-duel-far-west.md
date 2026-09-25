@@ -65,6 +65,8 @@ Cahier des charges validé. Maquette de l'écran public : [`maquettes/duel-far-w
 
 ## Écran public
 
+- **Par défaut**, l'écran affiche l'arbre et le classement des parieurs.
+- **Dès qu'un duel commence**, il passe en plein écran par-dessus et masque tout (tour simultané : tous les duels ; 2 duels : écran partagé ; face-à-face : pas puis « FEU ! »). À la fin du duel, retour à l'arbre mis à jour.
 - **Arbre** à partir du tour 2 : une colonne par tour, **prime affichée sur chaque colonne**, duel en cours mis en avant, gagnant ✓ et branche dorée, perdant barré, numéros des dossards.
 - En phase 1, les cases du tour suivant restent « ? » : les duels sont tirés au moment où ils apparaissent et l'arbre se réorganise. En phase 2, l'arbre complet est affiché.
 - Les vies de chaque joueur sont affichées (cœurs) ; en phase 2, les erreurs de tir trop tôt restantes.

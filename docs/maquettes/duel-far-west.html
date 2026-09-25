@@ -93,6 +93,8 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--brass);outline-
 .delta{font:700 13px var(--mono);text-align:right;opacity:0;transition:opacity .4s}
 .delta.show{opacity:1} .delta.up{color:var(--up)} .delta.down{color:var(--down)}
 
+.overlay{position:absolute;inset:0;z-index:5;background:rgba(14,9,5,.96);backdrop-filter:blur(6px);display:flex;padding:22px;box-sizing:border-box;cursor:pointer}
+.ovin{flex:1;display:flex;flex-direction:column;gap:18px;min-width:0;overflow:auto}
 /* Téléphone */
 .phones{display:grid;grid-template-columns:auto minmax(0,1fr);gap:24px;align-items:start}
 .phone{width:320px;max-width:100%;background:#000;border-radius:38px;padding:12px;box-sizing:border-box;border:1px solid var(--line)}
@@ -153,7 +155,7 @@ tr:last-child td{border-bottom:0}
   <section data-panel="ecran">
     <div class="flex" style="margin-bottom:12px;justify-content:space-between">
       <div class="chips" id="scrChips"></div>
-      <div class="flex" id="simBtns"><button class="btn" id="next">Fin du duel ▶</button><button class="btn ghost" id="reset">Recommencer</button></div>
+      <div class="flex" id="simBtns"><button class="btn" id="next">Duel suivant ▶</button><button class="btn ghost" id="reset">Recommencer</button></div>
     </div>
     <div class="screen" id="screen"></div>
     <p class="note" id="scrNote" style="margin-top:10px"></p>
@@ -283,36 +285,42 @@ const H=n=>`<span class="hearts">${'♥'.repeat(n)}<span class="off">${'♥'.rep
 
 // ---------- ÉCRAN PUBLIC ----------
 const NAMES=['Charlotte','Arthur','Léo','Inès','Hugo','Maëlys','Karim','Jade','Tom','Sarah','Nico','Lina','Rayan','Zoé','Adam','Manon','Théo','Emma','Louis','Nora','Malik','Rose','Hamza','Lou','Ethan','Clara','Victor','Eva','Mehdi','Alice','Yanis','Camille','Enzo','Julie','Sami','Anaïs','Lucas','Noah','Paul','Léna','Gabin','Chloé','Oscar','Mila','Jules','Iris','Nathan','Lola','Samuel','Romy'];
-const SCR={
-  sim:{l:'Tour simultané',note:"Tours 1 à 3 (avec 45 inscrits ou plus) : tous les duels apparaissent en même temps. Les cases se grisent au fur et à mesure.",render:()=>{
+// L'écran reste sur l'arbre et les parieurs ; chaque duel passe en plein écran par-dessus.
+const BASE=`<div class="shead"><h2 class="stitle">Duel au Far West</h2><div class="sinfo" id="live"></div></div>
+     <div class="pausebar" id="pausebar"><span>Pause paris · les nouveaux éliminés parient sur leur téléphone</span><span class="mono">3:42</span></div>
+     <div class="treeLayout"><div class="bracketWrap"><div class="bracket" id="bracket"><svg id="wires" aria-hidden="true"></svg></div></div>
+     <aside class="bets"><div><h2>Les parieurs</h2><div class="label">Gains des paris</div></div><ol class="board" id="board"></ol></aside></div>
+     <div class="overlay" id="overlay" hidden><div class="ovin" id="ovin"></div></div>`;
+const OV={
+  sim:{l:'Tour simultané',note:"Tours simultanés : tous les duels du tour recouvrent l'écran en même temps et se grisent au fur et à mesure.",html:()=>{
     let cells='';for(let i=0;i<25;i++){const a=NAMES[2*i],b=NAMES[2*i+1];const done=i%3!==0;const aw=i%2===0;
       cells+=`<div class="sd${done?' done':''}"><span class="${done?(aw?'w':'l'):''}">${a}</span><span class="vs">vs</span><span class="${done?(aw?'l':'w'):''}">${b}</span></div>`}
     return `<div class="shead"><h2 class="stitle">Tour 2 · simultané</h2><div class="sinfo"><b>17</b> duels terminés sur 25 · <b>1:48</b></div></div><div class="simgrid">${cells}</div>`}},
-  duo:{l:'Duels en grand',note:"À partir du tour 4 : les duels apparaissent après un délai aléatoire, 2 au maximum en même temps. Les noms ne sont connus qu'à cet instant.",render:()=>
-    `<div class="shead"><h2 class="stitle">Tour 4</h2><div class="sinfo"><b>24</b> survivants · temps restant <b>6:12</b></div></div>
-     <div class="bigduels">
-       <div class="bd"><div class="label">Duel</div><div class="names">Charlotte ${H(2)}<i>contre</i>Arthur ${H(1)}</div><div class="timer">0:14</div></div>
-       <div class="bd"><div class="label">Duel</div><div class="names">Léo ${H(2)}<i>contre</i>Maëlys ${H(2)}</div><div class="timer">0:06</div></div>
+  un:{l:'1 duel au numéro',note:"À partir du tour 4 : dès qu'un duel est tiré, il recouvre tout l'écran. Les noms ne sont connus qu'à cet instant.",html:()=>
+    `<div class="bigduels"><div class="bd"><div class="label">Duel · tour 4</div><div class="names">Charlotte ${H(2)}<i>contre</i>Arthur ${H(1)}</div><div class="timer">0:14</div></div></div>`},
+  duo:{l:'2 duels au numéro',note:"Quand 2 duels ont lieu en même temps, l'écran se partage en deux.",html:()=>
+    `<div class="bigduels">
+       <div class="bd"><div class="label">Duel · tour 4</div><div class="names">Charlotte ${H(2)}<i>contre</i>Arthur ${H(1)}</div><div class="timer">0:14</div></div>
+       <div class="bd"><div class="label">Duel · tour 4</div><div class="names">Léo ${H(2)}<i>contre</i>Maëlys ${H(2)}</div><div class="timer">0:06</div></div>
      </div>`},
-  arbre:{l:'Arbre & parieurs',note:"Pendant les pauses et entre les duels : l'arbre avec la prime de chaque tour, et le classement des parieurs qui glisse à chaque fin de duel. Clique sur « Fin du duel ».",render:()=>`<div class="shead"><h2 class="stitle">Duel au Far West</h2><div class="sinfo" id="live"></div></div>
-     <div class="pausebar" id="pausebar"><span>Pause paris · les nouveaux éliminés parient sur leur téléphone</span><span class="mono">3:42</span></div>
-     <div class="treeLayout"><div class="bracketWrap"><div class="bracket" id="bracket"><svg id="wires" aria-hidden="true"></svg></div></div>
-     <aside class="bets"><div><h2>Les parieurs</h2><div class="label">Gains des paris</div></div><ol class="board" id="board"></ol></aside></div>`,after:()=>render(true)},
-  pas:{l:'Face-à-face · pas',note:"Phase 2 : un seul duel. Des bruits de pas passent dans les enceintes pendant 3 à 10 s…",render:()=>
-    `<div class="shead"><h2 class="stitle">Quart de finale 2</h2><div class="sinfo">Erreurs restantes · Léo <b>2</b> · Karim <b>1</b></div></div>
-     <div class="fire"><div class="who">Léo<i>contre</i>Karim</div><div class="steps">· pas · · pas · · pas ·</div><div class="label">Ne tirez pas encore</div></div>`},
-  feu:{l:'Face-à-face · FEU',note:"… puis « FEU ! ». Le premier qui appuie sur la gâchette gagne. Appuyer avant = le pistolet explose.",render:()=>
-    `<div class="shead"><h2 class="stitle">Quart de finale 2</h2><div class="sinfo">Erreurs restantes · Léo <b>2</b> · Karim <b>1</b></div></div>
-     <div class="fire"><div class="who">Léo<i>contre</i>Karim</div><div class="big">FEU !</div></div>`},
 };
-const scrChips=document.getElementById('scrChips');
-function showScreen(k){
-  const s=SCR[k];document.getElementById('screen').innerHTML=s.render();document.getElementById('scrNote').textContent=s.note;
-  document.getElementById('simBtns').hidden=k!=='arbre';
-  scrChips.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed',c.dataset.k===k));
-  if(s.after)s.after();
+function faceHTML(title,a,b,stage,win){
+  const mid=stage==='pas'?`<div class="steps">· pas · · pas · · pas ·</div><div class="label">Ne tirez pas encore</div>`:
+    stage==='feu'?`<div class="big">FEU !</div>`:`<div class="big" style="color:var(--brass);font-size:clamp(50px,8vw,110px)">${win} gagne</div>`;
+  return `<div class="shead"><h2 class="stitle">${title}</h2><div class="sinfo">Face-à-face</div></div><div class="fire"><div class="who">${a}<i>contre</i>${b}</div>${mid}</div>`;
 }
-Object.keys(SCR).forEach(k=>{const c=document.createElement('button');c.className='chip';c.dataset.k=k;c.textContent=SCR[k].l;c.onclick=()=>showScreen(k);scrChips.appendChild(c)});
+function openOv(html){const o=document.getElementById('overlay');document.getElementById('ovin').innerHTML=html;
+  if(o.hidden){o.hidden=false;if(!matchMedia('(prefers-reduced-motion: reduce)').matches)o.animate([{opacity:0,transform:'scale(1.04)'},{opacity:1,transform:'none'}],{duration:350,easing:'ease-out'})}}
+function closeOv(){const o=document.getElementById('overlay');if(o.hidden)return;
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches){o.hidden=true;return}
+  o.animate([{opacity:1},{opacity:0}],{duration:300}).onfinish=()=>o.hidden=true}
+const scrChips=document.getElementById('scrChips');
+Object.keys(OV).forEach(k=>{const c=document.createElement('button');c.className='chip';c.textContent='Voir : '+OV[k].l;
+  c.onclick=()=>{openOv(OV[k].html()+`<p class="label" style="text-align:center;margin-top:auto">Clique pour revenir à l'arbre</p>`);document.getElementById('scrNote').textContent=OV[k].note};scrChips.appendChild(c)});
+function showScreen(){document.getElementById('screen').innerHTML=BASE;
+  document.getElementById('overlay').onclick=closeOv;
+  document.getElementById('scrNote').textContent="L'écran reste sur l'arbre et le classement des parieurs. Dès qu'un duel commence, il passe en grand par-dessus et masque tout ; à la fin du duel, on revient à l'arbre mis à jour. Clique sur « Duel suivant » pour voir l'enchaînement.";
+  render(true)}
 
 // Arbre phase 2 + survivants de la phase 1
 const ROUNDS=[{name:'Quarts',prime:600},{name:'Demies',prime:900},{name:'Finale',prime:1200}];
@@ -401,8 +409,17 @@ function confetti(){
   let n=0;(function f(){ctx.clearRect(0,0,cv.width,cv.height);ps.forEach(p=>{p.y+=p.v;p.r+=.08;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.r);ctx.fillStyle=p.c;ctx.fillRect(-p.s/2,-p.s/4,p.s,p.s/2);ctx.restore()});
     if(++n<420&&!matchMedia('(prefers-reduced-motion: reduce)').matches)requestAnimationFrame(f);else setTimeout(()=>cv.remove(),4000)})();
 }
-document.getElementById('next').onclick=()=>{const c=current();if(!c)return;resolve(c[0],c[1],Math.random()<.5?0:1);render(false)};
-document.getElementById('reset').onclick=()=>{init();showScreen('arbre')};
+let busy=false;
+document.getElementById('next').onclick=()=>{
+  const c=current();if(!c||busy)return;busy=true;
+  const d=st.r[c[0]][c[1]],A=st.p[d.a].n,B=st.p[d.b].n,side=Math.random()<.5?0:1,title=ROUNDS[c[0]].name;
+  const fast=matchMedia('(prefers-reduced-motion: reduce)').matches?.4:1;
+  openOv(faceHTML(title,A,B,'pas'));
+  setTimeout(()=>{document.getElementById('ovin').innerHTML=faceHTML(title,A,B,'feu');
+    setTimeout(()=>{document.getElementById('ovin').innerHTML=faceHTML(title,A,B,'fin',side?B:A);
+      setTimeout(()=>{closeOv();resolve(c[0],c[1],side);setTimeout(()=>{render(false);busy=false},320)},1600*fast)},1100*fast)},1800*fast);
+};
+document.getElementById('reset').onclick=()=>{init();showScreen()};
 addEventListener('resize',()=>requestAnimationFrame(wires));
 
 // ---------- TÉLÉPHONE ----------
@@ -441,6 +458,6 @@ function showPhone(k){const s=PH[k],scr=document.getElementById('scr');scr.class
   pc.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed',c.dataset.k===k))}
 Object.keys(PH).forEach(k=>{const c=document.createElement('button');c.className='chip';c.dataset.k=k;c.textContent=PH[k].l;c.onclick=()=>showPhone(k);pc.appendChild(c)});
 
-init();showScreen('arbre');showPhone('duel');
+init();showScreen();showPhone('duel');
 if(location.hash==='#tel'||location.hash==='#admin')document.getElementById('t-'+location.hash.slice(1)).click();
 </script>
