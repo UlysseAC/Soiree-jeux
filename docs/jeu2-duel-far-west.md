@@ -12,11 +12,17 @@ Cahier des charges validé. Maquette de l'écran public : [`maquettes/duel-far-w
 
 - Chaque joueur commence avec **2 vies**. Perdre un duel fait perdre une vie ; à 0 vie, le joueur est éliminé. Tout le monde survit donc au tour 1.
 - Les duels mélangent librement joueurs à 1 et 2 vies (tirage au sort).
-- **Tours 1 à 3 : simultanés** (tous les duels du tour en même temps). Nombre de tours simultanés réglable.
+- **Tours simultanés** (tous les duels du tour en même temps), en nombre proportionnel aux inscrits, 3 au maximum :
+
+  | Inscrits | < 16 | 16 à 29 | 30 à 44 | 45 et plus |
+  |---|---|---|---|---|
+  | Tours simultanés | 0 | 1 | 2 | 3 |
+
+  Dès qu'il reste moins de 16 joueurs, on arrête les tours simultanés. Seuils réglables dans l'admin.
 - **Tours suivants : pas simultanés.** Les duels apparaissent en grand après un délai aléatoire, **2 au maximum en même temps**, dans une **durée max réglable par tour** (ex. 10 min pour le tour 4, 6 min pour le tour 5).
 - **Les noms ne sont connus qu'au début du duel.** Dès que « Charlotte vs Arthur » apparaît, le pavé numérique s'active. Pas de décompte.
 - Les joueurs sont libres de bouger.
-- Le premier qui tape **le numéro dans le dos de l'autre** gagne. Un **mauvais numéro** : le pistolet explose, l'autre gagne.
+- Le premier qui tape **le numéro dans le dos de l'autre** gagne. **Le gagnant se qualifie toujours pour le tour suivant.** Un **mauvais numéro** : le pistolet explose, l'autre gagne.
 - Personne ne tire après 20 s (réglable) : le duel est rejoué.
 - Nombre impair : un joueur ne joue pas ce tour, sans perdre de vie.
 
@@ -52,6 +58,7 @@ Cahier des charges validé. Maquette de l'écran public : [`maquettes/duel-far-w
 | Finaliste | 1 200 $ |
 | Vainqueur | 1 600 $ |
 
+- Les paris se font **sur le téléphone** du joueur éliminé.
 - **Mise définitive** : à son élimination, chaque joueur reçoit **300 $ de jetons** et les répartit sur **1 à 3 joueurs encore en jeu** pendant la pause qui suit. Un seul pari par joueur, jetons non misés perdus.
 - Gain d'un pari : `mise × (1 + 0,3 × duels gagnés ensuite par le joueur choisi)`.
 - Équilibre : le meilleur parieur possible gagne ~1 100 $, à peu près un quart de finaliste qui a bien joué.
