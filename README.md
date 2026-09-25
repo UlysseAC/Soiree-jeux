@@ -10,7 +10,7 @@ Trois jeux pour une soirée, avec :
 
 1. [Le Chemin](docs/jeu1-le-chemin.md) — jouable, [maquette](docs/maquettes/le-chemin.html)
 2. [Duel au Far West](docs/jeu2-duel-far-west.md) — jouable, [maquette](docs/maquettes/duel-far-west.html)
-3. À définir
+3. [Le Grand Pari](docs/jeu3-grand-pari.md) — jouable, [croquis](docs/maquettes/jeu3-croquis.html)
 
 ## Lancer la soirée
 
@@ -70,6 +70,7 @@ npm start       # serveur sur le port 3000 (PORT=… pour changer)
 ```
 
 - `server/soiree.js` : décompte, inscriptions, jeu en cours
-- `server/games/chemin.js`, `server/games/duel.js` : logique de chaque jeu
+- `server/games/chemin.js`, `server/games/duel.js`, `server/games/grandpari.js` : logique de chaque jeu
+- `server/games/sports/` : simulations de la course, du foot et de la boxe (rejouées par `public/js/sports.js`)
 - `public/` : pages admin, écran, téléphone, orga
 - `docs/` : cahiers des charges et maquettes

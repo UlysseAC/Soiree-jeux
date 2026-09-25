@@ -140,9 +140,14 @@ function wires() {
 addEventListener('resize', () => requestAnimationFrame(wires));
 
 function board(g) {
+  return rankBoard(g.bettors, 'Les éliminés parient sur leur téléphone. Le classement apparaîtra ici.');
+}
+
+// Classement avec flèches ▲ ▼ (les lignes glissent au rendu, voir draw()).
+function rankBoard(list, empty) {
   const now = Date.now();
-  if (!g.bettors.length) return `<p class="muted">Les éliminés parient sur leur téléphone. Le classement apparaîtra ici.</p>`;
-  return `<ol class="board" id="board">${g.bettors.map((b, i) => {
+  if (!list.length) return `<p class="muted">${empty}</p>`;
+  return `<ol class="board" id="board">${list.map((b, i) => {
     const d = deltas[b.pid] && deltas[b.pid].until > now ? deltas[b.pid].d : 0;
     const cls = d > 0 ? 'up' : d < 0 ? 'down' : '';
     return `<li class="${cls}" data-pid="${b.pid}"><span class="rk">${i + 1}</span><span class="nm">${esc(b.name)}</span><span class="amt">${money(b.value)}</span><span class="dl ${cls}">${d > 0 ? '▲ ' + d : d < 0 ? '▼ ' + -d : ''}</span></li>`;
@@ -188,6 +193,85 @@ function duelOverlay(g) {
   }).join('')}</div>`;
 }
 
+// ---------- jeu 3 : Le Grand Pari ----------
+function gpNext(g) {
+  const sp = g.sports[g.k];
+  const now = SJ.now();
+  const closed = now >= g.closeAt;
+  const opt = g.options;
+  let odds = '';
+  if (sp.id === 'chevaux' && opt) odds = `<p class="muted" style="margin:0">Gains selon la place : ${opt.gains.filter(x => x > 0).map((x, i) => `${i + 1}<sup>er</sup> ×${String(x).replace('.', ',')}`).join(' · ')}</p>`;
+  if (sp.id === 'foot' && opt) {
+    const [A, B] = opt.equipes;
+    odds = `<div class="row" style="gap:10px;font-size:clamp(16px,1.5vw,22px)"><span class="pill" style="background:${A.couleur};color:${A.bord}">${esc(A.nom)} ×${opt.coteVainqueur}</span>
+      <span class="pill">Nul ${opt.odds ? '×' + String(opt.odds.nul).replace('.', ',') : '…'}</span><span class="pill" style="background:${B.couleur};color:${B.bord}">${esc(B.nom)} ×${opt.coteVainqueur}</span></div>`;
+  }
+  if (sp.id === 'boxe' && opt) odds = `<p class="muted" style="margin:0">${opt.boxeurs.length} combattants · 1<sup>er</sup> ×${opt.gains.premier} · top 3 ×${opt.gains.top3} · top ${opt.gains.n25} ×${String(opt.gains.top25).replace('.', ',')} · top ${opt.gains.n50} remboursé</p>`;
+  const soon = !closed && g.closeAt - now < 30000;
+  return `<div class="card" style="gap:1.4vh;padding:2.4vh 2vw">
+      <div class="label" style="font-size:15px">${closed ? 'Paris fermés · départ dans' : soon ? 'Les paris ferment dans' : 'Prochain sport'}</div>
+      <div style="font:400 clamp(34px,4.4vw,70px)/1 var(--display)">${sp.icon} ${esc(sp.name)}</div>
+      <div class="sc-big" style="font-size:clamp(70px,11vw,170px);color:${closed || soon ? 'var(--danger)' : 'var(--text)'}"><span data-until="${closed ? sp.at : soon ? g.closeAt : sp.at}"></span></div>
+      ${closed ? '' : `<div class="sc-sub">Pariez sur votre téléphone · <strong>${money(g.betsTotal)}</strong> misés (${g.betsCount} paris)</div>`}
+      ${odds}
+    </div>`;
+}
+
+function gpBlock(b) {
+  if (!b || !b.items.length) return '';
+  return `<div class="stack" style="gap:1vh"><div class="spread"><span class="label" style="font-size:14px">Investissements · fin au départ du sport</span></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px">${b.items.map(it => {
+      const pa = Math.min(100, Math.round(it.total / it.needAmount * 100)), pi = Math.min(100, Math.round(it.investors / it.needInvestors * 100));
+      const done = pa >= 100 && pi >= 100;
+      return `<div class="card" style="gap:6px;${done ? 'border-color:var(--ok)' : ''}">
+        <strong style="font-size:clamp(16px,1.4vw,22px)">${it.emoji} ${esc(it.nom)}</strong>
+        <span class="muted" style="font-size:14px">Gain ×${String(it.gain).replace('.', ',')} · échec : ${it.remb} % rendus</span>
+        <span class="label">${money(it.total)} / ${money(it.needAmount)}</span><div class="gauge"><i style="width:${pa}%"></i></div>
+        <span class="label">${it.investors} / ${it.needInvestors} investisseurs</span><div class="gauge people"><i style="width:${pi}%"></i></div>
+      </div>`;
+    }).join('')}</div></div>`;
+}
+
+function grandpari(g) {
+  const steps = g.sports.map((s, i) => `<span class="pill ${s.status === 'fini' ? 'ok' : i === g.k ? 'accent' : ''}" style="font-size:14px">${s.icon} ${esc(s.name)}${s.status === 'fini' ? ' ✓' : ''}</span>`).join('');
+  let h = head(`<div class="row">${steps}</div>`);
+  h += `<div class="tree-layout"><div class="stack" style="gap:2.4vh;min-width:0">${g.phase === 'entre' ? gpNext(g) + gpBlock(g.block) : ''}
+      ${g.feed.length ? `<div class="feed" style="font-size:clamp(14px,1.3vw,20px)">${g.feed.slice(0, 3).map(f => `<div><span>${esc(f.text)}</span></div>`).join('')}</div>` : ''}</div>
+    <aside class="stack" style="min-width:0"><div><h2 class="sc-title" style="font-size:clamp(22px,2vw,34px)">Les plus riches</h2><div class="label">Argent de chaque joueur</div></div>${rankBoard(g.richest, '')}</aside></div>`;
+  if (g.finished && g.final) {
+    h += `<div class="win"><div class="label" style="font-size:18px">${esc(V.gameName)}</div><h2>${esc(g.final[0].name)} est le plus riche !</h2>
+      <p>${g.final.slice(0, 3).map((x, i) => `${['🥇', '🥈', '🥉'][i]} ${esc(x.name)} · ${money(x.value)}`).join('<br>')}</p></div>`;
+  }
+  return h;
+}
+
+// Film du sport en plein écran, rejoué depuis les données du serveur.
+let replay = null, replayKey = null;
+function gpOverlay(g) {
+  if (!g.replay) return '';
+  const key = g.replay.k + ':' + g.replay.startAt;
+  if (key !== replayKey) {
+    replayKey = key;
+    replay = null;
+    SJ.emit('jeuData', { k: g.replay.k }).then(d => { if (replayKey === key) replay = d; });
+  }
+  let res = '';
+  if (g.phase === 'resultat' && g.result) {
+    const r = g.result;
+    let top = '';
+    if (r.sport === 'foot') top = `<div class="sc-title" style="font-size:clamp(28px,3vw,48px)">${esc(r.equipes[0])} ${r.score[0]} - ${r.score[1]} ${esc(r.equipes[1])}</div>`;
+    else top = `<div class="row" style="justify-content:center;gap:18px;font-size:clamp(18px,1.8vw,28px)">${r.podium.map((p, i) => `<span>${['🥇', '🥈', '🥉'][i]} <span style="display:inline-block;width:.8em;height:.8em;border-radius:3px;background:${p.couleur}"></span> ${esc(p.nom)}</span>`).join('')}</div>`;
+    res = `<div class="gp-result">${top}
+      ${g.bigWinners?.length ? `<div class="sc-sub">💰 ${g.bigWinners.map(w => `${esc(w.name)} <strong style="color:var(--ok)">+${money(w.gain)}</strong>`).join(' · ')}</div>` : '<div class="sc-sub muted">Personne n\'a gagné sur ce pari</div>'}</div>`;
+  }
+  return `<div class="sport-wrap"><canvas id="sportcv" width="1280" height="720"></canvas>${res}</div>`;
+}
+(function sportLoop() {
+  const c = document.getElementById('sportcv');
+  if (c && replay && V?.game?.replay) Sports.draw(c, replay, (SJ.now() - V.game.replay.startAt) / 1000);
+  requestAnimationFrame(sportLoop);
+})();
+
 // ---------- rendu ----------
 function draw() {
   if (!V) return;
@@ -195,13 +279,17 @@ function draw() {
   let html, ov = '';
   if (g && (V.status === 'playing' || V.status === 'finished')) {
     if (V.gameId === 'chemin') html = chemin(g);
-    else {
+    else if (V.gameId === 'grandpari') {
+      trackBettors(g.richest);
+      html = grandpari(g);
+      ov = gpOverlay(g);
+    } else {
       trackBettors(g.bettors);
       html = duel(g);
       ov = duelOverlay(g);
     }
-    const key = V.gameId + ':' + (g.winner?.name ?? g.winner);
-    if (g.finished && g.winner && celebrated !== key) { celebrated = key; SJ.confetti(12000); }
+    const key = V.gameId + ':' + (g.winner?.name ?? g.winner ?? g.final?.[0]?.name);
+    if (g.finished && (g.winner || g.final) && celebrated !== key) { celebrated = key; SJ.confetti(12000); }
   } else {
     html = waiting();
     Sons.marcher(false);

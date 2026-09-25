@@ -4,7 +4,7 @@ const app = document.getElementById('app');
 const { esc, fmt, money } = SJ;
 let V = null;
 const pads = {};          // saisie en cours de chaque pavé
-const ui = { weapon: null, target: null, alloc: {}, showArme: false };
+const ui = { weapon: null, target: null, alloc: {}, showArme: false, tab: 'parier', sel: null, mise: 100, inv: {} };
 
 function hello() {
   SJ.emit('hello', { role: 'joueur', token: SJ.store('sj-token') });
@@ -239,13 +239,115 @@ function betPart(g) {
   return h;
 }
 
+// ---------- jeu 3 : Le Grand Pari ----------
+const dec = x => String(x).replace('.', ',');
+function gpOptions(g) {
+  const o = g.options, sp = g.sport;
+  const row = (sel, left, cote) => `<button type="button" data-sel="${sel}" aria-pressed="${ui.sel === sel}"><span>${left}</span><span class="mono" style="color:var(--accent)">${cote}</span></button>`;
+  const sw = c => `<span style="display:inline-block;width:14px;height:14px;border-radius:4px;background:${c};vertical-align:-2px;margin-right:8px"></span>`;
+  if (sp.id === 'chevaux') {
+    return `<p class="muted" style="margin:0;font-size:14px">Gains : ${o.gains.map((x, i) => `${i + 1}<sup>e</sup> ×${dec(x)}`).slice(0, 4).join(' · ')}…</p>
+      <div class="list">${o.chevaux.map(h => row(`cheval:${h.i}`, `${sw(h.couleur)}<strong>${esc(h.nom)}</strong> <span class="muted">n°${h.i + 1}</span>`, `×${dec(o.gains[0])}`)).join('')}</div>`;
+  }
+  if (sp.id === 'foot') {
+    const [A, B] = o.equipes, od = o.odds;
+    const c = v => (v ? '×' + dec(v) : '…');
+    return `<div class="label">Vainqueur</div><div class="list">
+        ${row('vainqueur:0', `<strong>${esc(A.nom)}</strong>`, '×' + dec(o.coteVainqueur))}
+        ${row('nul', 'Match nul', c(od?.nul))}
+        ${row('vainqueur:1', `<strong>${esc(B.nom)}</strong>`, '×' + dec(o.coteVainqueur))}</div>
+      <div class="label">Buteur (marque au moins un but)</div><div class="list">
+        ${[A, B].flatMap((T, ti) => T.joueurs.map((j, i) => row(`buteur:${ti}:${i}`, `${esc(j)} <span class="muted">· ${esc(T.nom)}</span>`, c(od?.buteur[ti][i])))).join('')}</div>
+      <div class="label">Nombre de buts dans le match</div><div class="list">
+        ${[0, 1, 2, 3, 4].map(k => row(`buts:${k}`, k === 4 ? '4 buts ou plus' : `${k} but${k > 1 ? 's' : ''}`, c(od?.buts[k]))).join('')}</div>
+      ${o.oddsPending ? '<p class="muted" style="margin:0;font-size:14px">Cotes en cours de calcul…</p>' : ''}`;
+  }
+  const gn = o.gains;
+  return `<p class="muted" style="margin:0;font-size:14px">1<sup>er</sup> ×${dec(gn.premier)} · top 3 ×${dec(gn.top3)} · top ${gn.n25} ×${dec(gn.top25)} · top ${gn.n50} ×${dec(gn.top50)} · sinon perdu</p>
+    <div class="list" style="max-height:340px;overflow:auto">${o.boxeurs.map(b => row(`boxeur:${b.i}`, `${sw(b.couleur)}<strong>${esc(b.nom)}</strong>${b.nom === V.me.name ? ' <span class="muted">(toi)</span>' : ''}`, `jusqu'à ×${dec(gn.premier)}`)).join('')}</div>`;
+}
+
+function selLabel(g, sel) {
+  const o = g.options, [kind, x, y] = sel.split(':');
+  if (kind === 'cheval') return o.chevaux[x].nom;
+  if (kind === 'vainqueur') return `victoire ${o.equipes[x].nom}`;
+  if (kind === 'nul') return 'match nul';
+  if (kind === 'buteur') return `${o.equipes[x].joueurs[y]} marque`;
+  if (kind === 'buts') return x === '4' ? '4 buts ou plus' : `${x} but${x > 1 ? 's' : ''}`;
+  if (kind === 'boxeur') return o.boxeurs[x].nom;
+  return '';
+}
+
+function miseBox(id, value, max) {
+  return `<div class="row" style="flex-wrap:nowrap"><input class="in mono" type="number" inputmode="numeric" min="${V.game.miseMin}" max="${max}" step="10" id="${id}" data-mise="${id}" value="${value}" style="font-size:22px">
+    <button type="button" class="btn sm" data-add="${id}" data-v="50">+50</button><button type="button" class="btn sm" data-add="${id}" data-v="all">Tout</button></div>`;
+}
+
+function gpParier(g) {
+  const sp = g.sport;
+  if (!g.open) {
+    if (g.phase === 'entre') return `<div class="card"><p style="font-size:18px">Paris fermés pour ${sp.icon} ${esc(sp.name)}.</p><p class="muted">Départ dans <span class="mono" data-until="${sp.at}"></span>.</p></div>`;
+    return `<div class="card"><p>Les paris du prochain sport ouvriront après les résultats.</p></div>`;
+  }
+  let h = `<div class="card accent"><div class="spread"><strong style="font-size:20px">${sp.icon} ${esc(sp.name)}</strong><span class="pill accent">ferme dans <span class="mono" data-until="${sp.closeAt}"></span></span></div></div>`;
+  h += gpOptions(g);
+  if (ui.sel) {
+    h += `<div class="card accent" style="position:sticky;bottom:10px"><span class="label">Ta mise sur : ${esc(selLabel(g, ui.sel))}</span>${miseBox('mise', ui.mise, g.wallet)}
+      <button class="btn primary big" data-act="gpParier">Parier ${money(ui.mise || 0)}</button></div>`;
+  }
+  return h;
+}
+
+function gpInvestir(g) {
+  const b = g.block;
+  if (!b || b.settled || g.phase !== 'entre') return `<div class="card"><p>Pas d'investissement ouvert en ce moment.</p><p class="muted">Un nouveau bloc ouvre après chaque sport.</p></div>`;
+  return `<p class="muted" style="margin:0">Chaque investissement doit atteindre son montant <strong>et</strong> son nombre d'investisseurs avant le départ du sport (<span class="mono" data-until="${b.until}"></span>). Convaincs tes potes !</p>` +
+    b.items.map(it => {
+      const pa = Math.min(100, Math.round(it.total / it.needAmount * 100)), pi = Math.min(100, Math.round(it.investors / it.needInvestors * 100));
+      const v = ui.inv[it.id] ?? 100;
+      return `<div class="card"><div class="spread"><strong style="font-size:18px">${it.emoji} ${esc(it.nom)}</strong><span class="pill accent">×${dec(it.gain)}</span></div>
+        <span class="muted" style="font-size:14px">Si ça échoue : ${it.remb} % remboursés</span>
+        <span class="label">${money(it.total)} / ${money(it.needAmount)}</span><div class="gauge"><i style="width:${pa}%"></i></div>
+        <span class="label">${it.investors} / ${it.needInvestors} investisseurs</span><div class="gauge people"><i style="width:${pi}%"></i></div>
+        ${it.mine ? `<p style="color:var(--accent)">Tu as investi ${money(it.mine)}</p>` : ''}
+        ${miseBox('inv-' + it.id, v, g.wallet)}<button class="btn" data-invest="${it.id}">Investir ${money(v)}</button></div>`;
+    }).join('');
+}
+
+function gpMesParis(g) {
+  if (!g.bets.length) return `<div class="card"><p class="muted">Aucun pari pour l'instant.</p></div>`;
+  return `<div class="list">${g.bets.map(b => `<div class="li"><span>${b.icon} ${esc(b.label)}<br><span class="muted" style="font-size:13px">mise ${money(b.mise)}</span></span>
+    <span class="mono" style="color:${b.payout == null ? 'var(--muted)' : b.payout > 0 ? 'var(--ok)' : 'var(--danger)'}">${b.payout == null ? 'en cours' : b.payout > 0 ? '+' + money(b.payout) : 'perdu'}</span></div>`).join('')}</div>`;
+}
+
+function grandpari(g) {
+  let h = head(`<span class="pill accent mono" style="font-size:16px">💰 ${money(g.wallet)}</span>`);
+  if (g.finished) {
+    const diff = g.final.wallet - g.final.start;
+    return h + `<div class="card accent center"><div class="huge">${g.final.rank === 1 ? '🏆' : '🏁'}</div><p style="font-size:22px">${g.final.rank}<sup>e</sup> sur ${g.count}</p>
+      <div class="bignum" style="color:var(--accent)">${money(g.final.wallet)}</div><p class="muted">${diff >= 0 ? 'Gagné' : 'Perdu'} : ${money(Math.abs(diff))} depuis le début</p></div>` + gpMesParis(g);
+  }
+  h += `<p class="muted" style="margin:0">${g.rank}<sup>e</sup> plus riche sur ${g.count}</p>`;
+  if (g.phase === 'sport') {
+    h += `<div class="card accent center"><p style="font-size:22px">${g.sport.icon} ${esc(g.sport.name)} en cours</p><p class="muted">Regarde l'écran !</p>
+      ${g.fighter ? `<p style="font-size:18px">Tu combats ! Ta couleur : <span style="display:inline-block;width:22px;height:22px;border-radius:6px;background:${g.fighter.couleur};vertical-align:-5px"></span></p>` : ''}</div>`;
+  }
+  if (g.phase === 'resultat' && g.lastGain != null) {
+    h += `<div class="card ${g.lastGain >= 0 ? 'accent' : 'danger'} center"><p style="font-size:20px">${g.lastGain >= 0 ? `Tu gagnes ${money(g.lastGain)} !` : `Tu perds ${money(-g.lastGain)}`}</p></div>`;
+  }
+  const tabs = [['parier', 'Parier'], ['investir', 'Investir'], ['paris', `Mes paris (${g.bets.length})`]];
+  h += `<nav class="tabs" style="justify-content:stretch">${tabs.map(([k, l]) => `<button role="tab" style="flex:1" data-tab="${k}" aria-selected="${ui.tab === k}">${l}</button>`).join('')}</nav>`;
+  h += ui.tab === 'investir' ? gpInvestir(g) : ui.tab === 'paris' ? gpMesParis(g) : gpParier(g);
+  return h;
+}
+
 // ---------- rendu ----------
 function draw() {
   if (!V) return;
   if (!V.me) { app.className = 'phone'; if (!document.getElementById('join')) SJ.render(app, joinScreen()); return; }
   let html;
   if (V.game && !V.game.spectator) {
-    html = V.gameId === 'chemin' ? chemin(V.game) : duel(V.game);
+    html = V.gameId === 'chemin' ? chemin(V.game) : V.gameId === 'grandpari' ? grandpari(V.game) : duel(V.game);
   } else if (V.status === 'playing' || V.status === 'finished') {
     app.className = 'phone';
     html = head() + `<div class="card"><p style="font-size:18px">${V.status === 'playing' ? 'Partie en cours.' : 'Partie terminée.'}</p><p class="muted">Tu n'es pas inscrit à ce jeu. Regarde l'écran !</p></div>`;
@@ -266,8 +368,21 @@ app.addEventListener('submit', async e => {
 });
 
 app.addEventListener('click', e => {
-  const t = e.target.closest('[data-act],[data-weapon],[data-target],[data-pick]');
+  const t = e.target.closest('[data-act],[data-weapon],[data-target],[data-pick],[data-tab],[data-sel],[data-add],[data-invest]');
   if (!t) return;
+  if (t.dataset.tab) { ui.tab = t.dataset.tab; return draw(); }
+  if (t.dataset.sel) { ui.sel = ui.sel === t.dataset.sel ? null : t.dataset.sel; return draw(); }
+  if (t.dataset.add) {
+    const id = t.dataset.add, wallet = V.game.wallet;
+    const cur = id === 'mise' ? ui.mise : ui.inv[id.slice(4)] ?? 100;
+    const v = t.dataset.v === 'all' ? wallet : Math.min(wallet, (Number(cur) || 0) + 50);
+    if (id === 'mise') ui.mise = v; else ui.inv[id.slice(4)] = v;
+    return draw();
+  }
+  if (t.dataset.invest) {
+    const id = t.dataset.invest;
+    return act({ type: 'investir', item: id, mise: ui.inv[id] ?? 100 });
+  }
   if (t.dataset.weapon) { ui.weapon = ui.weapon === t.dataset.weapon ? null : t.dataset.weapon; ui.target = null; return draw(); }
   if (t.dataset.target) { ui.target = t.dataset.target; return draw(); }
   if (t.dataset.pick) {
@@ -282,9 +397,22 @@ app.addEventListener('click', e => {
   if (a === 'fermerArme') { ui.showArme = false; draw(); }
   if (a === 'attaque') act({ type: 'attaque', arme: ui.weapon, target: ui.target }).then(r => { if (r.ok) { ui.target = null; draw(); } });
   if (a === 'parier') act({ type: 'pari', alloc: ui.alloc });
+  if (a === 'gpParier') {
+    const [kind, x, y] = ui.sel.split(':');
+    const sel = kind === 'buteur' ? `${x}:${y}` : x;
+    act({ type: 'pari', bet: kind, sel, mise: ui.mise }).then(r => { if (r.ok) { ui.sel = null; draw(); } });
+  }
 });
 
 app.addEventListener('input', e => {
+  const m = e.target.dataset.mise;
+  if (m) {
+    const v = Math.max(0, Math.floor(Number(e.target.value) || 0));
+    if (m === 'mise') ui.mise = v; else ui.inv[m.slice(4)] = v;
+    const btn = m === 'mise' ? app.querySelector('[data-act=gpParier]') : app.querySelector(`[data-invest="${m.slice(4)}"]`);
+    if (btn) btn.textContent = (m === 'mise' ? 'Parier ' : 'Investir ') + money(v);
+    return;
+  }
   const p = e.target.dataset.alloc;
   if (!p) return;
   const jetons = V.game.bet.jetons;

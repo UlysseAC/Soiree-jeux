@@ -160,9 +160,38 @@ function partieDuel(g) {
   return h;
 }
 
+function partieGrandPari(g) {
+  const sp = g.sports[g.k];
+  const phase = { entre: `Prochain : ${sp.icon} ${sp.name}`, sport: `${sp.icon} ${sp.name} en cours`, resultat: 'Résultats', fini: 'Partie terminée' }[g.phase];
+  let h = `<div class="spread"><div class="row"><span class="pill accent">${esc(phase)}</span>
+      ${g.phase === 'entre' ? `<span class="muted">départ dans <span class="mono" data-until="${sp.at}"></span> · paris fermés à <span class="mono" data-until="${g.closeAt}"></span></span>` : ''}
+      ${g.oddsPending ? '<span class="pill">Cotes du foot en calcul…</span>' : ''}</div>
+    <div class="row">
+      <button class="btn primary" data-jeu="lancerSport" ${g.phase === 'entre' ? '' : 'disabled'} data-confirm="Lancer le sport maintenant ? Les paris et investissements se ferment.">▶ Lancer le sport maintenant</button>
+      <button class="btn sm" data-jeu="decaler" data-sec="60" ${g.phase === 'entre' ? '' : 'disabled'}>+1 min</button>
+      <button class="btn sm" data-jeu="decaler" data-sec="-60" ${g.phase === 'entre' ? '' : 'disabled'}>−1 min</button>
+      <button class="btn sm danger" data-jeu="terminer" data-confirm="Terminer la partie maintenant ?">Terminer</button></div></div>`;
+  h += `<div class="box"><h2>Programme</h2><div class="scroll"><table><thead><tr><th>Sport</th><th>Départ</th><th>Paris</th><th>État</th></tr></thead><tbody>${g.sports.map((s, k) => `<tr>
+      <td>${s.icon} ${esc(s.name)}</td><td class="mono">${new Date(s.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</td>
+      <td class="mono">${g.sportBets[k].count} · ${money(g.sportBets[k].total)}</td><td>${{ avenir: '', encours: '<span class="pill accent">en cours</span>', fini: '<span class="pill ok">✓</span>' }[s.status]}</td></tr>`).join('')}</tbody></table></div></div>`;
+  if (g.block) {
+    h += `<div class="box"><h2>Investissements du bloc ${g.block.k + 1}</h2><div class="scroll"><table><thead><tr><th>Investissement</th><th>Montant</th><th>Investisseurs</th><th>Gain / remboursé</th><th>État</th></tr></thead><tbody>${g.block.items.map(it => `<tr>
+      <td>${it.emoji} ${esc(it.nom)}</td><td class="mono">${money(it.total)} / ${money(it.needAmount)}</td><td class="mono">${it.investors} / ${it.needInvestors}</td>
+      <td class="mono">×${it.gain} · ${it.remb} %</td><td>${it.status === 'reussi' ? '<span class="pill ok">réussi</span>' : it.status === 'echoue' ? '<span class="pill danger">échoué</span>' : '<span class="pill">ouvert</span>'}</td></tr>`).join('')}</tbody></table></div></div>`;
+  }
+  h += `<div class="box"><h2>Joueurs (${g.players.length})</h2><div class="scroll"><table><thead><tr><th>#</th><th>Joueur</th><th>Argent</th><th>Misé sur ce sport</th></tr></thead><tbody>${g.players.map((p, i) => `<tr>
+      <td class="mono">${i + 1}</td><td>${esc(p.name)}</td><td class="mono">${money(p.wallet)}</td><td class="mono">${p.bets ? money(p.bets) : ''}</td></tr>`).join('')}</tbody></table></div></div>`;
+  if (g.odds) {
+    const o = g.odds, eq = V.gameConfig.foot.equipes;
+    h += `<div class="box"><h2>Cotes du foot (calculées)</h2><p class="muted" style="margin:0">Nul ×${o.nul} · Buts : ${o.buts.map((c, k) => `${k === 4 ? '4+' : k} ×${c}`).join(' · ')}</p>
+      <p class="muted" style="margin:0">Buteurs : ${eq.flatMap((T, ti) => T.joueurs.map((j, i) => `${esc(j.nom)} ×${o.buteur[ti][i]}`)).join(' · ')}</p></div>`;
+  }
+  return h;
+}
+
 function partie() {
   if (!V.game) return `<div class="box"><p class="muted" style="margin:0">Aucune partie en cours. Lance le décompte dans l'onglet Soirée.</p></div>`;
-  return V.gameId === 'chemin' ? partieChemin(V.game) : partieDuel(V.game);
+  return V.gameId === 'chemin' ? partieChemin(V.game) : V.gameId === 'grandpari' ? partieGrandPari(V.game) : partieDuel(V.game);
 }
 
 // ---------- onglet Réglages ----------
@@ -227,10 +256,37 @@ function reglagesDuel(c) {
     </div></div>`;
 }
 
+function reglagesGrandPari(c) {
+  const d = (p, v, l) => cfgInput(p, v, 'dur', { label: l });
+  const n = (p, v, l) => cfgInput(p, v, 'num', { label: l });
+  const team = (T, ti) => `<div class="box" style="background:var(--ink)">
+      <div class="grid-auto">${cfgInput(`foot.equipes.${ti}.nom`, T.nom, 'text', { label: `Équipe ${ti + 1}` })}${cfgInput(`foot.equipes.${ti}.couleur`, T.couleur, 'text', { label: 'Couleur maillot' })}${cfgInput(`foot.equipes.${ti}.bord`, T.bord, 'text', { label: 'Couleur bordure' })}</div>
+      <div class="scroll"><table><thead><tr><th>Poste</th><th>Nom</th><th>Attaque (0–1)</th><th>Défense (0–1)</th></tr></thead><tbody>${T.joueurs.map((j, i) => `<tr>
+        <td>${['Gardien', 'Défenseur', 'Milieu', 'Attaquant', 'Attaquant'][i]}</td><td>${cfgInput(`foot.equipes.${ti}.joueurs.${i}.nom`, j.nom)}</td>
+        <td>${cfgInput(`foot.equipes.${ti}.joueurs.${i}.attaque`, j.attaque, 'num', { width: '70px' })}</td><td>${cfgInput(`foot.equipes.${ti}.joueurs.${i}.defense`, j.defense, 'num', { width: '70px' })}</td></tr>`).join('')}</tbody></table></div></div>`;
+  return `<div class="box"><h2>Général</h2><div class="grid-auto">
+      ${n('argentDepart', c.argentDepart, 'Argent de départ ($)')}${d('intervalle', c.intervalle, 'Temps entre deux sports')}${d('fermeture', c.fermeture, 'Paris fermés avant le départ')}
+      ${d('resultats', c.resultats, 'Affichage des résultats')}${n('miseMin', c.miseMin, 'Mise minimum ($)')}</div></div>
+    <div class="box"><h2>🏇 Course de chevaux</h2><div class="grid-auto">${d('chevaux.duree', c.chevaux.duree, 'Durée')}${n('chevaux.tours', c.chevaux.tours, 'Nombre de tours')}</div>
+      <div class="scroll"><table><thead><tr><th>Place</th>${c.chevaux.noms.map((_, i) => `<th>${i + 1}</th>`).join('')}</tr></thead><tbody>
+        <tr><td>Cheval n°</td>${c.chevaux.noms.map((v, i) => `<td>${cfgInput(`chevaux.noms.${i}`, v, 'text', { width: '110px' })}</td>`).join('')}</tr>
+        <tr><td>Gain si ${'<br>'}arrivé à cette place</td>${c.chevaux.gains.map((v, i) => `<td>${cfgInput(`chevaux.gains.${i}`, v, 'num', { width: '70px' })}</td>`).join('')}</tr></tbody></table></div></div>
+    <div class="box"><h2>⚽ Match de foot</h2><div class="grid-auto">${d('foot.duree', c.foot.duree, 'Durée')}${n('foot.coteVainqueur', c.foot.coteVainqueur, 'Cote vainqueur')}${n('foot.marge', c.foot.marge, 'Marge de la banque (0.1 = 10 %)')}</div>
+      <div class="grid-auto" style="grid-template-columns:repeat(auto-fit,minmax(380px,1fr))">${c.foot.equipes.map(team).join('')}</div></div>
+    <div class="box"><h2>🥊 Battle royale</h2><div class="grid-auto">${d('boxe.duree', c.boxe.duree, 'Durée du combat')}${n('boxe.premier', c.boxe.premier, 'Gain si 1er')}${n('boxe.top3', c.boxe.top3, 'Gain si top 3')}${n('boxe.top25', c.boxe.top25, 'Gain si top 25 %')}${n('boxe.top50', c.boxe.top50, 'Gain si top 50 %')}</div></div>
+    <div class="box"><h2>📈 Investissements</h2>
+      <h3>Nombre par bloc selon les inscrits</h3><div class="grid-auto">${n('invest.seuils.min', c.invest.seuils.min, 'Moins de 10')}${n('invest.seuils.t10', c.invest.seuils.t10, '10 à 19')}${n('invest.seuils.t20', c.invest.seuils.t20, '20 à 34')}${n('invest.seuils.t35', c.invest.seuils.t35, '35 et plus')}</div>
+      <h3>Catalogue (tirés au hasard à chaque bloc)</h3>
+      <div class="scroll"><table><thead><tr><th></th><th>Nom</th><th>Gain si réussi</th><th>% des joueurs à convaincre</th><th>$ requis par joueur</th><th>% remboursé si échec</th></tr></thead><tbody>${c.invest.catalogue.map((it, i) => `<tr>
+        <td>${cfgInput(`invest.catalogue.${i}.emoji`, it.emoji, 'text', { width: '50px' })}</td><td>${cfgInput(`invest.catalogue.${i}.nom`, it.nom)}</td>
+        <td>${cfgInput(`invest.catalogue.${i}.gain`, it.gain, 'num', { width: '70px' })}</td><td>${cfgInput(`invest.catalogue.${i}.investisseurs`, it.investisseurs, 'num', { width: '70px' })}</td>
+        <td>${cfgInput(`invest.catalogue.${i}.parJoueur`, it.parJoueur, 'num', { width: '80px' })}</td><td>${cfgInput(`invest.catalogue.${i}.remboursement`, it.remboursement, 'num', { width: '70px' })}</td></tr>`).join('')}</tbody></table></div></div>`;
+}
+
 function reglages() {
   const c = V.gameConfig;
   return `<p class="muted" style="margin:0">Réglages de : <strong>${esc(V.gameName)}</strong>. Pour régler un autre jeu, choisis-le dans l'onglet Soirée.</p>` +
-    (V.gameId === 'chemin' ? reglagesChemin(c) : reglagesDuel(c));
+    (V.gameId === 'chemin' ? reglagesChemin(c) : V.gameId === 'grandpari' ? reglagesGrandPari(c) : reglagesDuel(c));
 }
 
 // ---------- rendu ----------
@@ -277,7 +333,7 @@ app.addEventListener('click', e => {
   if (a === 'retirerInscrit') return admin({ type: 'retirerInscrit', pid: t.dataset.pid });
   if (a) return admin({ type: a });
   const j = t.dataset.jeu;
-  const action = { type: j, pid: t.dataset.pid, team: t.dataset.team, duel: t.dataset.duel, winner: t.dataset.winner };
+  const action = { type: j, pid: t.dataset.pid, team: t.dataset.team, duel: t.dataset.duel, winner: t.dataset.winner, sec: t.dataset.sec };
   if (j === 'remplacer') {
     action.remplacant = document.getElementById('rempl-' + t.dataset.pid)?.value;
     if (!action.remplacant) return SJ.toast({ ok: false, msg: 'Choisis un remplaçant.' });
