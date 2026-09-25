@@ -12,6 +12,7 @@ Cahier des charges validé. Maquette de l'écran public : [`maquettes/duel-far-w
 
 - Chaque joueur commence avec **2 vies**. Perdre un duel fait perdre une vie ; à 0 vie, le joueur est éliminé. Tout le monde survit donc au tour 1.
 - Les duels mélangent librement joueurs à 1 et 2 vies (tirage au sort).
+- **Pas de revanche** : deux joueurs qui viennent de s'affronter ne sont jamais tirés l'un contre l'autre au duel suivant. Le tirage évite aussi, autant que possible, de refaire un duel déjà joué en phase 1. S'il ne reste vraiment aucune autre possibilité (très peu de joueurs), le duel est autorisé.
 - **Tours simultanés** (tous les duels du tour en même temps), en nombre proportionnel aux inscrits, 3 au maximum :
 
   | Inscrits | < 16 | 16 à 29 | 30 à 44 | 45 et plus |
