@@ -25,7 +25,7 @@ export function simulate({ equipes, duree }, seed, record = true) {
   }));
   const S = {
     t: 0, players, ball: { x: F.w / 2, y: F.h / 2, z: 0, vx: 0, vy: 0, vz: 0, mode: 'dead', owner: null, to: null, out: null, kicker: null },
-    score: [0, 0], shots: [0, 0], flash: null, pause: 0, decide: 0, duel: 0, last: 0, clock0: null, ko: null, goals: [], setpiece: null,
+    score: [0, 0], shots: [0, 0], flash: null, pause: 0, decide: 0, duel: 0, last: 0, clock0: null, ko: null, goals: [], sp: null,
   };
   const frames = [], events = [];
   const ev = (type, data = {}) => { if (record) events.push({ t: Math.round(S.t * 100) / 100, type, ...data }); };
@@ -59,20 +59,34 @@ export function simulate({ equipes, duree }, seed, record = true) {
     const b = S.ball, dx = tx - b.x, dy = ty - b.y, d = Math.hypot(dx, dy) || 1;
     b.mode = mode; b.owner = null; b.kicker = from; b.vx = dx / d * speed; b.vy = dy / d * speed; b.vz = lob ? Math.min(260, d * .55) : 0; S.last = from.ti;
   }
-  function pass(p) {
+  // Un adversaire est-il sur la trajectoire de la passe ?
+  function blocked(p, q) {
+    const dx = q.x - p.x, dy = q.y - p.y, L = dx * dx + dy * dy || 1;
+    return opps(p).some(o => {
+      const k = Math.max(0, Math.min(1, ((o.x - p.x) * dx + (o.y - p.y) * dy) / L));
+      return Math.hypot(p.x + dx * k - o.x, p.y + dy * k - o.y) < 20;
+    });
+  }
+  // Passe : on cherche d'abord un coéquipier démarqué devant. Sans solution vers l'avant
+  // et sans pression, le porteur préfère avancer balle au pied (renvoie false).
+  function pass(p, forced) {
     const b = S.ball;
-    const q = mates(p).filter(x => x.i > 0).map(x => {
+    const best = mates(p).filter(x => x.i > 0).map(x => {
       const ahead = (x.x - p.x) * fwd(p.ti);
       const open = Math.min(...opps(p).map(o => dist(o, x)));
-      return { q: x, score: ahead * .6 + open * 1.2 + rnd(0, 60) };
-    }).sort((a, c) => c.score - a.score)[0].q;
-    const through = rng() < .35 && (goalX(p.ti) - q.x) * fwd(p.ti) > 120;
-    const tx = q.x + (through ? fwd(p.ti) * 90 : 0), ty = q.y + (through ? rnd(-30, 30) : 0);
+      const score = ahead * 1.3 + Math.min(open, 140) * .6 - (blocked(p, x) ? 160 : 0) - (ahead < -30 ? 90 : 0) + rnd(0, 40);
+      return { q: x, score, ahead };
+    }).sort((a, c) => c.score - a.score)[0];
+    if (!forced && (best.score < 40 || best.ahead < 10)) return false;
+    const q = best.q;
+    const through = best.ahead > 0 && rng() < .45 && (goalX(p.ti) - q.x) * fwd(p.ti) > 120;
+    const tx = Math.max(20, Math.min(F.w - 20, q.x + (through ? fwd(p.ti) * 90 : 0))), ty = Math.max(20, Math.min(F.h - 20, q.y + (through ? rnd(-30, 30) : 0)));
     const long = dist(p, { x: tx, y: ty }) > 380;
     q.run = { x: tx, y: ty, until: S.t + 1.5 };
     kick(p, tx, ty, long ? 470 : 560, long, 'pass');
     b.to = q;
     say(through ? `${p.n} lance ${q.n} en profondeur !` : long ? `Long ballon de ${p.n} vers ${q.n}` : `${p.n} pour ${q.n}`);
+    return true;
   }
   function shoot(p, header) {
     const keeper = players.find(q => q.ti !== p.ti && q.i === 0);
@@ -88,16 +102,36 @@ export function simulate({ equipes, duree }, seed, record = true) {
     ev('shot', { ti: p.ti });
     say(header ? `Tête de ${p.n} !` : `Frappe de ${p.n} !`);
   }
-  function corner(ti) {
-    const cx = goalX(ti), cy = rng() < .5 ? 2 : F.h - 2;
-    const taker = players.filter(q => q.ti === ti && q.i > 0).sort((a, b) => a.att - b.att)[0];
-    players.forEach(p => { p.stun = 0; p.slide = 0; });
-    taker.x = cx; taker.y = cy; give(taker); S.ball.x = cx; S.ball.y = cy; S.pause = 1.2; S.setpiece = 'corner';
-    pop('CORNER', cx - fwd(ti) * 80, cy < F.h / 2 ? 60 : F.h - 60); say(`Corner pour ${equipes[ti].nom}`);
+  // Coup de pied arrêté : le tireur va au point de reprise, les autres se replacent, puis il joue.
+  function setPiece(type, ti, x, y) {
+    const cands = players.filter(q => q.ti === ti && (type === 'six' ? q.i === 0 : q.i > 0));
+    const taker = cands.sort((a, c) => dist(a, { x, y }) - dist(c, { x, y }))[0];
+    players.forEach(p => { p.stun = 0; p.slide = 0; p.run = null; });
+    Object.assign(S.ball, { x, y, z: 0, vx: 0, vy: 0, vz: 0, mode: 'dead', owner: null, to: null });
+    S.last = ti;
+    S.sp = { type, ti, taker, x, y, ready: S.t + (type === 'corner' ? 2.4 : type === 'touche' ? 1.4 : 1.2) };
+    const label = { touche: 'TOUCHE', corner: 'CORNER', six: 'SIX MÈTRES' }[type];
+    pop(label, Math.max(80, Math.min(F.w - 80, x)), Math.max(40, Math.min(F.h - 40, y + (y < F.h / 2 ? 40 : -40))), '#eef3ea');
+    say(type === 'touche' ? `Touche pour ${equipes[ti].nom}` : type === 'corner' ? `Corner pour ${equipes[ti].nom} !` : `Six mètres pour ${equipes[ti].nom}`);
   }
-  function goalKick(ti) {
-    const k = players.find(p => p.ti === ti && p.i === 0);
-    k.x = ownGoalX(ti) + fwd(ti) * 40; k.y = F.h / 2; give(k); S.ball.x = k.x; S.ball.y = k.y; S.pause = .9; say('Six mètres');
+  function corner(ti, y) { setPiece('corner', ti, goalX(ti) === 0 ? 2 : F.w - 2, y < F.h / 2 ? 2 : F.h - 2); }
+  function goalKick(ti) { setPiece('six', ti, ownGoalX(ti) + fwd(ti) * 45, F.h / 2); }
+  function playSetPiece() {
+    const sp = S.sp, t = sp.taker, b = S.ball;
+    S.sp = null;
+    b.x = t.x; b.y = t.y;
+    if (sp.type === 'corner') {
+      kick(t, goalX(sp.ti) - fwd(sp.ti) * rnd(60, 120), F.h / 2 + rnd(-55, 55), 480, true, 'cross');
+      say(`${t.n} tire le corner…`);
+      return;
+    }
+    // Touche (à la main) ou six mètres : vers le coéquipier le mieux placé devant.
+    const range = sp.type === 'touche' ? 280 : 620;
+    const q = mates(t).filter(x => x.i > 0 && dist(x, t) < range).map(x => ({ x, s: (x.x - t.x) * fwd(t.ti) + Math.min(...opps(t).map(o => dist(o, x))) - (blocked(t, x) ? 150 : 0) }))
+      .sort((a, c) => c.s - a.s)[0]?.x ?? mates(t).filter(x => x.i > 0).sort((a, c) => dist(a, t) - dist(c, t))[0];
+    kick(t, q.x, q.y, sp.type === 'touche' ? 360 : 480, true, 'pass');
+    b.to = q;
+    say(sp.type === 'touche' ? `${t.n} effectue la touche vers ${q.n}` : `Dégagement de ${t.n} vers ${q.n}`);
   }
 
   function step(dt) {
@@ -121,7 +155,8 @@ export function simulate({ equipes, duree }, seed, record = true) {
       return;
     }
     const holder = b.mode === 'owned' ? b.owner : null;
-    const attTeam = holder ? holder.ti : S.last;
+    const attTeam = S.sp ? S.sp.ti : holder ? holder.ti : S.last;
+    const sp0 = S.sp;
     // Ballon libre : le joueur le plus proche de chaque équipe va le chercher.
     const loose = !holder && b.mode !== 'shot' && b.mode !== 'dead';
     const aim = { x: b.x + b.vx * .35, y: b.y + b.vy * .35 };
@@ -137,7 +172,22 @@ export function simulate({ equipes, duree }, seed, record = true) {
       if (p.stun > 0) { p.vx *= .8; p.vy *= .8; continue; }
       let tx, ty, sp = 150;
       const push = (b.x / F.w - .5) * F.w * .45;
-      if (p.i === 0) {
+      if (sp0 && p === sp0.taker) {
+        // le tireur se place sur la ligne (touche : juste derrière)
+        tx = sp0.x; ty = sp0.type === 'touche' ? (sp0.y < F.h / 2 ? -6 : F.h + 6) : sp0.y; sp = 320;
+        const dx = tx - p.x, dy = ty - p.y, d = Math.hypot(dx, dy);
+        if (d > 1) { const v = Math.min(d, sp * dt); p.x += dx / d * v; p.y += dy / d * v; }
+        continue;
+      } else if (sp0 && sp0.type === 'corner' && p.i > 0) {
+        // corner : les attaquants entrent dans la surface, les défenseurs marquent
+        const g = goalX(sp0.ti);
+        tx = p.ti === sp0.ti ? g - fwd(sp0.ti) * (70 + (p.i % 2) * 60) : g - fwd(sp0.ti) * (45 + (p.i % 2) * 50);
+        ty = F.h / 2 + (p.i - 2.5) * 38; sp = 190;
+      } else if (sp0 && p.ti !== sp0.ti && p.i > 0 && Math.hypot(p.x - sp0.x, p.y - sp0.y) < 70) {
+        // l'adversaire recule à distance réglementaire
+        const dx = p.x - sp0.x, dy = p.y - sp0.y, d = Math.hypot(dx, dy) || 1;
+        tx = sp0.x + dx / d * 80; ty = sp0.y + dy / d * 80; sp = 200;
+      } else if (p.i === 0) {
         tx = ownGoalX(p.ti) + fwd(p.ti) * 22; ty = Math.max(GY0 - 10, Math.min(GY1 + 10, b.y)); sp = 170;
         if (p.dive && S.t - p.dive.t < .6) { ty = p.dive.y; sp = 420; }
         else if (loose && Math.abs(b.x - ownGoalX(p.ti)) < 130 && Math.abs(b.y - F.h / 2) < 140) { tx = aim.x; ty = aim.y; sp = 210; }
@@ -151,7 +201,7 @@ export function simulate({ equipes, duree }, seed, record = true) {
         ty = run ? run.y : p.hy + Math.cos(S.t * 1.3 + p.i) * 45; sp = run ? 190 : 160;
       } else {
         const presser = players.filter(q => q.ti === p.ti && q.i > 0).sort((a, c) => dist(a, b) - dist(c, b));
-        if (presser[0] === p) { tx = b.x; ty = b.y; sp = 175; }
+        if (presser[0] === p && !sp0) { tx = b.x; ty = b.y; sp = 175; }
         else if (presser[1] === p) { tx = (b.x + ownGoalX(p.ti)) / 2; ty = (b.y + F.h / 2) / 2; sp = 160; }
         else { tx = p.hx + push * .8; ty = p.hy * .7 + b.y * .3; sp = 140; }
       }
@@ -168,9 +218,17 @@ export function simulate({ equipes, duree }, seed, record = true) {
 
     if (S.pause > 0) { S.pause -= dt; if (holder) { b.x = holder.x + fwd(holder.ti) * 10; b.y = holder.y; } return; }
 
+    if (sp0) {
+      const t = sp0.taker;
+      const there = Math.hypot(t.x - sp0.x, t.y - (sp0.type === 'touche' ? (sp0.y < F.h / 2 ? -6 : F.h + 6) : sp0.y)) < 3;
+      // touche : le ballon est tenu à deux mains au-dessus de la tête
+      if (there) { b.x = t.x; b.y = t.y; b.z = sp0.type === 'touche' ? 22 : 0; }
+      if (there && S.t >= sp0.ready) playSetPiece();
+      return;
+    }
+
     if (holder) {
       b.x = holder.x + fwd(holder.ti) * 11; b.y = holder.y + 3; b.z = Math.abs(Math.sin(S.t * 9)) * 3;
-      if (S.setpiece === 'corner') { S.setpiece = null; kick(holder, goalX(holder.ti) - fwd(holder.ti) * rnd(70, 130), F.h / 2 + rnd(-60, 60), 480, true, 'cross'); say(`${holder.n} centre…`); return; }
       const o = nearestOpp(holder);
       S.duel -= dt;
       if (o && dist(o, holder) < 30 && S.duel <= 0) {
@@ -189,9 +247,11 @@ export function simulate({ equipes, duree }, seed, record = true) {
       S.decide -= dt;
       if (S.decide <= 0) {
         const dGoal = Math.hypot(goalX(holder.ti) - holder.x, F.h / 2 - holder.y);
-        if (dGoal < 360 && rng() < .4 + holder.att * .55) shoot(holder, false);
+        const pressed = o && dist(o, holder) < 45;
+        if (holder.i === 0) pass(holder, true);
         else if (dGoal < 230) shoot(holder, false);
-        else pass(holder);
+        else if (dGoal < 360 && rng() < .3 + holder.att * .5) shoot(holder, false);
+        else if (!pass(holder, pressed)) S.decide = rnd(.3, .6); // personne devant : il avance balle au pied
       }
       return;
     }
@@ -199,18 +259,16 @@ export function simulate({ equipes, duree }, seed, record = true) {
     b.x += b.vx * dt; b.y += b.vy * dt; b.z = Math.max(0, b.z + b.vz * dt); b.vz -= 520 * dt;
     if (b.z === 0 && b.vz < 0) b.vz = b.mode === 'free' ? -b.vz * .35 : 0;
     if (b.mode === 'free' || b.mode === 'pass') { b.vx *= 1 - dt * .9; b.vy *= 1 - dt * .9; }
-    if (b.mode !== 'shot' && (b.y < 0 || b.y > F.h)) {
-      const ti = 1 - S.last;
-      const t = players.filter(p => p.ti === ti && p.i > 0).sort((a, c) => dist(a, b) - dist(c, b))[0];
-      b.y = Math.max(4, Math.min(F.h - 4, b.y)); t.x = b.x; t.y = b.y; give(t); S.pause = .8; say(`Touche pour ${equipes[ti].nom}`); return;
-    }
-    if (b.mode !== 'shot' && (b.x < 0 || b.x > F.w)) { const def = b.x < 0 ? 0 : 1; if (S.last === def) corner(1 - def); else goalKick(def); return; }
+    // Sortie sur le côté : touche pour l'équipe qui n'a pas touché le ballon en dernier.
+    if (b.mode !== 'shot' && (b.y < 0 || b.y > F.h)) { setPiece('touche', 1 - S.last, Math.max(30, Math.min(F.w - 30, b.x)), b.y < 0 ? 0 : F.h); return; }
+    // Sortie derrière le but : corner si un défenseur l'a touché en dernier, sinon six mètres.
+    if (b.mode !== 'shot' && (b.x < 0 || b.x > F.w)) { const def = b.x < 0 ? 0 : 1; if (S.last === def) corner(1 - def, b.y); else goalKick(def); return; }
 
     if (b.mode === 'shot') {
       const k = b.keeper;
       if (b.out === 'arret' && Math.abs(b.x - k.x) < 18 && Math.abs(b.y - k.y) < 34) {
         pop('ARRÊT !', k.x, k.y - 34);
-        if (rng() < .45) { say('Parade du gardien !'); corner(1 - k.ti); } else { say('Le gardien capte le ballon'); give(k); S.decide = rnd(.6, 1); }
+        if (rng() < .45) { say('Parade du gardien en corner !'); corner(1 - k.ti, b.y); } else { say('Le gardien capte le ballon'); give(k); S.decide = rnd(.6, 1); }
         return;
       }
       if (b.out === 'poteau' && (b.x <= 2 || b.x >= F.w - 2)) {
@@ -228,7 +286,7 @@ export function simulate({ equipes, duree }, seed, record = true) {
           ev('goal', { ti, n: b.kicker.n, min, score: [...S.score], y: Math.round(b.y) });
           say(`BUUUT de ${b.kicker.n} !`);
           b.mode = 'dead'; b.vx = b.vy = 0;
-        } else if (b.out === 'arret') { pop('ARRÊT !', k.x, k.y - 34); say('Le gardien sort le ballon sur sa ligne !'); corner(ti); }
+        } else if (b.out === 'arret') { pop('ARRÊT !', k.x, k.y - 34); say('Le gardien sort le ballon sur sa ligne !'); corner(ti, b.y); }
         else { pop('À CÔTÉ', b.x - fwd(ti) * 60, b.y, '#9db0a4'); say('Ça passe à côté !'); goalKick(1 - ti); }
       }
       return;

@@ -20,7 +20,8 @@ Le serveur tire le résultat de chaque sport au départ et enregistre son dérou
 ## ⚽ Match de foot
 
 - 5 contre 5 : gardien, défenseur, milieu, deux attaquants. Par défaut FC Barcelone (Joan García, Cubarsí, Olmo, Raphinha, Lamine Yamal) contre Real Madrid. Noms des équipes, couleurs, noms des joueurs et notes d'attaque/défense réglables.
-- **2 min 30** (réglable) pour 90 minutes de jeu : coup d'envoi, passes, tacles, dribbles, interceptions, frappes, arrêts, corners, fautes, commentaires en direct.
+- **2 min 30** (réglable) pour 90 minutes de jeu, avec les règles : coup d'envoi (chacun dans sa moitié, adversaire hors du rond central), **touche** à la main depuis la ligne pour l'équipe qui n'a pas touché le ballon en dernier, **corner** si un défenseur l'a sorti derrière son but (centre dans la surface), sinon **six mètres** ; les adversaires reculent au moment de la remise en jeu.
+- Les joueurs cherchent des **passes vers l'avant** (coéquipier démarqué, ligne de passe libre), avancent balle au pied s'il n'y a personne devant, et **frappent** dès qu'ils arrivent près du but. Tacles, dribbles, interceptions, arrêts, fautes et commentaires en direct. Aperçu : [`maquettes/jeu3-foot.html`](maquettes/jeu3-foot.html).
 - Paris : vainqueur **×2** (réglable), **match nul**, **buteur** (marque au moins un but), **nombre de buts** (0, 1, 2, 3, 4 ou plus).
 - Les cotes du nul, des buteurs et du nombre de buts sont calculées en simulant 120 matchs au début de la partie : `cote = (1 − marge) / probabilité`, marge de 10 % réglable, entre ×1,1 et ×50.
 
