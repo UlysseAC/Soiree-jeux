@@ -81,7 +81,7 @@ tr:last-child td{border-bottom:0}
 
   <section data-p="foot" hidden>
     <div class="row" style="justify-content:space-between;margin-bottom:10px">
-      <p class="note">5 contre 5, 90 minutes de jeu en 2 min 30 : passes, appels en profondeur, tacles, crochets, interceptions, frappes, arrêts, corners et fautes, avec les commentaires en direct. Chaque joueur a une note d'attaque et de défense : elles décident qui marque et qui gagne les duels.</p>
+      <p class="note">5 contre 5, 90 minutes de jeu en 2 min 30. Coup d'envoi au début et après chaque but, puis passes, appels en profondeur, tacles, crochets, interceptions, frappes, arrêts, corners et fautes, avec les commentaires en direct. Chaque joueur a une note d'attaque et de défense : elles décident qui marque et qui gagne les duels.</p>
       <div class="row"><button class="btn" data-run="foot">▶ Lancer le match</button><button class="btn ghost" data-speed>Vitesse ×1</button></div>
     </div>
     <div class="stage"><canvas id="cv-foot" width="1280" height="720"></canvas></div>
@@ -256,13 +256,23 @@ anims.foot=(()=>{
     TEAMS.forEach((T,ti)=>T.p.forEach(([n,att,def],i)=>{const[fx,fy]=FORM[i];const hx=(ti?1-fx:fx)*F.w,hy=fy*F.h;players.push({ti,i,n,att,def,hx,hy,x:hx,y:hy,vx:0,vy:0,stun:0,slide:0,sx:0,sy:0,cel:0,bob:Math.random()*6})}));
     S={t:0,players,ball:{x:F.w/2,y:F.h/2,z:0,vx:0,vy:0,vz:0,mode:'owned',owner:null,to:null,out:null,kicker:null,trail:[]},
        score:[0,0],shots:[0,0],poss:[0,0],log:[],pops:[],flash:null,pause:0,decide:0,duel:0,net:null,done:false,last:0};
-    kickoff(0);
-    say('Coup d\'envoi !');
+    kickoff(0,true);
+    say('Les joueurs se mettent en place…');
   }
-  function kickoff(ti){
-    S.players.forEach(p=>{p.x=p.hx;p.y=p.hy;p.vx=p.vy=0;p.stun=p.slide=p.cel=0});
-    const k=S.players.find(p=>p.ti===ti&&p.i===4);k.x=F.w/2-fwd(ti)*8;k.y=F.h/2;
-    give(k);S.pause=.8;
+  // Coup d'envoi : chacun dans sa moitié, l'adversaire hors du rond central, décompte puis première passe.
+  function kickoff(ti,instant){
+    const half=F.w/2,spots=new Map();
+    S.players.forEach(p=>{
+      let x=p.ti===0?Math.min(p.hx,half-16):Math.max(p.hx,half+16),y=p.hy;
+      if(p.ti!==ti){const dx=x-half,dy=y-F.h/2,d=Math.hypot(dx,dy);if(d<90){x=half+(dx/d)*90;y=F.h/2+(dy/d)*90}}
+      spots.set(p,{x,y});
+    });
+    const k=S.players.find(p=>p.ti===ti&&p.i===4),m=S.players.find(p=>p.ti===ti&&p.i===3);
+    spots.set(k,{x:half-fwd(ti)*12,y:F.h/2});
+    spots.set(m,{x:half-fwd(ti)*70,y:F.h/2+55});
+    S.players.forEach(p=>{p.stun=p.slide=p.cel=0;p.vx=p.vy=0;p.run=null;p.dive=null;if(instant){const q=spots.get(p);p.x=q.x;p.y=q.y}});
+    Object.assign(S.ball,{x:half,y:F.h/2,z:0,vx:0,vy:0,vz:0,mode:'dead',owner:null,to:null,trail:[]});
+    S.ko={ti,k,m,spots,until:S.t+3.2};
   }
   function say(t){S.log.unshift({t,at:S.t});S.log.length=Math.min(S.log.length,4)}
   function pop(t,x,y,c='#f2c14e'){S.pops.push({t,x,y,c,at:S.t})}
@@ -326,9 +336,29 @@ anims.foot=(()=>{
     S.pops=S.pops.filter(p=>S.t-p.at<1.6);
     if(S.flash){if(S.t-S.flash.at>3){const ti=1-S.flash.ti;S.flash=null;kickoff(ti)}else{S.players.forEach(p=>{if(p.cel){p.x+=Math.cos(S.t*3+p.i)*40*dt;p.y+=Math.sin(S.t*3+p.i)*40*dt}});return}}
     const b=S.ball;
+    if(S.ko){
+      const ko=S.ko;
+      for(const p of S.players){const q=ko.spots.get(p),dx=q.x-p.x,dy=q.y-p.y,d=Math.hypot(dx,dy);if(d>1){const v=Math.min(d,230*dt);p.x+=dx/d*v;p.y+=dy/d*v;p.bob+=v*.08}}
+      if(S.t>=ko.until){
+        S.ko=null;
+        for(const p of S.players){const q=ko.spots.get(p);p.x=q.x;p.y=q.y}
+        if(S.clock0==null)S.clock0=S.t;
+        kick(ko.k,ko.m.x,ko.m.y,300,false,'pass');b.to=ko.m;
+        pop('COUP D\'ENVOI',F.w/2,F.h/2-70,'#eef3ea');say(`Coup d'envoi pour ${TEAMS[ko.ti].n} !`);
+      }
+      return;
+    }
     if(b.mode==='owned'&&b.owner)S.poss[b.owner.ti]+=dt;
     const holder=b.mode==='owned'?b.owner:null;
     const attTeam=holder?holder.ti:S.last;
+    // Ballon libre : le joueur le plus proche de chaque équipe va le chercher.
+    const loose=!holder&&b.mode!=='shot'&&b.mode!=='dead';
+    const aim={x:b.x+b.vx*.35,y:b.y+b.vy*.35};
+    const chaser=[0,1].map(ti=>{
+      if(!loose)return null;
+      if(b.mode==='pass'&&b.to&&b.to.ti===ti&&b.to.stun<=0)return b.to;
+      return S.players.filter(q=>q.ti===ti&&q.i>0&&q.stun<=0&&q.slide<=0).sort((a,c)=>dist(a,aim)-dist(c,aim))[0];
+    });
 
     // cibles de déplacement
     for(const p of S.players){
@@ -340,6 +370,9 @@ anims.foot=(()=>{
       if(p.i===0){
         tx=ownGoalX(p.ti)+fwd(p.ti)*22;ty=Math.max(GY0-10,Math.min(GY1+10,b.y));sp=170;
         if(p.dive&&S.t-p.dive.t<.6){ty=p.dive.y;sp=420}
+        else if(loose&&Math.abs(b.x-ownGoalX(p.ti))<130&&Math.abs(b.y-F.h/2)<140){tx=aim.x;ty=aim.y;sp=210}
+      }else if(loose&&chaser[p.ti]===p){
+        tx=aim.x;ty=aim.y;sp=205;
       }else if(p===holder){
         const dribY=p.hy*.3+F.h*.35+Math.sin(S.t*2.6+p.i)*70;
         tx=goalX(p.ti);ty=dribY;sp=135;
@@ -416,7 +449,7 @@ anims.foot=(()=>{
       if(b.out==='poteau'&&(b.x<=2||b.x>=F.w-2)){pop('POTEAU !',b.x-fwd(S.last)*40,b.y-30,'#eef3ea');say('Sur le poteau !!');b.mode='free';b.vx=-b.vx*.4;b.vy=rnd(-150,150);b.x=Math.max(3,Math.min(F.w-3,b.x));return}
       if(b.x<=0||b.x>=F.w){
         const ti=S.last;
-        if(b.out==='but'){S.score[ti]++;const min=Math.min(90,Math.max(1,Math.round(S.t/DUR*90)));S.flash={ti,n:b.kicker.n,min,at:S.t};S.net={x:goalX(ti),y:b.y,at:S.t};b.kicker.cel=1;say(`BUUUT de ${b.kicker.n} !`);S.goals=(S.goals||[]).concat({ti,n:b.kicker.n,min});b.mode='dead';b.vx=b.vy=0}
+        if(b.out==='but'){S.score[ti]++;const min=Math.max(1,minute());S.flash={ti,n:b.kicker.n,min,at:S.t};S.net={x:goalX(ti),y:b.y,at:S.t};b.kicker.cel=1;say(`BUUUT de ${b.kicker.n} !`);S.goals=(S.goals||[]).concat({ti,n:b.kicker.n,min});b.mode='dead';b.vx=b.vy=0}
         else if(b.out==='arret'){const k=b.keeper;pop('ARRÊT !',k.x,k.y-34);say('Le gardien sort le ballon sur sa ligne !');corner(ti)}
         else{pop('À CÔTÉ',b.x-fwd(ti)*60,b.y,'#9db0a4');say('Ça passe à côté !');goalKick(1-ti)}
         return;
@@ -425,7 +458,7 @@ anims.foot=(()=>{
     }
     // réception : le destinataire, un adversaire qui coupe, ou le plus proche si le ballon est libre
     if(b.z<14){
-      const cands=S.players.filter(p=>p.i>0&&p.stun<=0&&p!==b.kicker&&dist(p,b)<(p===b.to?16:13));
+      const cands=S.players.filter(p=>(p.i>0||Math.abs(p.x-ownGoalX(p.ti))<130)&&p.stun<=0&&p!==b.kicker&&dist(p,b)<(p===b.to?17:15));
       if(cands.length){
         cands.sort((a,c)=>dist(a,b)-dist(c,b));const p=cands[0];
         if(b.mode==='pass'&&p.ti!==S.last){pop('INTERCEPTION !',p.x,p.y-30,'#6fb7ff');say(`Interception de ${p.n} !`)}
@@ -437,6 +470,7 @@ anims.foot=(()=>{
     if(Math.hypot(b.vx,b.vy)<25&&b.mode!=='dead'){b.mode='free'}
   }
 
+  const minute=()=>S.clock0==null?0:Math.min(90,Math.floor((S.t-S.clock0)/(DUR-S.clock0)*90));
   // ---------- dessin ----------
   const P=(x,y)=>[F.x+x,F.y+y];
   function drawPlayer(p){
@@ -475,10 +509,10 @@ anims.foot=(()=>{
     text(ctx,c.n,W/2+100,64,{size:26,weight:700,color:c.c});
     const sc=S?S.score:[0,0];
     text(ctx,`${sc[0]} - ${sc[1]}`,W/2,68,{size:42,font:'Anton',weight:400,align:'center'});
-    text(ctx,S?(S.done?'FIN':Math.min(90,Math.floor(S.t/DUR*90))+"'"):"0'",W-40,64,{size:32,font:'JetBrains Mono',weight:700,align:'right',color:'#f2c14e'});
+    text(ctx,S?(S.done?'FIN':minute()+"'"):"0'",W-40,64,{size:32,font:'JetBrains Mono',weight:700,align:'right',color:'#f2c14e'});
     if(!S){text(ctx,'Clique sur « Lancer le match »',W/2,H/2,{size:30,align:'center'});return}
     // stats
-    const tot=S.poss[0]+S.poss[1]||1,p0=Math.round(S.poss[0]/tot*100);
+    const tot=S.poss[0]+S.poss[1],p0=tot?Math.round(S.poss[0]/tot*100):50;
     text(ctx,`Possession  ${p0} % · ${100-p0} %`,30,48,{size:15,weight:600,color:'#9db0a4'});
     text(ctx,`Tirs  ${S.shots[0]} · ${S.shots[1]}`,30,72,{size:15,weight:600,color:'#9db0a4'});
     // trace du ballon
@@ -493,6 +527,9 @@ anims.foot=(()=>{
     // commentaires
     panel(ctx,F.x+F.w/2-330,H-86,660,74,12,'rgba(0,0,0,.6)');
     S.log.slice(0,3).forEach((l,i)=>text(ctx,(i?'':'🎙 ')+l.t,W/2,H-58+i*22,{size:i?15:19,weight:i?500:700,align:'center',color:i?'#9db0a4':'#eef3ea'}));
+    if(S.ko){const r=Math.ceil(S.ko.until-S.t);panel(ctx,W/2-190,F.y+18,380,96,16,'rgba(0,0,0,.72)');
+      text(ctx,S.clock0==null?'COUP D\'ENVOI':'REPRISE',W/2,F.y+56,{size:26,font:'Anton',weight:400,align:'center',color:'#eef3ea'});
+      text(ctx,r>0?`🔔 dans ${r}`:'🔔',W/2,F.y+94,{size:26,font:'JetBrains Mono',weight:700,align:'center',color:'#f2c14e'})}
     if(S.flash){panel(ctx,W/2-270,H/2-100,540,190,18,'rgba(0,0,0,.82)');text(ctx,'BUT !',W/2,H/2+10,{size:110,font:'Anton',weight:400,align:'center',color:'#f2c14e'});text(ctx,`${S.flash.n} · ${S.flash.min}'`,W/2,H/2+64,{size:30,weight:700,align:'center',color:TEAMS[S.flash.ti].c})}
     if(S.done){panel(ctx,W/2-310,H/2-100,620,200,18,'rgba(0,0,0,.85)');const w=S.score[0]===S.score[1]?'Match nul':`${TEAMS[S.score[0]>S.score[1]?0:1].n} gagnent`;text(ctx,w,W/2,H/2-10,{size:56,font:'Anton',weight:400,align:'center',color:'#f2c14e'});text(ctx,`${S.score[0]} - ${S.score[1]}`,W/2,H/2+34,{size:28,weight:700,align:'center'});
       text(ctx,(S.goals||[]).map(g=>`${g.n} ${g.min}'`).join(' · ')||'Aucun but',W/2,H/2+70,{size:17,weight:500,align:'center',color:'#9db0a4'})}
