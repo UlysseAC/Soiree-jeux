@@ -6,202 +6,441 @@
 <style>
 :root{
   color-scheme: dark;
-  --bg:#17110c; --bg2:#20180f; --card:#2a1f14; --line:#4a3824; --line2:#6b5233;
+  --bg:#17110c; --bg2:#20180f; --card:#2a1f14; --card2:#33261a; --line:#4a3824; --line2:#6b5233;
   --bone:#f0e3c8; --dust:#b49d7b; --brass:#e0a940; --brass-soft:rgba(224,169,64,.16);
   --up:#5cc47a; --up-soft:rgba(92,196,122,.16); --down:#e2574c; --down-soft:rgba(226,87,76,.16);
   --west:"Rye", "Rockwell", Georgia, serif;
   --cond:"Barlow Condensed", "Arial Narrow", sans-serif;
   --mono:"JetBrains Mono", ui-monospace, Menlo, monospace;
 }
+[hidden]{display:none!important}
 body{background:var(--bg);color:var(--bone);font:16px/1.4 var(--cond);padding:20px 16px 40px}
 .wrap{max-width:1400px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
-.bar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+.top{display:flex;flex-wrap:wrap;gap:12px;align-items:end;justify-content:space-between}
+.brand{font:400 clamp(30px,4vw,44px)/1 var(--west);color:var(--brass);margin:0}
+.brand small{display:block;font:600 14px var(--cond);letter-spacing:.1em;text-transform:uppercase;color:var(--dust);margin-top:6px}
+.tabs{display:flex;gap:4px;background:var(--bg2);padding:4px;border-radius:10px;border:1px solid var(--line);flex-wrap:wrap}
+.tabs button{font:600 16px var(--cond);letter-spacing:.04em;text-transform:uppercase;color:var(--dust);background:none;border:0;padding:8px 16px;border-radius:7px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--card2);color:var(--bone)}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font:600 14px var(--cond);letter-spacing:.03em;padding:6px 12px;border-radius:99px;border:1px solid var(--line2);background:none;color:var(--dust);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--bone);color:var(--bg);border-color:var(--bone)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
 .note{color:var(--dust);font-size:15px;margin:0;max-width:75ch}
-.btn{font:600 16px var(--cond);letter-spacing:.04em;text-transform:uppercase;background:var(--brass);color:#22170a;border:0;border-radius:8px;padding:10px 16px;cursor:pointer}
+.btn{font:600 15px var(--cond);letter-spacing:.04em;text-transform:uppercase;background:var(--brass);color:#22170a;border:0;border-radius:8px;padding:9px 14px;cursor:pointer}
 .btn.ghost{background:none;color:var(--bone);border:1px solid var(--line2)}
-.btn:focus-visible{outline:2px solid var(--bone);outline-offset:2px}
+.btn.sm{padding:5px 10px;font-size:13px}
+.label{font:600 12px var(--cond);letter-spacing:.12em;text-transform:uppercase;color:var(--dust)}
+.mono{font-family:var(--mono)}
+.hearts{color:var(--down);letter-spacing:1px;font-size:.85em}
+.hearts .off{color:var(--line2)}
 
-.screen{background:radial-gradient(ellipse at 30% 0%,#2b1f12,var(--bg2) 60%);border:1px solid var(--line);border-radius:14px;padding:22px;display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,330px);gap:22px}
-.head{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding-bottom:14px}
-.title{font:400 clamp(28px,3.6vw,46px)/1 var(--west);color:var(--brass);margin:0;letter-spacing:.01em}
-.live{display:flex;align-items:center;gap:12px;font:700 clamp(18px,2vw,26px)/1.1 var(--cond);text-transform:uppercase;letter-spacing:.03em}
-.live .tag{font:700 12px var(--mono);letter-spacing:.1em;color:#22170a;background:var(--brass);padding:4px 8px;border-radius:4px}
-.live .vs{color:var(--brass);font-family:var(--west);font-size:.9em}
-
-/* Arbre */
+/* Écran public */
+.screen{background:radial-gradient(ellipse at 30% 0%,#2b1f12,var(--bg2) 60%);border:1px solid var(--line);border-radius:14px;padding:22px;min-height:520px;box-sizing:border-box;display:flex;flex-direction:column;gap:18px;position:relative;overflow:hidden}
+.shead{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding-bottom:12px}
+.stitle{font:400 clamp(24px,3vw,38px)/1 var(--west);color:var(--brass);margin:0}
+.sinfo{font:700 clamp(16px,1.8vw,22px) var(--cond);text-transform:uppercase;letter-spacing:.05em;color:var(--dust)}
+.sinfo b{color:var(--bone)}
+.simgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.sd{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font:600 17px/1.1 var(--cond)}
+.sd .vs{font:400 13px var(--west);color:var(--brass)}
+.sd.done{opacity:.55}
+.sd .w{color:var(--up)} .sd .l{color:var(--dust);text-decoration:line-through}
+.bigduels{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px;flex:1}
+.bd{border:2px solid var(--brass);border-radius:14px;background:var(--brass-soft);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:26px 16px;text-align:center}
+.bd .names{font:400 clamp(30px,4.2vw,58px)/1.05 var(--west);color:var(--bone);text-wrap:balance}
+.bd .names i{font-style:normal;color:var(--brass);font-size:.6em;display:block;margin:4px 0}
+.bd .timer{font:700 20px var(--mono);color:var(--brass)}
+.fire{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center}
+.fire .who{font:400 clamp(26px,3.6vw,48px)/1 var(--west)}
+.fire .who i{font-style:normal;color:var(--brass);font-size:.6em;margin:0 12px}
+.fire .big{font:400 clamp(80px,14vw,190px)/.9 var(--west);color:var(--down);text-shadow:0 0 40px rgba(226,87,76,.45)}
+.fire .steps{font:700 clamp(22px,3vw,34px) var(--mono);color:var(--dust);letter-spacing:.3em}
+.pausebar{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px 18px;background:var(--brass-soft);border:1px solid var(--brass);border-radius:10px;padding:10px 16px;font:700 20px var(--cond);text-transform:uppercase;letter-spacing:.04em}
+.pausebar .mono{color:var(--brass);font-size:24px}
+.treeLayout{display:grid;grid-template-columns:minmax(0,1fr) minmax(250px,320px);gap:20px}
 .bracketWrap{overflow-x:auto;min-width:0}
-.bracket{position:relative;display:grid;grid-template-columns:repeat(5,minmax(128px,1fr));gap:26px;min-width:720px}
+.bracket{position:relative;display:grid;grid-template-columns:150px repeat(4,minmax(124px,1fr));gap:24px;min-width:760px}
 .bracket svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
-.col{display:flex;flex-direction:column;gap:10px;position:relative;z-index:1}
+.col{display:flex;flex-direction:column;gap:8px;position:relative;z-index:1}
 .colhead{display:flex;flex-direction:column;gap:2px;padding-bottom:6px}
 .colhead b{font:700 14px var(--cond);text-transform:uppercase;letter-spacing:.1em;color:var(--dust)}
-.prime{font:700 20px var(--mono);color:var(--brass)}
+.prime{font:700 19px var(--mono);color:var(--brass)}
 .prime small{font:500 11px var(--cond);letter-spacing:.08em;text-transform:uppercase;color:var(--dust);margin-left:4px}
 .slots{display:flex;flex-direction:column;justify-content:space-around;flex:1;gap:6px}
-.duel{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:7px;background:var(--card);overflow:hidden;transition:border-color .3s,box-shadow .3s}
+.duel{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:7px;background:var(--card);overflow:hidden}
 .duel.cur{border-color:var(--brass);box-shadow:0 0 0 2px var(--brass-soft),0 0 18px rgba(224,169,64,.25)}
 .p{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:4px 8px;font:600 15px/1.2 var(--cond);min-height:22px}
 .p + .p{border-top:1px solid var(--line)}
 .p .n{font:500 11px var(--mono);color:var(--dust)}
-.p.win{color:var(--bone)} .p.win .name::after{content:" ✓";color:var(--brass)}
+.p.win .name::after{content:" ✓";color:var(--brass)}
 .p.lose{color:var(--dust);opacity:.55;text-decoration:line-through}
 .p.tbd{color:var(--dust);opacity:.6}
+.surv{background:var(--card);border:1px solid var(--line);border-radius:7px;padding:4px 8px;display:flex;justify-content:space-between;font:600 15px/1.3 var(--cond)}
 .champ{border:1px solid var(--brass);border-radius:10px;padding:14px 10px;text-align:center;background:var(--brass-soft)}
 .champ .name{font:400 22px/1.1 var(--west);color:var(--brass)}
 .champ.empty .name{font:600 18px var(--cond);color:var(--dust)}
-.phase{font:600 11px var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--brass);background:var(--brass-soft);border-radius:4px;padding:2px 6px;align-self:flex-start}
-
-/* Parieurs */
 .bets{display:flex;flex-direction:column;gap:10px;min-width:0}
-.bets h2{font:400 24px/1 var(--west);margin:0;color:var(--bone)}
-.bets .sub{font:500 13px var(--cond);color:var(--dust);letter-spacing:.06em;text-transform:uppercase}
-.board{position:relative;display:flex;flex-direction:column;gap:6px;list-style:none;margin:0;padding:0}
-.row{display:grid;grid-template-columns:28px minmax(0,1fr) auto 54px;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:7px 10px;transition:background-color .6s,border-color .6s}
+.bets h2{font:400 24px/1 var(--west);margin:0}
+.board{display:flex;flex-direction:column;gap:6px;list-style:none;margin:0;padding:0}
+.row{display:grid;grid-template-columns:26px minmax(0,1fr) auto 50px;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:7px 10px;transition:background-color .6s,border-color .6s}
 .row.up{background:var(--up-soft);border-color:rgba(92,196,122,.5)}
 .row.down{background:var(--down-soft);border-color:rgba(226,87,76,.5)}
 .rk{font:700 15px var(--mono);color:var(--dust);text-align:right}
+.row:first-child .rk{color:var(--brass)}
 .nm{font:600 18px/1.1 var(--cond);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.amt{font:700 15px var(--mono);color:var(--brass);font-variant-numeric:tabular-nums;text-align:right}
+.amt{font:700 15px var(--mono);color:var(--brass);text-align:right;font-variant-numeric:tabular-nums}
 .delta{font:700 13px var(--mono);text-align:right;opacity:0;transition:opacity .4s}
-.delta.show{opacity:1}
-.delta.up{color:var(--up)} .delta.down{color:var(--down)}
-.row:nth-child(1) .rk{color:var(--brass)}
+.delta.show{opacity:1} .delta.up{color:var(--up)} .delta.down{color:var(--down)}
+
+/* Téléphone */
+.phones{display:grid;grid-template-columns:auto minmax(0,1fr);gap:24px;align-items:start}
+.phone{width:320px;max-width:100%;background:#000;border-radius:38px;padding:12px;box-sizing:border-box;border:1px solid var(--line)}
+.scr{background:var(--bg);border-radius:28px;min-height:610px;padding:22px 18px;display:flex;flex-direction:column;gap:14px;box-sizing:border-box;position:relative;overflow:hidden}
+.ph-top{display:flex;justify-content:space-between;align-items:center;font:600 15px var(--cond)}
+.pill{display:inline-flex;align-items:center;gap:6px;font:700 13px var(--cond);letter-spacing:.05em;text-transform:uppercase;padding:3px 10px;border-radius:99px;background:var(--card2);color:var(--dust)}
+.pill.b{background:var(--brass-soft);color:var(--brass)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:6px}
+.card p{margin:0}
+.huge{font:400 64px/1 var(--west);color:var(--brass);text-align:center}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pad b{font:600 22px var(--mono);background:var(--card2);border-radius:10px;padding:13px 0;text-align:center}
+.codebox{font:700 34px var(--mono);letter-spacing:.3em;text-align:center;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px}
+.trigger{margin:auto;width:210px;height:210px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#f06a5f,#9e2b22 70%);box-shadow:0 10px 0 #5e1812,0 0 0 8px var(--card2);display:flex;align-items:center;justify-content:center;font:400 30px var(--west);color:#fff1e0}
+.slider{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center}
+.slider .bar{grid-column:1/-1;height:8px;border-radius:99px;background:var(--card2);overflow:hidden}
+.slider .bar i{display:block;height:100%;background:var(--brass)}
+.explain{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:6px}
+.explain h3{margin:0;font:700 20px var(--cond);text-transform:uppercase;letter-spacing:.04em}
+.explain p{margin:0;color:var(--dust);max-width:60ch}
+.boom{background:linear-gradient(180deg,rgba(226,87,76,.28),var(--bg) 60%)}
+.out{background:linear-gradient(180deg,rgba(180,157,123,.18),var(--bg) 60%)}
+
+/* Admin */
+.admin{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:16px}
+.box{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.box h2{font:700 20px var(--cond);text-transform:uppercase;letter-spacing:.05em;margin:0}
+.clock{font:400 54px/1 var(--west);color:var(--brass)}
+.flex{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.field{display:flex;flex-direction:column;gap:4px;flex:1;min-width:120px}
+input.in{font:500 15px var(--mono);background:var(--bg);border:1px solid var(--line);color:var(--bone);border-radius:7px;padding:7px 9px;width:100%;box-sizing:border-box}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th{font:600 12px var(--cond);letter-spacing:.1em;text-transform:uppercase;color:var(--dust);text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:7px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td input.in{width:80px}
+tr:last-child td{border-bottom:0}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
 
 @media (max-width:900px){
-  .screen{grid-template-columns:minmax(0,1fr)}
+  .treeLayout,.admin,.phones{grid-template-columns:minmax(0,1fr)}
+  .phone{margin:0 auto}
 }
-@media (prefers-reduced-motion:reduce){.row,.duel{transition:none!important}}
+@media (prefers-reduced-motion:reduce){.row{transition:none!important}}
 </style>
 
 <div class="wrap">
-  <div class="bar">
-    <p class="note">Maquette de l'écran public du jeu 2, avec des données d'exemple (32 inscrits, 16 survivants après le tour 1). Clique sur « Fin du duel » pour simuler un résultat : l'arbre avance et le classement des parieurs se réordonne.</p>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn" id="next">Fin du duel ▶</button>
-      <button class="btn ghost" id="reset">Recommencer</button>
-    </div>
-  </div>
+  <header class="top">
+    <h1 class="brand">Duel au Far West<small>Aperçu du jeu 2 · données d'exemple, 50 inscrits</small></h1>
+    <nav class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-view="ecran" id="t-ecran">Écran public</button>
+      <button role="tab" aria-selected="false" data-view="tel" id="t-tel">Téléphone</button>
+      <button role="tab" aria-selected="false" data-view="admin" id="t-admin">Admin</button>
+    </nav>
+  </header>
 
-  <div class="screen">
-    <div class="head">
-      <h1 class="title">Duel au Far West</h1>
-      <div class="live" id="live"></div>
+  <!-- ============ ÉCRAN PUBLIC ============ -->
+  <section data-panel="ecran">
+    <div class="flex" style="margin-bottom:12px;justify-content:space-between">
+      <div class="chips" id="scrChips"></div>
+      <div class="flex" id="simBtns"><button class="btn" id="next">Fin du duel ▶</button><button class="btn ghost" id="reset">Recommencer</button></div>
     </div>
+    <div class="screen" id="screen"></div>
+    <p class="note" id="scrNote" style="margin-top:10px"></p>
+  </section>
 
-    <div class="bracketWrap">
-      <div class="bracket" id="bracket">
-        <svg id="wires" aria-hidden="true"></svg>
+  <!-- ============ TÉLÉPHONE ============ -->
+  <section data-panel="tel" hidden>
+    <div class="phones">
+      <div class="phone"><div class="scr" id="scr"></div></div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="label">Choisis un écran</div>
+        <div class="chips" id="phoneChips"></div>
+        <div class="explain"><h3 id="exT"></h3><p id="exP"></p></div>
       </div>
     </div>
+  </section>
 
-    <aside class="bets">
-      <div><h2>Les parieurs</h2><div class="sub">Gains des paris · joueurs éliminés</div></div>
-      <ol class="board" id="board"></ol>
-    </aside>
-  </div>
+  <!-- ============ ADMIN ============ -->
+  <section data-panel="admin" hidden>
+    <div class="admin">
+      <div class="box">
+        <h2>Partie en cours</h2>
+        <div class="label">Tour 4 · 2 duels max à la fois</div>
+        <div class="clock">6:12</div>
+        <p class="note" style="margin:0">Temps restant sur la durée max du tour · 24 survivants · 9 duels restants</p>
+        <div class="flex">
+          <button class="btn">Lancer le prochain duel</button>
+          <button class="btn ghost">Pause</button>
+        </div>
+        <div class="flex">
+          <button class="btn ghost sm">Rejouer un duel</button>
+          <button class="btn ghost sm">Terminer le tour</button>
+          <button class="btn ghost sm">Passer la pause paris</button>
+        </div>
+        <div class="label" style="margin-top:6px">Décompte avant le jeu</div>
+        <div class="flex">
+          <label class="field"><span class="label">Décompte (min)</span><input class="in" id="a-dec" value="45"></label>
+          <label class="field"><span class="label">Inscriptions (min)</span><input class="in" id="a-ins" value="15"></label>
+        </div>
+      </div>
+
+      <div class="box">
+        <div class="flex" style="justify-content:space-between">
+          <h2>Réglages</h2>
+          <div class="chips" id="adminChips">
+            <button class="chip" aria-pressed="true" data-sub="num">Numéros</button>
+            <button class="chip" aria-pressed="false" data-sub="tours">Tours</button>
+            <button class="chip" aria-pressed="false" data-sub="argent">Primes &amp; paris</button>
+          </div>
+        </div>
+
+        <div data-subpanel="num" class="scroll">
+          <p class="note">Après les inscriptions, tape le numéro du dossard de chaque joueur. Un numéro déjà pris est refusé.</p>
+          <table>
+            <thead><tr><th>Joueur</th><th>Dossard</th><th>Vies</th><th>État</th></tr></thead>
+            <tbody>
+              <tr><td>Charlotte</td><td><input class="in" id="n1" value="47"></td><td class="hearts">♥♥</td><td>En jeu</td></tr>
+              <tr><td>Arthur</td><td><input class="in" id="n2" value="18"></td><td class="hearts">♥<span class="off">♥</span></td><td>En jeu</td></tr>
+              <tr><td>Léo</td><td><input class="in" id="n3" value="73"></td><td class="hearts">♥♥</td><td>En jeu</td></tr>
+              <tr><td>Inès</td><td><input class="in" id="n4" value="29"></td><td class="hearts"><span class="off">♥♥</span></td><td>Éliminée · a parié</td></tr>
+              <tr><td>Hugo</td><td><input class="in" id="n5" value="" placeholder="—"></td><td class="hearts">♥♥</td><td style="color:var(--down)">Numéro manquant</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div data-subpanel="tours" hidden>
+          <div class="grid2">
+            <label class="field"><span class="label">Vies en phase 1</span><input class="in" id="a-v" value="2"></label>
+            <label class="field"><span class="label">Joueurs en phase 2</span><input class="in" id="a-p2" value="8"></label>
+            <label class="field"><span class="label">Erreurs permises en phase 2</span><input class="in" id="a-err" value="2"></label>
+            <label class="field"><span class="label">Duels simultanés max (tour 4+)</span><input class="in" id="a-max2" value="2"></label>
+            <label class="field"><span class="label">Temps pour tirer</span><input class="in" id="a-tir" value="0:20"></label>
+            <label class="field"><span class="label">Bruits de pas (min–max)</span><input class="in" id="a-pas" value="3–10 s"></label>
+          </div>
+          <div class="label">Tours simultanés selon les inscrits</div>
+          <div class="scroll"><table>
+            <thead><tr><th>Inscrits</th><th>&lt; 16</th><th>16–29</th><th>30–44</th><th>45+</th></tr></thead>
+            <tbody><tr><td>Tours simultanés</td><td class="mono">0</td><td class="mono">1</td><td class="mono">2</td><td class="mono">3</td></tr></tbody>
+          </table></div>
+          <div class="label">Durées par tour</div>
+          <div class="scroll"><table>
+            <thead><tr><th>Tour</th><th>Durée max</th><th>Pause paris après</th></tr></thead>
+            <tbody>
+              <tr><td>1 · simultané</td><td><input class="in" id="d1" value="3:00"></td><td><input class="in" id="p1" value="—"></td></tr>
+              <tr><td>2 · simultané</td><td><input class="in" id="d2" value="3:00"></td><td><input class="in" id="p2" value="4:30"></td></tr>
+              <tr><td>3 · simultané</td><td><input class="in" id="d3" value="3:00"></td><td><input class="in" id="p3" value="3:00"></td></tr>
+              <tr><td>4</td><td><input class="in" id="d4" value="10:00"></td><td><input class="in" id="p4" value="2:00"></td></tr>
+              <tr><td>5</td><td><input class="in" id="d5" value="6:00"></td><td><input class="in" id="p5" value="2:00"></td></tr>
+              <tr><td>Quarts · demies · finale</td><td class="mono" style="color:var(--dust)">1 duel à la fois</td><td><input class="in" id="p6" value="2:00"></td></tr>
+            </tbody>
+          </table></div>
+        </div>
+
+        <div data-subpanel="argent" hidden>
+          <div class="grid2">
+            <label class="field"><span class="label">Par tour survécu (phase 1)</span><input class="in" id="m1" value="100 $"></label>
+            <label class="field"><span class="label">Bonus 2 vies en phase 2</span><input class="in" id="m2" value="100 $"></label>
+            <label class="field"><span class="label">Éliminé en quart</span><input class="in" id="m3" value="600 $"></label>
+            <label class="field"><span class="label">Éliminé en demie</span><input class="in" id="m4" value="900 $"></label>
+            <label class="field"><span class="label">Finaliste</span><input class="in" id="m5" value="1 200 $"></label>
+            <label class="field"><span class="label">Vainqueur</span><input class="in" id="m6" value="1 600 $"></label>
+            <label class="field"><span class="label">Jetons de pari</span><input class="in" id="m7" value="300 $"></label>
+            <label class="field"><span class="label">Joueurs max par pari</span><input class="in" id="m8" value="3"></label>
+            <label class="field"><span class="label">Bonus par duel gagné</span><input class="in" id="m9" value="× 0,3"></label>
+          </div>
+          <p class="note">Gain d'un pari = mise × (1 + 0,3 × duels gagnés ensuite par le joueur choisi).</p>
+        </div>
+      </div>
+    </div>
+  </section>
 </div>
 
 <script>
-const ROUNDS=[
-  {name:'Tour 2',prime:200,phase:'Numéros'},
-  {name:'Quarts',prime:400,phase:'Face-à-face'},
-  {name:'Demies',prime:800,phase:'Face-à-face'},
-  {name:'Finale',prime:1600,phase:'Face-à-face'},
-];
-const WIN_PRIME=3200;
-const START=[['Charlotte',47],['Arthur',18],['Léo',73],['Inès',29],['Hugo',61],['Maëlys',35],['Karim',82],['Jade',14],
-             ['Tom',56],['Sarah',91],['Nico',23],['Lina',68],['Rayan',40],['Zoé',77],['Adam',52],['Manon',39]];
-const BETTORS=['Emma','Louis','Nora','Malik','Rose','Hamza','Lou','Ethan','Clara','Victor','Eva','Mehdi'];
-let state;
+// ---------- onglets ----------
+function tabset(sel,attr,panelAttr){
+  const btns=document.querySelectorAll(sel);
+  btns.forEach(b=>b.addEventListener('click',()=>{
+    btns.forEach(x=>x.setAttribute(x.getAttribute('role')==='tab'?'aria-selected':'aria-pressed',x===b));
+    document.querySelectorAll(`[${panelAttr}]`).forEach(p=>p.hidden=p.getAttribute(panelAttr)!==b.dataset[attr]);
+    if(b.dataset.view==='ecran')requestAnimationFrame(wires);
+  }));
+}
+tabset('.tabs button','view','data-panel');
+tabset('#adminChips .chip','sub','data-subpanel');
 
+const H=n=>`<span class="hearts">${'♥'.repeat(n)}<span class="off">${'♥'.repeat(2-n)}</span></span>`;
+
+// ---------- ÉCRAN PUBLIC ----------
+const NAMES=['Charlotte','Arthur','Léo','Inès','Hugo','Maëlys','Karim','Jade','Tom','Sarah','Nico','Lina','Rayan','Zoé','Adam','Manon','Théo','Emma','Louis','Nora','Malik','Rose','Hamza','Lou','Ethan','Clara','Victor','Eva','Mehdi','Alice','Yanis','Camille','Enzo','Julie','Sami','Anaïs','Lucas','Noah','Paul','Léna','Gabin','Chloé','Oscar','Mila','Jules','Iris','Nathan','Lola','Samuel','Romy'];
+const SCR={
+  sim:{l:'Tour simultané',note:"Tours 1 à 3 (avec 45 inscrits ou plus) : tous les duels apparaissent en même temps. Les cases se grisent au fur et à mesure.",render:()=>{
+    let cells='';for(let i=0;i<25;i++){const a=NAMES[2*i],b=NAMES[2*i+1];const done=i%3!==0;const aw=i%2===0;
+      cells+=`<div class="sd${done?' done':''}"><span class="${done?(aw?'w':'l'):''}">${a}</span><span class="vs">vs</span><span class="${done?(aw?'l':'w'):''}">${b}</span></div>`}
+    return `<div class="shead"><h2 class="stitle">Tour 2 · simultané</h2><div class="sinfo"><b>17</b> duels terminés sur 25 · <b>1:48</b></div></div><div class="simgrid">${cells}</div>`}},
+  duo:{l:'Duels en grand',note:"À partir du tour 4 : les duels apparaissent après un délai aléatoire, 2 au maximum en même temps. Les noms ne sont connus qu'à cet instant.",render:()=>
+    `<div class="shead"><h2 class="stitle">Tour 4</h2><div class="sinfo"><b>24</b> survivants · temps restant <b>6:12</b></div></div>
+     <div class="bigduels">
+       <div class="bd"><div class="label">Duel</div><div class="names">Charlotte ${H(2)}<i>contre</i>Arthur ${H(1)}</div><div class="timer">0:14</div></div>
+       <div class="bd"><div class="label">Duel</div><div class="names">Léo ${H(2)}<i>contre</i>Maëlys ${H(2)}</div><div class="timer">0:06</div></div>
+     </div>`},
+  arbre:{l:'Arbre & parieurs',note:"Pendant les pauses et entre les duels : l'arbre avec la prime de chaque tour, et le classement des parieurs qui glisse à chaque fin de duel. Clique sur « Fin du duel ».",render:()=>`<div class="shead"><h2 class="stitle">Duel au Far West</h2><div class="sinfo" id="live"></div></div>
+     <div class="pausebar" id="pausebar"><span>Pause paris · les nouveaux éliminés parient sur leur téléphone</span><span class="mono">3:42</span></div>
+     <div class="treeLayout"><div class="bracketWrap"><div class="bracket" id="bracket"><svg id="wires" aria-hidden="true"></svg></div></div>
+     <aside class="bets"><div><h2>Les parieurs</h2><div class="label">Gains des paris</div></div><ol class="board" id="board"></ol></aside></div>`,after:()=>render(true)},
+  pas:{l:'Face-à-face · pas',note:"Phase 2 : un seul duel. Des bruits de pas passent dans les enceintes pendant 3 à 10 s…",render:()=>
+    `<div class="shead"><h2 class="stitle">Quart de finale 2</h2><div class="sinfo">Erreurs restantes · Léo <b>2</b> · Karim <b>1</b></div></div>
+     <div class="fire"><div class="who">Léo<i>contre</i>Karim</div><div class="steps">· pas · · pas · · pas ·</div><div class="label">Ne tirez pas encore</div></div>`},
+  feu:{l:'Face-à-face · FEU',note:"… puis « FEU ! ». Le premier qui appuie sur la gâchette gagne. Appuyer avant = le pistolet explose.",render:()=>
+    `<div class="shead"><h2 class="stitle">Quart de finale 2</h2><div class="sinfo">Erreurs restantes · Léo <b>2</b> · Karim <b>1</b></div></div>
+     <div class="fire"><div class="who">Léo<i>contre</i>Karim</div><div class="big">FEU !</div></div>`},
+};
+const scrChips=document.getElementById('scrChips');
+function showScreen(k){
+  const s=SCR[k];document.getElementById('screen').innerHTML=s.render();document.getElementById('scrNote').textContent=s.note;
+  document.getElementById('simBtns').hidden=k!=='arbre';
+  scrChips.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed',c.dataset.k===k));
+  if(s.after)s.after();
+}
+Object.keys(SCR).forEach(k=>{const c=document.createElement('button');c.className='chip';c.dataset.k=k;c.textContent=SCR[k].l;c.onclick=()=>showScreen(k);scrChips.appendChild(c)});
+
+// Arbre phase 2 + survivants de la phase 1
+const ROUNDS=[{name:'Quarts',prime:600},{name:'Demies',prime:900},{name:'Finale',prime:1200}];
+const WIN=1600;
+const EIGHT=[['Charlotte',47,2],['Arthur',18,1],['Léo',73,2],['Karim',82,1],['Hugo',61,1],['Maëlys',35,2],['Tom',56,1],['Sarah',91,1]];
+const BETTORS=['Emma','Louis','Nora','Malik','Rose','Hamza','Lou','Ethan','Clara','Victor','Eva','Mehdi'];
+let st;
 function init(){
-  // rounds[r] = tableau de duels [{a,b,w}] ; a/b = index joueur ou null
-  const r0=[];for(let i=0;i<8;i++)r0.push({a:2*i,b:2*i+1,w:null});
-  state={players:START.map(([n,num])=>({n,num})),rounds:[r0,[],[],[]],champ:null,
-    bettors:BETTORS.map((n,i)=>({n,amt:[560,540,500,470,430,390,360,320,290,260,220,180][i],delta:0}))};
-  for(let r=1;r<4;r++)for(let i=0;i<8>>r;i++)state.rounds[r].push({a:null,b:null,w:null});
-  // 5 duels déjà joués au tour 2
-  [0,1,0,1,0].forEach((side,i)=>resolve(0,i,side,true));
-  render(true);
+  st={p:EIGHT.map(([n,num,v])=>({n,num,v})),r:[[],[],[]],champ:null,
+    bettors:BETTORS.map((n,i)=>({n,amt:[520,490,470,430,400,360,330,300,270,240,210,180][i],delta:0}))};
+  for(let i=0;i<4;i++)st.r[0].push({a:2*i,b:2*i+1,w:null});
+  for(let i=0;i<2;i++)st.r[1].push({a:null,b:null,w:null});
+  st.r[2].push({a:null,b:null,w:null});
+  resolve(0,0,0,true);
 }
-function current(){
-  for(let r=0;r<4;r++)for(let i=0;i<state.rounds[r].length;i++){const d=state.rounds[r][i];if(d.w===null&&d.a!==null&&d.b!==null)return[r,i]}
-  return null;
-}
+function current(){for(let r=0;r<3;r++)for(let i=0;i<st.r[r].length;i++){const d=st.r[r][i];if(d.w===null&&d.a!==null&&d.b!==null)return[r,i]}return null}
 function resolve(r,i,side,silent){
-  const d=state.rounds[r][i];d.w=side===0?d.a:d.b;
-  if(r<3){const nd=state.rounds[r+1][i>>1];if(i%2===0)nd.a=d.w;else nd.b=d.w}else state.champ=d.w;
-  if(!silent)updateBets();
-}
-function updateBets(){
-  const old=state.bettors.map(b=>b.n);
-  state.bettors.forEach(b=>{b.delta=0;b.gain=Math.random()<.45?Math.round((40+Math.random()*260)/10)*10:0;b.amt+=b.gain});
-  state.bettors.sort((x,y)=>y.amt-x.amt);
-  state.bettors.forEach((b,i)=>{b.delta=old.indexOf(b.n)-i});
+  const d=st.r[r][i];d.w=side?d.b:d.a;
+  if(r<2){const nd=st.r[r+1][i>>1];if(i%2)nd.b=d.w;else nd.a=d.w}else st.champ=d.w;
+  if(silent)return;
+  const old=st.bettors.map(b=>b.n);
+  st.bettors.forEach(b=>{b.amt+=Math.random()<.45?Math.round((30+Math.random()*200)/10)*10:0});
+  st.bettors.sort((x,y)=>y.amt-x.amt);st.bettors.forEach((b,i)=>b.delta=old.indexOf(b.n)-i);
 }
 function card(d,cur){
-  const P=i=>i===null?`<div class="p tbd"><span class="name">?</span><span class="n"></span></div>`:
-    `<div class="p ${d.w===null?'':(d.w===i?'win':'lose')}"><span class="name">${state.players[i].n}</span><span class="n">n°${state.players[i].num}</span></div>`;
+  const P=i=>i===null?`<div class="p tbd"><span class="name">?</span></div>`:
+    `<div class="p ${d.w===null?'':(d.w===i?'win':'lose')}"><span class="name">${st.p[i].n}</span><span class="n">n°${st.p[i].num}</span></div>`;
   return `<div class="duel${cur?' cur':''}">${P(d.a)}${P(d.b)}</div>`;
 }
 function render(first){
-  const br=document.getElementById('bracket');
+  const br=document.getElementById('bracket');if(!br)return;
   br.querySelectorAll('.col').forEach(c=>c.remove());
   const cur=current();
-  ROUNDS.forEach((R,r)=>{
-    const col=document.createElement('div');col.className='col';
-    col.innerHTML=`<div class="colhead"><b>${R.name}</b><span class="prime">${R.prime.toLocaleString('fr-FR')} $<small>si éliminé</small></span><span class="phase">${R.phase}</span></div>
-      <div class="slots">${state.rounds[r].map((d,i)=>card(d,cur&&cur[0]===r&&cur[1]===i)).join('')}</div>`;
-    br.appendChild(col);
-  });
-  const col=document.createElement('div');col.className='col';
-  const c=state.champ;
-  col.innerHTML=`<div class="colhead"><b>Vainqueur</b><span class="prime">${WIN_PRIME.toLocaleString('fr-FR')} $</span><span class="phase" style="visibility:hidden">·</span></div>
-    <div class="slots"><div class="champ${c===null?' empty':''}"><div class="name">${c===null?'?':state.players[c].n}</div></div></div>`;
-  br.appendChild(col);
-  // bandeau duel en cours
+  const c0=document.createElement('div');c0.className='col';
+  c0.innerHTML=`<div class="colhead"><b>Phase 1 · 5 tours</b><span class="prime">100 $<small>par tour</small></span></div>
+    <div class="slots">${st.p.map(p=>`<div class="surv"><span>${p.n}</span>${H(p.v)}</div>`).join('')}</div>`;
+  br.appendChild(c0);
+  ROUNDS.forEach((R,r)=>{const col=document.createElement('div');col.className='col';
+    col.innerHTML=`<div class="colhead"><b>${R.name}</b><span class="prime">${R.prime.toLocaleString('fr-FR')} $<small>si éliminé</small></span></div>
+      <div class="slots">${st.r[r].map((d,i)=>card(d,cur&&cur[0]===r&&cur[1]===i)).join('')}</div>`;br.appendChild(col)});
+  const cw=document.createElement('div');cw.className='col';
+  cw.innerHTML=`<div class="colhead"><b>Vainqueur</b><span class="prime">${WIN.toLocaleString('fr-FR')} $</span></div>
+    <div class="slots"><div class="champ${st.champ===null?' empty':''}"><div class="name">${st.champ===null?'?':st.p[st.champ].n}</div></div></div>`;
+  br.appendChild(cw);
   const live=document.getElementById('live');
-  if(cur){const d=state.rounds[cur[0]][cur[1]];live.innerHTML=`<span class="tag">${ROUNDS[cur[0]].phase==='Numéros'?'DUEL':'FACE-À-FACE'}</span><span>${state.players[d.a].n}</span><span class="vs">vs</span><span>${state.players[d.b].n}</span>`}
-  else live.innerHTML=`<span class="tag">TERMINÉ</span><span>${state.players[state.champ].n} remporte la prime</span>`;
-  requestAnimationFrame(wires);
-  renderBoard(first);
+  if(cur){const d=st.r[cur[0]][cur[1]];live.innerHTML=`Prochain : <b>${ROUNDS[cur[0]].name.slice(0,-1)}</b> · ${st.p[d.a].n} vs ${st.p[d.b].n}`}
+  else live.innerHTML=`<b>${st.p[st.champ].n}</b> remporte la prime`;
+  document.getElementById('pausebar').hidden=!cur;
+  requestAnimationFrame(wires);renderBoard(first);
+  if(!cur)confetti();
 }
 function wires(){
-  const br=document.getElementById('bracket'),svg=document.getElementById('wires');
+  const br=document.getElementById('bracket'),svg=document.getElementById('wires');if(!br||!br.offsetParent)return;
   const B=br.getBoundingClientRect();
-  const cols=[...br.querySelectorAll('.col')].map(c=>[...c.querySelectorAll('.duel,.champ')]);
+  const cols=[...br.querySelectorAll('.col')].map(c=>[...c.querySelectorAll('.surv,.duel,.champ')]);
   let out='';
-  for(let r=0;r<cols.length-1;r++){
-    cols[r].forEach((el,i)=>{
-      const tgt=cols[r+1][i>>1];if(!tgt)return;
+  for(let c=0;c<cols.length-1;c++){
+    cols[c].forEach((el,i)=>{
+      const per=c===0?1:1;const tgt=cols[c+1][c===0?(i>>1):(i>>1)];if(!tgt)return;
       const a=el.getBoundingClientRect(),t=tgt.getBoundingClientRect();
       const x1=a.right-B.left,y1=a.top+a.height/2-B.top,x2=t.left-B.left,y2=t.top+t.height/2-B.top,mx=(x1+x2)/2;
-      const d=r<4?state.rounds[r][i]:null;const done=d&&d.w!==null;
-      out+=`<path d="M${x1} ${y1}H${mx}V${y2}H${x2}" fill="none" stroke="${done?'#e0a940':'#4a3824'}" stroke-width="${done?2:1.5}"/>`;
+      const done=c===0?true:(st.r[c-1][i]&&st.r[c-1][i].w!==null);
+      out+=`<path d="M${x1} ${y1}H${mx}V${y2}H${x2}" fill="none" stroke="${done&&c>0?'#e0a940':'#4a3824'}" stroke-width="${done&&c>0?2:1.5}"/>`;
     });
   }
   svg.innerHTML=out;
 }
-// Classement parieurs avec animation de glissement (FLIP)
 function renderBoard(first){
-  const ol=document.getElementById('board');
-  const before={};ol.querySelectorAll('.row').forEach(li=>before[li.dataset.n]=li.getBoundingClientRect().top);
-  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
-  ol.innerHTML=state.bettors.slice(0,10).map((b,i)=>{
-    const cls=first||!b.delta?'':(b.delta>0?'up':'down');
-    const dl=first||!b.delta?'':(b.delta>0?`▲ ${b.delta}`:`▼ ${-b.delta}`);
-    return `<li class="row ${cls}" data-n="${b.n}"><span class="rk">${i+1}</span><span class="nm">${b.n}</span><span class="amt">${b.amt.toLocaleString('fr-FR')} $</span><span class="delta ${cls}${dl?' show':''}">${dl}</span></li>`}).join('');
-  if(first||reduce)return;
-  ol.querySelectorAll('.row').forEach(li=>{
-    const old=before[li.dataset.n];if(old===undefined)return;
-    const dy=old-li.getBoundingClientRect().top;if(!dy)return;
-    li.animate([{transform:`translateY(${dy}px)`},{transform:'translateY(0)'}],{duration:900,easing:'cubic-bezier(.2,.8,.2,1)'});
-  });
+  const ol=document.getElementById('board');const before={};
+  ol.querySelectorAll('.row').forEach(li=>before[li.dataset.n]=li.getBoundingClientRect().top);
+  ol.innerHTML=st.bettors.slice(0,10).map((b,i)=>{const c=first||!b.delta?'':(b.delta>0?'up':'down');
+    const dl=c?(b.delta>0?`▲ ${b.delta}`:`▼ ${-b.delta}`):'';
+    return `<li class="row ${c}" data-n="${b.n}"><span class="rk">${i+1}</span><span class="nm">${b.n}</span><span class="amt">${b.amt.toLocaleString('fr-FR')} $</span><span class="delta ${c}${dl?' show':''}">${dl}</span></li>`}).join('');
+  if(first||matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  ol.querySelectorAll('.row').forEach(li=>{const o=before[li.dataset.n];if(o===undefined)return;const dy=o-li.getBoundingClientRect().top;
+    if(dy)li.animate([{transform:`translateY(${dy}px)`},{transform:'none'}],{duration:900,easing:'cubic-bezier(.2,.8,.2,1)'})});
   clearTimeout(renderBoard.t);
   renderBoard.t=setTimeout(()=>ol.querySelectorAll('.row').forEach(li=>{li.classList.remove('up','down');li.querySelector('.delta').classList.remove('show')}),4500);
 }
-document.getElementById('next').addEventListener('click',()=>{const c=current();if(!c)return;resolve(c[0],c[1],Math.random()<.5?0:1);render(false)});
-document.getElementById('reset').addEventListener('click',()=>init());
+function confetti(){
+  const scr=document.getElementById('screen');const cv=document.createElement('canvas');
+  cv.style.cssText='position:absolute;inset:0;width:100%;height:100%;pointer-events:none';scr.appendChild(cv);
+  const r=scr.getBoundingClientRect(),dp=devicePixelRatio||1;cv.width=r.width*dp;cv.height=r.height*dp;const ctx=cv.getContext('2d');
+  const cols=['#e0a940','#f0e3c8','#e2574c','#5cc47a'];
+  const ps=Array.from({length:160},()=>({x:Math.random()*cv.width,y:-Math.random()*cv.height,s:(4+Math.random()*6)*dp,v:(1.5+Math.random()*3)*dp,r:Math.random()*6,c:cols[Math.random()*4|0]}));
+  let n=0;(function f(){ctx.clearRect(0,0,cv.width,cv.height);ps.forEach(p=>{p.y+=p.v;p.r+=.08;ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.r);ctx.fillStyle=p.c;ctx.fillRect(-p.s/2,-p.s/4,p.s,p.s/2);ctx.restore()});
+    if(++n<420&&!matchMedia('(prefers-reduced-motion: reduce)').matches)requestAnimationFrame(f);else setTimeout(()=>cv.remove(),4000)})();
+}
+document.getElementById('next').onclick=()=>{const c=current();if(!c)return;resolve(c[0],c[1],Math.random()<.5?0:1);render(false)};
+document.getElementById('reset').onclick=()=>{init();showScreen('arbre')};
 addEventListener('resize',()=>requestAnimationFrame(wires));
-init();
+
+// ---------- TÉLÉPHONE ----------
+const pad=`<div class="pad">${[1,2,3,4,5,6,7,8,9,'⌫',0,'FEU'].map(k=>`<b${k==='FEU'?' style="background:var(--brass);color:#22170a;font-family:var(--cond);font-weight:700"':''}>${k}</b>`).join('')}</div>`;
+const phTop=(txt,v)=>`<div class="ph-top"><span class="pill b">${txt}</span>${v===undefined?'':H(v)}</div>`;
+const PH={
+  attente:{l:'En attente',t:'En attente',p:"Le joueur voit son numéro de dossard et ses vies. Il ne sait pas quand ni contre qui il va tirer.",
+    h:`${phTop('Tour 4',2)}<div class="card" style="text-align:center"><span class="label">Ton dossard</span><div class="huge">47</div></div>
+      <div class="card"><p style="font-size:20px">Garde un œil sur l'écran.</p><p style="color:var(--dust)">Ton nom peut apparaître à tout moment. Cache bien ton dos.</p></div>`},
+  duel:{l:'Duel',t:'Duel au numéro',p:"Dès que le duel apparaît à l'écran, le pavé s'active. Il faut taper le numéro dans le dos de l'adversaire. Un mauvais numéro fait exploser le pistolet.",
+    h:`${phTop('Duel !',2)}<div class="card" style="border-color:var(--brass)"><span class="label">Ton adversaire</span><p style="font:400 34px/1 var(--west);color:var(--brass)">Arthur</p><p style="color:var(--dust)">Tape le numéro dans son dos</p></div>
+      <div class="codebox">1_</div>${pad}`},
+  boom:{l:'Pistolet explosé',t:'Mauvais numéro',cls:'boom',p:"Le pistolet explose : le duel est perdu et le joueur perd une vie. Il lui en reste une, il reste en jeu.",
+    h:`${phTop('Tour 4',1)}<div style="text-align:center;margin-top:30px;display:flex;flex-direction:column;gap:10px"><div style="font-size:72px">💥</div><div style="font:400 38px/1 var(--west);color:var(--down)">Ton pistolet a explosé</div><p style="color:var(--dust);margin:0">Tu as tapé 81. Arthur gagne le duel.</p><div class="card" style="margin-top:10px"><p style="font-size:20px">Il te reste ${H(1)}</p><p style="color:var(--dust)">Tu restes en jeu.</p></div></div>`},
+  elimine:{l:'Éliminé',t:'Éliminé',cls:'out',p:"À 0 vie, le joueur est éliminé. Il voit sa prime, puis passe à l'écran de pari.",
+    h:`${phTop('Éliminé',0)}<div style="text-align:center;margin-top:30px;display:flex;flex-direction:column;gap:10px"><div style="font:400 44px/1 var(--west)">Éliminé</div><p style="color:var(--dust);margin:0">au tour 4</p><div class="card" style="margin-top:14px"><span class="label">Ta prime</span><div class="huge" style="font-size:52px">+300 $</div><p style="color:var(--dust)">3 tours survécus × 100 $</p></div>
+      <div class="btn" style="text-align:center;padding:14px">Parier sur les survivants →</div></div>`},
+  pari:{l:'Pari',t:'Placer son pari',p:"Pendant la pause qui suit son élimination, le joueur répartit 300 $ sur 1 à 3 joueurs encore en jeu. Une fois validé, le pari est définitif.",
+    h:`${phTop('Pause paris · 3:42')}<div class="card"><span class="label">Tes jetons</span><p style="font:700 28px var(--mono);color:var(--brass)">300 $ <span style="font:500 14px var(--cond);color:var(--dust)">· 0 $ restant</span></p></div>
+      <div class="label">Tes 3 choix</div>
+      ${[['Charlotte',2,150,50],['Léo',2,100,33],['Karim',1,50,17]].map(([n,v,m,w])=>`<div class="slider"><span style="font:600 19px var(--cond)">${n} ${H(v)}</span><span class="mono" style="color:var(--brass)">${m} $</span><div class="bar"><i style="width:${w}%"></i></div></div>`).join('')}
+      <div class="card" style="padding:10px 14px"><p style="color:var(--dust);font-size:14px">Chaque duel gagné par ton joueur ajoute 30 % à ta mise.</p></div>
+      <div class="btn" style="text-align:center;padding:14px;margin-top:auto">Valider mon pari (définitif)</div>`},
+  suivi:{l:'Suivi des paris',t:'Suivi des paris',p:"Après avoir parié, le joueur suit ses gains en direct et sa place au classement des parieurs.",
+    h:`${phTop('Parieur')}<div class="card" style="text-align:center"><span class="label">Tes gains de paris</span><div class="huge" style="font-size:52px">+390 $</div><p style="color:var(--up);font:700 18px var(--mono)">▲ 2 · 4ᵉ parieur</p></div>
+      ${[['Charlotte','150 $','2 duels gagnés','+240 $','var(--up)'],['Léo','100 $','1 duel gagné','+130 $','var(--up)'],['Karim','50 $','éliminé','+50 $','var(--dust)']].map(([n,m,s,g,c])=>`<div class="card" style="flex-direction:row;justify-content:space-between;align-items:center;padding:10px 14px"><div><p style="font:600 19px var(--cond)">${n} <span style="color:var(--dust);font-size:15px">· mise ${m}</span></p><p style="color:var(--dust);font-size:14px">${s}</p></div><span class="mono" style="color:${c};font-weight:700">${g}</span></div>`).join('')}`},
+  gachette:{l:'Face-à-face',t:'Face-à-face (phase 2)',p:"Le téléphone devient une gâchette. On attend « FEU ! » sur l'écran. Appuyer avant fait exploser le pistolet : 2 erreurs permises sur toute la phase 2, la 3ᵉ fait perdre le duel.",
+    h:`${phTop('Quart de finale')}<div class="card" style="text-align:center"><p style="font:400 26px var(--west)">Léo <span style="color:var(--brass);font-size:16px">contre</span> Karim</p><p style="color:var(--dust)">Erreurs restantes : <b style="color:var(--bone)">2</b></p></div>
+      <div class="trigger">TIRER</div><p style="text-align:center;color:var(--dust);margin:0">Attends « FEU ! » sur l'écran</p>`},
+  trop:{l:'Tir trop tôt',t:'Tir trop tôt',cls:'boom',p:"Le joueur a appuyé avant le signal : il perd une erreur et le duel recommence avec les bruits de pas.",
+    h:`${phTop('Quart de finale')}<div style="text-align:center;margin-top:40px;display:flex;flex-direction:column;gap:10px"><div style="font-size:72px">💥</div><div style="font:400 36px/1 var(--west);color:var(--down)">Trop tôt !</div><div class="card" style="margin-top:14px"><p style="font-size:20px">Erreurs restantes : <b>1</b></p><p style="color:var(--dust)">Encore une et tu perds le duel. Le duel recommence.</p></div></div>`},
+};
+const pc=document.getElementById('phoneChips');
+function showPhone(k){const s=PH[k],scr=document.getElementById('scr');scr.className='scr '+(s.cls||'');scr.innerHTML=s.h;
+  document.getElementById('exT').textContent=s.t;document.getElementById('exP').textContent=s.p;
+  pc.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed',c.dataset.k===k))}
+Object.keys(PH).forEach(k=>{const c=document.createElement('button');c.className='chip';c.dataset.k=k;c.textContent=PH[k].l;c.onclick=()=>showPhone(k);pc.appendChild(c)});
+
+init();showScreen('arbre');showPhone('duel');
+if(location.hash==='#tel'||location.hash==='#admin')document.getElementById('t-'+location.hash.slice(1)).click();
 </script>
