@@ -73,7 +73,7 @@ tr:last-child td{border-bottom:0}
 
   <section data-p="chevaux">
     <div class="row" style="justify-content:space-between;margin-bottom:10px">
-      <p class="note">8 chevaux, un tour d'hippodrome en 45 secondes. Le classement en direct est à droite, le podium avec les gains s'affiche à l'arrivée.</p>
+      <p class="note">8 chevaux, deux tours d'hippodrome en 45 secondes. Le classement en direct est à droite, le podium avec les gains s'affiche à l'arrivée.</p>
       <div class="row"><button class="btn" data-run="chevaux">▶ Lancer la course</button><button class="btn ghost" data-speed>Vitesse ×1</button></div>
     </div>
     <div class="stage"><canvas id="cv-chevaux" width="1280" height="720"></canvas></div>
@@ -149,6 +149,7 @@ anims.chevaux=(()=>{
   const W=1280,H=720,DUR=45;
   // Hippodrome ovale : deux lignes droites reliées par deux virages.
   const CX=470,CY=405,L=300,R0=150,LW=18,N=8,RO=R0+N*LW;
+  const LAPS=2; // 2 tours en 45 s : assez vite pour le spectacle, pas trop pour suivre
   const HORSES=[['Tonnerre','#e8574a'],['Éclair','#f2c14e'],['Pégase','#eef3ea'],['Caramel','#c98a4b'],['Bijou','#b77be0'],['Comète','#6fb7ff'],['Rafale','#5fd08a'],['Mistral','#f08fc0']];
   let S;
   // Point et direction à la fraction `f` d'un tour, sur le couloir de rayon r.
@@ -177,7 +178,7 @@ anims.chevaux=(()=>{
       const target=h.base*surge*(1+.18*Math.sin(S.t*1.3+h.gait)+.08*Math.sin(S.t*3.7+h.i));
       h.v+=(target-h.v)*Math.min(1,dt*2);
       h.x+=h.v*dt/DUR;
-      h.gait+=dt*h.v*16;
+      h.gait+=dt*h.v*24;
       if(h.x>=1){h.x=1;h.fin=S.t;S.order.push(h)}
     }
     if(S.order.length===S.horses.length)S.done=true;
@@ -185,7 +186,9 @@ anims.chevaux=(()=>{
   // Cheval vu de dessus, orienté dans le sens de la course.
   function horse(h){
     const r=R0+(h.i+.5)*LW;
-    const p=at(h.x,r);
+    const p=at(h.x*LAPS,r);
+    // poussière derrière le cheval
+    if(S&&!S.done&&h.fin==null){ctx.fillStyle='rgba(222,196,150,.35)';for(let k=1;k<=3;k++){const q=at(h.x*LAPS-k*.006,r);ctx.beginPath();ctx.arc(q.x+Math.sin(h.gait*1.3+k)*2,q.y+Math.cos(h.gait+k)*2,5-k,0,TAU);ctx.fill()}}
     ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.a);
     const g=h.gait;
     ctx.fillStyle='rgba(0,0,0,.25)';ctx.beginPath();ctx.ellipse(-1,3,17,7,0,0,TAU);ctx.fill();
@@ -219,6 +222,7 @@ anims.chevaux=(()=>{
     text(ctx,'COURSE HIPPIQUE',30,56,{size:40,font:'Anton',weight:400,color:'#f2c14e'});
     const t=S?S.t:0;
     text(ctx,S&&S.done?'ARRIVÉE':fmt(DUR-t),910,56,{size:36,font:'JetBrains Mono',weight:700,align:'right'});
+    if(S&&!S.done){const lead=Math.max(...S.horses.map(h=>h.x));text(ctx,lead*LAPS>=LAPS-1?'DERNIER TOUR !':`Tour ${Math.min(LAPS,Math.floor(lead*LAPS)+1)} / ${LAPS}`,CX,CY+64,{size:20,weight:700,align:'center',color:lead*LAPS>=LAPS-1?'#f2c14e':'#eef3ea'})}
     if(!S){text(ctx,'Clique sur « Lancer la course »',CX,CY+8,{size:22,align:'center'});return}
     // les chevaux de l'extérieur d'abord, pour que ceux de dedans passent dessus
     [...S.horses].reverse().forEach(horse);
