@@ -1,9 +1,10 @@
 // État de la soirée : identités des joueurs, décompte, inscriptions et jeu en cours.
 import * as chemin from './games/chemin.js';
 import * as duel from './games/duel.js';
+import * as grandpari from './games/grandpari.js';
 import { uid, normName, setPath, mergeDefaults } from './util.js';
 
-export const GAMES = { chemin, duel };
+export const GAMES = { chemin, duel, grandpari };
 
 export function defaultState() {
   return {
@@ -209,6 +210,13 @@ export class Soiree {
     const g = this.sess.game;
     if (!g || this.sess.status !== 'playing') return { ok: false, msg: 'Aucune partie en cours.' };
     return this.module.playerAction(this.ctx(), g, me.id, a);
+  }
+
+  // Données lourdes d'un jeu (ex. le film d'un sport), pour l'écran public.
+  data(q) {
+    const g = this.sess.game;
+    if (!g || !this.module.data) return null;
+    return this.module.data(this.ctx(), g, q);
   }
 
   orga(a) {

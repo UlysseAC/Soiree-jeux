@@ -104,6 +104,10 @@ io.on('connection', sock => {
     cb(r ?? { ok: true });
     broadcast();
   };
+  sock.on('jeuData', (q = {}, cb = () => {}) => {
+    if (sock.data.role !== 'ecran' && sock.data.role !== 'admin') return cb(null);
+    cb(soiree.data(q));
+  });
   sock.on('joueur', guard('joueur', a => soiree.player(sock.data.token, a)));
   sock.on('admin', guard('admin', a => soiree.admin(a)));
   sock.on('orga', guard('orga', a => soiree.orga(a)));
