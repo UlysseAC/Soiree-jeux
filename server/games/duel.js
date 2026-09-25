@@ -459,8 +459,9 @@ function bettors(ctx, g) {
     .sort((a, b) => b.value - a.value || a.name.localeCompare(b.name, 'fr'));
 }
 
-function duelView(ctx, g, d) {
-  const P = x => ({ pid: x, name: ctx.name(x), lives: g.players[x].lives, errors: g.players[x].errors, num: g.players[x].num });
+// Les numéros de dossard ne sortent jamais vers les téléphones ni l'écran : seulement vers l'admin.
+function duelView(ctx, g, d, withNums = false) {
+  const P = x => ({ pid: x, name: ctx.name(x), lives: g.players[x].lives, errors: g.players[x].errors, ...(withNums ? { num: g.players[x].num } : {}) });
   return {
     id: d.id, kind: d.kind, status: d.status, startedAt: d.startedAt, fireAt: d.status === 'fire' || d.winner ? d.fireAt : 0,
     a: P(d.a), b: P(d.b), winner: d.winner, reason: d.reason, doneAt: d.doneAt,
@@ -495,7 +496,7 @@ function bracketView(ctx, g) {
 
 export function screenView(ctx, g) {
   const cfg = ctx.cfg;
-  const al = alive(g).map(p => ({ pid: p, name: ctx.name(p), lives: g.players[p].lives, num: g.players[p].num }))
+  const al = alive(g).map(p => ({ pid: p, name: ctx.name(p), lives: g.players[p].lives }))
     .sort((a, b) => b.lives - a.lives || a.name.localeCompare(b.name, 'fr'));
   return {
     phase: g.phase, round: g.round, roundType: g.rounds.at(-1)?.type ?? null,
@@ -506,9 +507,13 @@ export function screenView(ctx, g) {
       n: R.n,
       duels: R.duels.map(id => g.duels[id]).map(d => ({ a: ctx.name(d.a), b: ctx.name(d.b), w: d.winner ? ctx.name(d.winner) : null })),
     })),
+    roundDuels: g.phase === 'p1' ? (g.rounds.at(-1)?.duels ?? []).map(id => g.duels[id]).map(d => ({
+      a: ctx.name(d.a), b: ctx.name(d.b), w: d.winner ? ctx.name(d.winner) : null,
+    })) : [],
     bracket: bracketView(ctx, g),
     bettors: bettors(ctx, g).slice(0, 10),
     primes: primesTable(cfg, g),
+    phase2Size: cfg.phase2,
     finished: g.finished,
     winner: g.winner ? { name: ctx.name(g.winner), prime: g.players[g.winner].prime + g.players[g.winner].bonus } : null,
     feed: g.feed.slice(0, 6),
@@ -555,7 +560,7 @@ export function adminView(ctx, g) {
     queue: g.queue.length,
     nextDuelAt: g.nextDuelAt,
     simRounds: g.simRounds,
-    liveDuels: liveDuels(g).map(d => duelView(ctx, g, d)),
+    liveDuels: liveDuels(g).map(d => duelView(ctx, g, d, true)),
     players: Object.entries(g.players).map(([p, P]) => ({
       pid: p, name: ctx.name(p), num: P.num, lives: P.lives, alive: P.alive, wins: P.wins,
       elimLabel: P.elimLabel, prime: P.prime + P.bonus, bet: betValue(g, cfg, P), hasBet: !!P.bet,

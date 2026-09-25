@@ -37,8 +37,8 @@ export function defaultConfig() {
       voyance: { code: '' },
     },
     cles: {
-      A: [{ code: '', lieu: '' }, { code: '', lieu: '' }, { code: '', lieu: '' }],
-      B: [{ code: '', lieu: '' }, { code: '', lieu: '' }, { code: '', lieu: '' }],
+      A: Array.from({ length: 5 }, () => ({ code: '', lieu: '' })),
+      B: Array.from({ length: 5 }, () => ({ code: '', lieu: '' })),
     },
     bandage: { code: '', lieu: '', reduction: 60 },
     antiFumigene: { code: '', lieu: '', fraction: 0.33 },

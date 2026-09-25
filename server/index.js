@@ -109,7 +109,8 @@ io.on('connection', sock => {
   sock.on('orga', guard('orga', a => soiree.orga(a)));
 });
 
-setInterval(() => { if (soiree.tick()) broadcast(); }, 200);
+// Tick rapide : le « FEU ! » du face-à-face doit partir au bon moment.
+setInterval(() => { if (soiree.tick()) broadcast(); }, 40);
 // Rafraîchit aussi les vues chaque seconde (disponibilités, recharges, résultats affichés).
 setInterval(() => broadcast(false), 1000);
 
