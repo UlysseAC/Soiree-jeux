@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Le Grand Pari</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+:root{
+  color-scheme: dark;
+  --bg:#0e1411; --panel:#16201b; --panel2:#1e2b24; --line:#2c3d34;
+  --text:#eef3ea; --muted:#9db0a4; --gold:#f2c14e; --gold-soft:rgba(242,193,78,.15);
+  --up:#5fd08a; --down:#ef6b5b; --sky:#6fb7ff;
+  --display:"Anton", Impact, "Arial Narrow", sans-serif;
+  --body:"Barlow", system-ui, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+body{background:var(--bg);color:var(--text);font:16px/1.45 var(--body);padding:20px 16px 48px}
+.wrap{max-width:1240px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+header.top{display:flex;flex-wrap:wrap;gap:12px;align-items:end;justify-content:space-between}
+h1{font:400 clamp(34px,5vw,56px)/1 var(--display);letter-spacing:.02em;margin:0;text-transform:uppercase}
+h1 small{display:block;font:500 14px var(--body);letter-spacing:.08em;color:var(--muted);text-transform:uppercase;margin-top:6px}
+.tabs{display:flex;gap:4px;background:var(--panel);padding:4px;border-radius:10px;border:1px solid var(--line);flex-wrap:wrap}
+.tabs button{font:600 15px var(--body);color:var(--muted);background:none;border:0;padding:9px 14px;border-radius:7px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--panel2);color:var(--text)}
+button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.note{color:var(--muted);margin:0;max-width:75ch}
+.btn{font:600 15px var(--body);background:var(--gold);color:#1d1604;border:0;border-radius:8px;padding:9px 14px;cursor:pointer}
+.btn.ghost{background:none;color:var(--text);border:1px solid var(--line)}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.stage{position:relative;background:#000;border:1px solid var(--line);border-radius:14px;overflow:hidden;aspect-ratio:16/9;max-width:100%}
+.stage canvas{display:block;width:100%;height:100%}
+.explain{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:6px}
+.card h3{margin:0;font:700 15px var(--body);text-transform:uppercase;letter-spacing:.06em;color:var(--gold)}
+.card p,.card li{margin:0;color:var(--muted)}
+.card ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.label{font:600 11px var(--body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th{font:600 11px var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:left;padding:6px 8px;border-bottom:1px solid var(--line)}
+td{padding:6px 8px;border-bottom:1px solid var(--line)}
+tr:last-child td{border-bottom:0}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.timeline{display:flex;border-radius:10px;overflow:hidden;border:1px solid var(--line);min-height:64px}
+.timeline div{padding:8px 10px;display:flex;flex-direction:column;justify-content:center;gap:2px;font-size:13px;border-right:1px solid var(--line)}
+.timeline div:last-child{border-right:0}
+.timeline b{font:400 17px var(--display);letter-spacing:.03em}
+.inv{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+.bar{height:10px;border-radius:99px;background:var(--panel2);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--gold)}
+.bar.people i{background:var(--sky)}
+.scroll{overflow-x:auto}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>Le Grand Pari<small>Jeu 3 · croquis des animations · nom provisoire</small></h1>
+    <nav class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-v="chevaux">🏇 Course</button>
+      <button role="tab" aria-selected="false" data-v="foot">⚽ Foot</button>
+      <button role="tab" aria-selected="false" data-v="boxe">🥊 Boxe</button>
+      <button role="tab" aria-selected="false" data-v="bourse">📈 Investissements</button>
+    </nav>
+  </header>
+
+  <div class="timeline" aria-label="Déroulé d'une partie de 45 minutes">
+    <div style="flex:10;background:var(--panel)"><span class="label">0 → 15 min</span><b>Investissements · paris ouverts</b></div>
+    <div style="flex:2;background:var(--gold-soft)"><span class="label">15 min</span><b>🏇 Course</b></div>
+    <div style="flex:10;background:var(--panel)"><span class="label">15 → 30 min</span><b>Investissements · paris</b></div>
+    <div style="flex:3;background:var(--gold-soft)"><span class="label">30 min</span><b>⚽ Foot</b></div>
+    <div style="flex:10;background:var(--panel)"><span class="label">30 → 45 min</span><b>Investissements · paris</b></div>
+    <div style="flex:3;background:var(--gold-soft)"><span class="label">45 min</span><b>🥊 Boxe</b></div>
+  </div>
+
+  <section data-p="chevaux">
+    <div class="row" style="justify-content:space-between;margin-bottom:10px">
+      <p class="note">8 chevaux, 45 secondes. Le classement en direct est à droite, le podium avec les gains s'affiche à l'arrivée.</p>
+      <div class="row"><button class="btn" data-run="chevaux">▶ Lancer la course</button><button class="btn ghost" data-speed>Vitesse ×1</button></div>
+    </div>
+    <div class="stage"><canvas id="cv-chevaux" width="1280" height="720"></canvas></div>
+  </section>
+
+  <section data-p="foot" hidden>
+    <div class="row" style="justify-content:space-between;margin-bottom:10px">
+      <p class="note">5 contre 5, 90 minutes de jeu en 2 min 30. Chaque joueur a une note d'attaque : plus elle est haute, plus il tire et marque, et plus sa cote de buteur est basse.</p>
+      <div class="row"><button class="btn" data-run="foot">▶ Lancer le match</button><button class="btn ghost" data-speed>Vitesse ×1</button></div>
+    </div>
+    <div class="stage"><canvas id="cv-foot" width="1280" height="720"></canvas></div>
+  </section>
+
+  <section data-p="boxe" hidden>
+    <div class="row" style="justify-content:space-between;margin-bottom:10px">
+      <p class="note">Tous les joueurs inscrits se battent sur un ring posé sur l'eau. Chacun a sa couleur. Celui qui tombe à l'eau est éliminé. Le ring rétrécit à la fin pour que ça se termine à temps.</p>
+      <div class="row"><label class="label" for="nb">Joueurs</label><input id="nb" type="range" min="6" max="50" value="24" style="accent-color:var(--gold)"><span class="mono" id="nbv">24</span><button class="btn" data-run="boxe">▶ Lancer le combat</button><button class="btn ghost" data-speed>Vitesse ×1</button></div>
+    </div>
+    <div class="stage"><canvas id="cv-boxe" width="1280" height="720"></canvas></div>
+  </section>
+
+  <section data-p="bourse" hidden>
+    <p class="note" style="margin-bottom:12px">Entre les sports, l'écran public affiche les investissements ouverts. Chacun doit atteindre un montant et un nombre d'investisseurs avant la fin du temps : les joueurs doivent convaincre leurs potes.</p>
+    <div class="inv">
+      <div class="card"><h3>🌮 Food-truck de tacos</h3><p>Rapporte <b style="color:var(--text)">×1,8</b> si réussi</p>
+        <div class="label">Montant · 2 400 $ / 3 000 $</div><div class="bar"><i style="width:80%"></i></div>
+        <div class="label">Investisseurs · 7 / 10</div><div class="bar people"><i style="width:70%"></i></div>
+        <p class="mono" style="color:var(--gold)">Fin dans 3:12</p></div>
+      <div class="card"><h3>🚀 Start-up de trottinettes</h3><p>Rapporte <b style="color:var(--text)">×3</b> si réussi</p>
+        <div class="label">Montant · 1 100 $ / 6 000 $</div><div class="bar"><i style="width:18%"></i></div>
+        <div class="label">Investisseurs · 3 / 15</div><div class="bar people"><i style="width:20%"></i></div>
+        <p class="mono" style="color:var(--gold)">Fin dans 7:40</p></div>
+      <div class="card" style="border-color:var(--up)"><h3>🍺 Brasserie artisanale</h3><p style="color:var(--up)">✓ Réussi : ×1,5 versé aux 8 investisseurs</p>
+        <div class="label">Montant · 2 000 $ / 2 000 $</div><div class="bar"><i style="width:100%;background:var(--up)"></i></div>
+        <div class="label">Investisseurs · 8 / 6</div><div class="bar people"><i style="width:100%;background:var(--up)"></i></div></div>
+    </div>
+  </section>
+
+  <div class="explain" id="explain"></div>
+</div>
+
+<script>
+// ---------- utilitaires ----------
+const TAU=Math.PI*2;
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+let speed=1;
+document.querySelectorAll('[data-speed]').forEach(b=>b.addEventListener('click',()=>{speed=speed===1?3:speed===3?6:1;document.querySelectorAll('[data-speed]').forEach(x=>x.textContent='Vitesse ×'+speed)}));
+function fmt(s){s=Math.max(0,Math.ceil(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
+function text(ctx,t,x,y,{size=20,font='Barlow',weight=600,color='#eef3ea',align='left',base='alphabetic'}={}){ctx.font=`${weight} ${size}px ${font}, system-ui, sans-serif`;ctx.fillStyle=color;ctx.textAlign=align;ctx.textBaseline=base;ctx.fillText(t,x,y)}
+function panel(ctx,x,y,w,h,r=12,fill='rgba(14,20,17,.86)'){ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fillStyle=fill;ctx.fill()}
+
+// Chaque animation : init() puis step(dt) + draw() ; une seule tourne à la fois.
+const anims={};
+let cur=null,last=0,raf=0;
+function run(name){cur=anims[name];cur.init();last=performance.now();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop)}
+function loop(t){const dt=Math.min(.05,(t-last)/1000)*speed;last=t;if(cur){const steps=Math.ceil(dt/0.02);for(let i=0;i<steps;i++)cur.step(dt/steps);cur.draw()}raf=requestAnimationFrame(loop)}
+
+// ================= COURSE DE CHEVAUX =================
+anims.chevaux=(()=>{
+  const cv=document.getElementById('cv-chevaux'),ctx=cv.getContext('2d');
+  const W=1280,H=720,DUR=45;
+  const X0=70,X1=900; // départ, arrivée
+  const HORSES=[['Tonnerre','#e8574a'],['Éclair','#f2c14e'],['Pégase','#eef3ea'],['Caramel','#c98a4b'],['Bijou','#b77be0'],['Comète','#6fb7ff'],['Rafale','#5fd08a'],['Mistral','#f08fc0']];
+  let S;
+  function init(){
+    S={t:0,done:false,horses:HORSES.map(([n,c],i)=>({n,c,i,x:0,v:0,base:rnd(.92,1.08),burst:rnd(.55,.85),gait:rnd(0,TAU),fin:null})),order:[],finishT:null};
+  }
+  function step(dt){
+    if(!S||S.done)return;
+    S.t+=dt;
+    const p=S.t/DUR;
+    for(const h of S.horses){
+      if(h.fin!=null)continue;
+      // vitesse de base + petites variations + sprint final à partir de `burst`
+      const surge=p>h.burst?1+.25*Math.sin(Math.min(1,(p-h.burst)*4)*Math.PI/2):1;
+      const target=h.base*surge*(1+.18*Math.sin(S.t*1.3+h.gait)+.08*Math.sin(S.t*3.7+h.i));
+      h.v+= (target-h.v)*Math.min(1,dt*2);
+      h.x+=h.v*dt/DUR;
+      h.gait+=dt*h.v*14;
+      if(h.x>=1){h.x=1;h.fin=S.t;S.order.push(h)}
+    }
+    if(S.order.length===S.horses.length){S.done=true;S.finishT=S.t}
+  }
+  function horse(x,y,c,g,n){
+    ctx.save();ctx.translate(x,y);
+    const b=Math.sin(g)*3;
+    ctx.strokeStyle='#3a2616';ctx.lineWidth=4;ctx.lineCap='round';
+    for(const [lx,ph] of [[-16,0],[-8,Math.PI],[12,Math.PI/2],[20,Math.PI*1.5]]){ctx.beginPath();ctx.moveTo(lx,6);ctx.lineTo(lx+Math.sin(g+ph)*7,22);ctx.stroke()}
+    ctx.fillStyle='#6b4226';ctx.beginPath();ctx.ellipse(0,b,26,11,0,0,TAU);ctx.fill();
+    ctx.beginPath();ctx.moveTo(18,-2+b);ctx.lineTo(34,-16+b);ctx.lineTo(42,-12+b);ctx.lineTo(28,4+b);ctx.fill();
+    ctx.strokeStyle='#2a1a0e';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-26,-2+b);ctx.quadraticCurveTo(-38,6+b,-34,14+b);ctx.stroke();
+    // jockey
+    ctx.fillStyle=c;ctx.beginPath();ctx.ellipse(2,-14+b,8,10,-.3,0,TAU);ctx.fill();
+    ctx.beginPath();ctx.arc(6,-27+b,6,0,TAU);ctx.fill();
+    ctx.fillStyle='#fff';ctx.beginPath();ctx.roundRect(-10,-4+b,16,12,3);ctx.fill();
+    text(ctx,String(n),-2,7+b,{size:11,weight:700,color:'#111',align:'center'});
+    ctx.restore();
+  }
+  function draw(){
+    // fond : herbe et piste
+    ctx.fillStyle='#1d3b24';ctx.fillRect(0,0,W,H);
+    const top=120,lane=64;
+    for(let i=0;i<8;i++){ctx.fillStyle=i%2?'#8a6a45':'#94744c';ctx.fillRect(0,top+i*lane,W,lane)}
+    ctx.fillStyle='rgba(255,255,255,.5)';for(let i=0;i<=8;i++)ctx.fillRect(0,top+i*lane-1,W,2);
+    // ligne d'arrivée en damier
+    for(let r=0;r<32;r++)for(let c=0;c<2;c++){ctx.fillStyle=(r+c)%2?'#111':'#fff';ctx.fillRect(X1+26+c*8,top+r*16,8,16)}
+    ctx.fillStyle='rgba(255,255,255,.35)';ctx.fillRect(X0+26,top,3,lane*8);
+    text(ctx,'COURSE HIPPIQUE',30,62,{size:40,font:'Anton',weight:400,color:'#f2c14e'});
+    const t=S?S.t:0;
+    text(ctx,S&&S.done?'ARRIVÉE':fmt(DUR-t),W-360,62,{size:40,font:'JetBrains Mono',weight:700,align:'right'});
+    if(S){
+      // caméra fixe : toute la piste visible
+      S.horses.forEach(h=>horse(X0+(X1-X0)*h.x,top+h.i*lane+lane/2-4,h.c,h.gait,h.i+1));
+      // classement en direct
+      const rank=[...S.horses].sort((a,b)=>(a.fin??1e9)-(b.fin??1e9)||b.x-a.x);
+      panel(ctx,W-330,100,310,H-130);
+      text(ctx,'CLASSEMENT',W-310,136,{size:14,weight:700,color:'#9db0a4'});
+      const mult=['×3','×1,5','×0,5'];
+      rank.forEach((h,i)=>{const y=172+i*62;ctx.fillStyle=h.c;ctx.beginPath();ctx.roundRect(W-310,y-20,10,40,3);ctx.fill();
+        text(ctx,(i+1)+'.',W-290,y+7,{size:22,font:'JetBrains Mono',weight:700,color:i<3?'#f2c14e':'#9db0a4'});
+        text(ctx,h.n,W-248,y+7,{size:24,weight:700});
+        if(S.done)text(ctx,i<3?mult[i]:i===7?'×0':'—',W-40,y+7,{size:20,font:'JetBrains Mono',weight:700,align:'right',color:i<3?'#5fd08a':'#ef6b5b'});});
+      if(S.done){panel(ctx,X0+120,H/2-80,560,160,16,'rgba(0,0,0,.72)');text(ctx,`${S.order[0].n} gagne !`,X0+400,H/2+10,{size:64,font:'Anton',weight:400,color:'#f2c14e',align:'center'});text(ctx,`2e ${S.order[1].n} · 3e ${S.order[2].n}`,X0+400,H/2+54,{size:24,align:'center',color:'#eef3ea'})}
+    }else text(ctx,'Clique sur « Lancer la course »',X0+400,H/2,{size:30,align:'center',color:'#eef3ea'});
+  }
+  return {init,step,draw};
+})();
+
+// ================= MATCH DE FOOT =================
+anims.foot=(()=>{
+  const cv=document.getElementById('cv-foot'),ctx=cv.getContext('2d');
+  const W=1280,H=720,DUR=150;
+  const F={x:60,y:110,w:1160,h:560}; // terrain
+  const TEAMS=[{n:'Les Canards',c:'#6fb7ff',k:'#1f4f86',p:[['Gardien',.1],['Léo',.35],['Inès',.45],['Karim',.75],['Zoé',.9]]},
+               {n:'Les Renards',c:'#f08a3c',k:'#7a3a10',p:[['Gardien',.1],['Tom',.4],['Jade',.5],['Hugo',.7],['Nora',.85]]}];
+  const FORM=[[.05,.5],[.25,.3],[.25,.7],[.45,.35],[.45,.65]];
+  let S;
+  function init(){
+    const players=[];
+    TEAMS.forEach((T,ti)=>T.p.forEach(([n,att],i)=>{const [fx,fy]=FORM[i];const x=ti?1-fx:fx;players.push({ti,i,n,att,hx:x,hy:fy,x,y:fy,vx:0,vy:0})}));
+    S={t:0,players,ball:{x:.5,y:.5,vx:0,vy:0},owner:null,score:[0,0],events:[],flash:null,kick:0,done:false};
+    kickoff(0);
+  }
+  function kickoff(ti){S.ball={x:.5,y:.5,vx:0,vy:0};S.owner=S.players.find(p=>p.ti===ti&&p.i===4);S.players.forEach(p=>{p.x=p.hx;p.y=p.hy})}
+  const goalX=ti=>ti?0:1; // but attaqué
+  function step(dt){
+    if(!S||S.done)return;
+    S.t+=dt;if(S.t>=DUR){S.done=true;return}
+    if(S.flash&&S.t-S.flash.t>2.2)S.flash=null;
+    if(S.flash)return; // pause après un but
+    const b=S.ball;
+    // déplacements : chacun vise sa position de base, décalée vers le ballon
+    for(const p of S.players){
+      let tx=p.hx+(b.x-.5)*.5,ty=p.hy+(b.y-.5)*.4;
+      if(p.i===0){tx=p.hx;ty=Math.max(.38,Math.min(.62,b.y))}
+      const chaser=nearest(p.ti);if(chaser===p&&S.owner?.ti!==p.ti){tx=b.x;ty=b.y}
+      if(S.owner===p){tx=goalX(p.ti);ty=.5+(p.hy-.5)*.4}
+      const dx=tx-p.x,dy=ty-p.y,d=Math.hypot(dx,dy)||1;
+      const sp=(S.owner===p?.09:.12)*(p.i===0?.6:1);
+      p.x+=dx/d*Math.min(d,sp*dt);p.y+=dy/d*Math.min(d,sp*dt);
+    }
+    if(S.owner){
+      const o=S.owner;b.x=o.x+(o.ti?-.012:.012);b.y=o.y;
+      // tacle d'un adversaire proche
+      for(const p of S.players)if(p.ti!==o.ti&&Math.hypot(p.x-o.x,p.y-o.y)<.035&&Math.random()<dt*2.6){S.owner=p;return}
+      const dGoal=Math.abs(goalX(o.ti)-o.x);
+      // tir : d'autant plus probable que la note d'attaque est haute
+      if(dGoal<.25&&Math.random()<dt*(.25+o.att*.6)){shoot(o);return}
+      // passe vers un coéquipier mieux placé
+      if(Math.random()<dt*.9){const m=S.players.filter(p=>p.ti===o.ti&&p!==o&&p.i>0);const q=m[Math.random()*m.length|0];const dx=q.x-b.x,dy=q.y-b.y,d=Math.hypot(dx,dy);S.owner=null;b.vx=dx/d*.55;b.vy=dy/d*.55;S.kick=o.ti}
+    }else{
+      b.x+=b.vx*dt;b.y+=b.vy*dt;b.vx*=1-dt*1.2;b.vy*=1-dt*1.2;
+      if(b.y<0||b.y>1){b.vy*=-1;b.y=Math.max(0,Math.min(1,b.y))}
+      if(b.x<0||b.x>1){b.vx*=-1;b.x=Math.max(0,Math.min(1,b.x))}
+      let near=null,nd=.02;for(const p of S.players){const d=Math.hypot(p.x-b.x,p.y-b.y);if(d<nd){nd=d;near=p}}if(near)S.owner=near;
+    }
+  }
+  function nearest(ti){let best=null,bd=9;for(const p of S.players)if(p.ti===ti&&p.i>0){const d=Math.hypot(p.x-S.ball.x,p.y-S.ball.y);if(d<bd){bd=d;best=p}}return best}
+  function shoot(o){
+    const b=S.ball;S.owner=null;
+    const keeper=S.players.find(p=>p.ti!==o.ti&&p.i===0);
+    const goal=Math.random()<.1+o.att*.25;
+    const tx=goalX(o.ti),ty=goal?rnd(.44,.56):keeper.y;
+    const dx=tx-b.x,dy=ty-b.y,d=Math.hypot(dx,dy);b.vx=dx/d*1.2;b.vy=dy/d*1.2;
+    if(goal){S.score[o.ti]++;const min=Math.round(S.t/DUR*90);S.events.push({ti:o.ti,n:o.n,min});S.flash={t:S.t,n:o.n,ti:o.ti,min};kickoffLater(1-o.ti)}
+    else{S.owner=keeper}
+  }
+  function kickoffLater(ti){const t=S.t;const chk=()=>{if(S.t-t>=2.2&&!S.flash){kickoff(ti)}else requestAnimationFrame(chk)};requestAnimationFrame(chk)}
+  function P(x,y){return[F.x+x*F.w,F.y+y*F.h]}
+  function draw(){
+    ctx.fillStyle='#0f2a17';ctx.fillRect(0,0,W,H);
+    for(let i=0;i<10;i++){ctx.fillStyle=i%2?'#2f7a3f':'#338443';ctx.fillRect(F.x+i*F.w/10,F.y,F.w/10,F.h)}
+    ctx.strokeStyle='rgba(255,255,255,.75)';ctx.lineWidth=3;ctx.strokeRect(F.x,F.y,F.w,F.h);
+    ctx.beginPath();ctx.moveTo(F.x+F.w/2,F.y);ctx.lineTo(F.x+F.w/2,F.y+F.h);ctx.stroke();
+    ctx.beginPath();ctx.arc(F.x+F.w/2,F.y+F.h/2,70,0,TAU);ctx.stroke();
+    ctx.strokeRect(F.x,F.y+F.h*.28,F.w*.12,F.h*.44);ctx.strokeRect(F.x+F.w*.88,F.y+F.h*.28,F.w*.12,F.h*.44);
+    ctx.fillStyle='rgba(255,255,255,.9)';ctx.fillRect(F.x-10,F.y+F.h*.42,10,F.h*.16);ctx.fillRect(F.x+F.w,F.y+F.h*.42,10,F.h*.16);
+    // tableau d'affichage
+    panel(ctx,W/2-300,18,600,74,14);
+    const [a,b]=TEAMS;
+    text(ctx,a.n,W/2-110,66,{size:26,weight:700,color:a.c,align:'right'});
+    text(ctx,b.n,W/2+110,66,{size:26,weight:700,color:b.c});
+    const sc=S?S.score:[0,0];
+    text(ctx,`${sc[0]} - ${sc[1]}`,W/2,68,{size:40,font:'Anton',weight:400,align:'center'});
+    text(ctx,S?(S.done?'FIN':Math.min(90,Math.floor(S.t/DUR*90))+"'"):"0'",W-40,66,{size:32,font:'JetBrains Mono',weight:700,align:'right',color:'#f2c14e'});
+    if(!S){text(ctx,'Clique sur « Lancer le match »',W/2,H/2,{size:30,align:'center'});return}
+    for(const p of S.players){const[x,y]=P(p.x,p.y);const T=TEAMS[p.ti];
+      ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.ellipse(x,y+13,13,5,0,0,TAU);ctx.fill();
+      ctx.fillStyle=p.i===0?'#eef3ea':T.c;ctx.beginPath();ctx.arc(x,y,13,0,TAU);ctx.fill();ctx.strokeStyle=T.k;ctx.lineWidth=3;ctx.stroke();
+      text(ctx,p.n,x,y-20,{size:14,weight:700,align:'center',color:'#fff'});}
+    const[bx,by]=P(S.ball.x,S.ball.y);ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(bx,by,7,0,TAU);ctx.fill();ctx.strokeStyle='#111';ctx.lineWidth=2;ctx.stroke();
+    // buteurs
+    S.events.slice(-4).forEach((e,i)=>text(ctx,`⚽ ${e.n} ${e.min}'`,e.ti?W-40:40,H-20-i*24,{size:18,weight:600,align:e.ti?'right':'left',color:TEAMS[e.ti].c}));
+    if(S.flash){panel(ctx,W/2-260,H/2-90,520,180,18,'rgba(0,0,0,.8)');text(ctx,'BUT !',W/2,H/2+5,{size:96,font:'Anton',weight:400,align:'center',color:'#f2c14e'});text(ctx,`${S.flash.n} · ${S.flash.min}'`,W/2,H/2+60,{size:30,weight:700,align:'center',color:TEAMS[S.flash.ti].c})}
+    if(S.done){panel(ctx,W/2-300,H/2-80,600,160,18,'rgba(0,0,0,.82)');const w=S.score[0]===S.score[1]?'Match nul':`${TEAMS[S.score[0]>S.score[1]?0:1].n} gagnent`;text(ctx,w,W/2,H/2+10,{size:56,font:'Anton',weight:400,align:'center',color:'#f2c14e'});text(ctx,`${S.score[0]} - ${S.score[1]}`,W/2,H/2+56,{size:28,weight:700,align:'center'})}
+  }
+  return {init,step,draw};
+})();
+
+// ================= BATTLE ROYALE DE BOXE =================
+anims.boxe=(()=>{
+  const cv=document.getElementById('cv-boxe'),ctx=cv.getContext('2d');
+  const W=1280,H=720,DUR=120;
+  const NAMES=['Charlotte','Arthur','Léo','Inès','Hugo','Maëlys','Karim','Jade','Tom','Sarah','Nico','Lina','Rayan','Zoé','Adam','Manon','Théo','Emma','Louis','Nora','Malik','Rose','Hamza','Lou','Ethan','Clara','Victor','Eva','Mehdi','Alice','Yanis','Camille','Enzo','Julie','Sami','Anaïs','Lucas','Noah','Paul','Léna','Gabin','Chloé','Oscar','Mila','Jules','Iris','Nathan','Lola','Samuel','Romy'];
+  const CX=450,CY=390;
+  let S;
+  function init(){
+    const n=Number(document.getElementById('nb').value);
+    const f=NAMES.slice(0,n).map((name,i)=>{const a=i/n*TAU,r=rnd(40,150);return{name,i,c:`hsl(${Math.round(i*360/n+ (i%2)*18)}, ${i%3===0?85:70}%, ${i%2?62:52}%)`,x:CX+Math.cos(a)*r,y:CY+Math.sin(a)*r,vx:0,vy:0,pow:rnd(.8,1.25),cd:rnd(0,1),fall:null,place:null,kos:0,punch:0,dir:0}});
+    S={t:0,f,half:230,splashes:[],done:false,out:0};
+  }
+  const alive=()=>S.f.filter(p=>!p.fall);
+  function step(dt){
+    if(!S||S.done)return;
+    S.t+=dt;
+    // le ring rétrécit dans le dernier tiers pour garantir la fin
+    const p=S.t/DUR;S.half=230*(p<.6?1:Math.max(.25,1-(p-.6)*1.9));
+    const al=alive();
+    for(const a of al){
+      // vise l'adversaire le plus proche
+      let tgt=null,bd=1e9;for(const b of al)if(b!==a){const d=(a.x-b.x)**2+(a.y-b.y)**2;if(d<bd){bd=d;tgt=b}}
+      if(tgt){const dx=tgt.x-a.x,dy=tgt.y-a.y,d=Math.hypot(dx,dy)||1;a.dir=Math.atan2(dy,dx);
+        a.vx+=dx/d*60*dt;a.vy+=dy/d*60*dt;
+        a.cd-=dt;
+        if(d<34&&a.cd<=0){a.cd=rnd(.5,1.1);a.punch=.18;const k=rnd(90,190)*a.pow;tgt.vx+=dx/d*k;tgt.vy+=dy/d*k;tgt.last=a}}
+      // un peu de hasard pour éviter les amas
+      a.vx+=rnd(-30,30)*dt;a.vy+=rnd(-30,30)*dt;
+      a.punch=Math.max(0,a.punch-dt);
+    }
+    // collisions
+    for(let i=0;i<al.length;i++)for(let j=i+1;j<al.length;j++){const a=al[i],b=al[j];const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy);if(d>0&&d<28){const o=(28-d)/2;a.x-=dx/d*o;a.y-=dy/d*o;b.x+=dx/d*o;b.y+=dy/d*o}}
+    for(const a of al){a.x+=a.vx*dt;a.y+=a.vy*dt;a.vx*=1-dt*3;a.vy*=1-dt*3;
+      if(Math.abs(a.x-CX)>S.half+6||Math.abs(a.y-CY)>S.half+6){a.place=S.f.filter(x=>!x.fall).length;a.fall=S.t;S.out++;if(a.last)a.last.kos++;S.splashes.push({x:a.x,y:a.y,t:S.t,c:a.c})}}
+    if(alive().length===1){const w=alive()[0];w.place=1;w.fall=null;S.done=true}
+  }
+  function fighter(p,alpha=1){
+    ctx.save();ctx.globalAlpha=alpha;ctx.translate(p.x,p.y);
+    ctx.fillStyle='rgba(0,0,0,.35)';ctx.beginPath();ctx.ellipse(0,12,13,5,0,0,TAU);ctx.fill();
+    ctx.fillStyle=p.c;ctx.beginPath();ctx.arc(0,0,13,0,TAU);ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,.45)';ctx.lineWidth=2;ctx.stroke();
+    const reach=p.punch>0?20:12;
+    for(const s of[-1,1]){const a=p.dir+s*.55;const r=s===1?reach:12;ctx.fillStyle='#e8453c';ctx.beginPath();ctx.arc(Math.cos(a)*r,Math.sin(a)*r,6,0,TAU);ctx.fill()}
+    ctx.restore();
+  }
+  function draw(){
+    // eau
+    const t=S?S.t:performance.now()/1000;
+    ctx.fillStyle='#0b3a5c';ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle='rgba(255,255,255,.08)';ctx.lineWidth=2;
+    for(let y=20;y<H;y+=36){ctx.beginPath();for(let x=0;x<=900;x+=20)ctx.lineTo(x,y+Math.sin(x/60+t*1.6+y)*5);ctx.stroke()}
+    text(ctx,'BATTLE ROYALE',30,60,{size:40,font:'Anton',weight:400,color:'#f2c14e'});
+    if(!S){text(ctx,'Clique sur « Lancer le combat »',CX,CY,{size:28,align:'center'});return}
+    text(ctx,S.done?'TERMINÉ':fmt(DUR-S.t),860,60,{size:36,font:'JetBrains Mono',weight:700,align:'right'});
+    // ring
+    const h=S.half;
+    ctx.fillStyle='#5a3b22';ctx.fillRect(CX-h-8,CY-h+8,2*h+16,2*h+16);
+    ctx.fillStyle='#d9c8a3';ctx.fillRect(CX-h,CY-h,2*h,2*h);
+    ctx.strokeStyle='#c0392b';ctx.lineWidth=6;ctx.strokeRect(CX-h,CY-h,2*h,2*h);
+    ctx.strokeStyle='rgba(0,0,0,.12)';ctx.lineWidth=1;for(let i=-h;i<h;i+=40){ctx.beginPath();ctx.moveTo(CX+i,CY-h);ctx.lineTo(CX+i,CY+h);ctx.stroke()}
+    // éclaboussures
+    for(const s of S.splashes){const age=S.t-s.t;if(age>1.4)continue;ctx.strokeStyle=`rgba(255,255,255,${1-age/1.4})`;ctx.lineWidth=3;for(const k of[1,1.6]){ctx.beginPath();ctx.arc(s.x,s.y,age*40*k,0,TAU);ctx.stroke()}fighter({...s,dir:0,punch:0,c:s.c,x:s.x,y:s.y+age*10},Math.max(0,1-age*1.2))}
+    alive().forEach(p=>fighter(p));
+    // classement
+    const list=[...S.f].sort((a,b)=>(a.place??0)-(b.place??0)||(b.kos-a.kos));
+    const alv=list.filter(p=>!p.place||p.place===1&&S.done);
+    const out=[...S.f].filter(p=>p.place&&!(p.place===1)).sort((a,b)=>a.place-b.place);
+    panel(ctx,910,20,350,H-40);
+    text(ctx,`EN LICE · ${alive().length}`,930,54,{size:14,weight:700,color:'#9db0a4'});
+    const rows=[...alive().sort((a,b)=>b.kos-a.kos),...out];
+    const maxRows=Math.floor((H-100)/22);
+    const cols=rows.length>maxRows?2:1;const per=Math.ceil(rows.length/cols);const colW=cols===2?168:330;
+    rows.forEach((p,k)=>{const col=Math.floor(k/per),r=k%per;const x=930+col*colW,y=80+r*22;
+      ctx.globalAlpha=p.fall?.45:1;ctx.fillStyle=p.c;ctx.beginPath();ctx.roundRect(x,y-11,12,14,3);ctx.fill();
+      text(ctx,p.name,x+18,y+1,{size:15,weight:p.fall?500:700});
+      text(ctx,p.fall?`${p.place}e`:(p.kos?`${p.kos} KO`:''),x+colW-18,y+1,{size:13,font:'JetBrains Mono',weight:700,align:'right',color:p.fall?'#9db0a4':'#f2c14e'});ctx.globalAlpha=1});
+    if(S.done){const w=S.f.find(p=>p.place===1);panel(ctx,CX-300,CY-70,600,140,18,'rgba(0,0,0,.8)');ctx.fillStyle=w.c;ctx.beginPath();ctx.arc(CX-230,CY,26,0,TAU);ctx.fill();text(ctx,`${w.name} gagne !`,CX+30,CY+20,{size:56,font:'Anton',weight:400,align:'center',color:'#f2c14e'})}
+  }
+  return {init,step,draw};
+})();
+
+// ---------- explications par onglet ----------
+const EXPLAIN={
+  chevaux:[['Paris','<ul><li>On parie sur <b>un cheval</b> et une mise.</li><li>1er ×3 · 2e ×1,5 · 3e ×0,5 · autres ×0.</li></ul>'],
+    ['Résultat','<p>Le résultat est tiré par le serveur au départ, puis rejoué en animation : tous les écrans voient la même course.</p>'],
+    ['Question','<p>8 chevaux, ça te va ? Et les cotes sont les mêmes pour tous les chevaux, ou certains sont favoris ?</p>']],
+  foot:[['Paris','<ul><li>Équipe gagnante : ×2.</li><li>Buteur : cote selon la note d\'attaque (ex. Zoé ×2,2, Léo ×6).</li><li>Nombre de buts : cote selon la probabilité (ex. 3 buts ×3,5).</li></ul>'],
+    ['Cotes','<p>Le serveur simule le match des milliers de fois à l\'avance pour calculer les vraies probabilités, puis donne des cotes justes (un peu à l\'avantage de la banque).</p>'],
+    ['Questions','<p>Et en cas de match nul ? (mises perdues, remboursées, ou pari « nul » possible). Équipes et joueurs inventés, ou avec des prénoms d\'invités ?</p>']],
+  boxe:[['Combattants','<p>Tous les joueurs de la partie, chacun avec sa couleur, rappelée sur son téléphone. Le classement à droite reprend la couleur et le prénom.</p>'],
+    ['Paris','<p>Gain selon la place du combattant choisi, proportionnel au nombre de joueurs. Exemple à 24 : 1er ×8, top 3 ×3, top 25 % ×1,5, top 50 % remboursé, sinon perdu.</p>'],
+    ['Question','<p>Durée du combat : 2 minutes, ça te va ? On peut parier sur soi-même ?</p>']],
+  bourse:[['Règle','<p>Montant et nombre d\'investisseurs proportionnels aux joueurs (ex. 20 joueurs : 3 000 $ et 10 investisseurs).</p>'],
+    ['Questions','<p>Si l\'investissement échoue : argent rendu, ou perdu ? Combien d\'investissements en même temps, et à quel rythme ils apparaissent ?</p>'],
+    ['Argent de départ','<p>Chaque joueur commence avec combien ? (ex. 1 000 $)</p>']],
+};
+function showExplain(k){document.getElementById('explain').innerHTML=EXPLAIN[k].map(([h,b])=>`<div class="card"><h3>${h}</h3>${b}</div>`).join('')}
+
+// onglets
+const tabs=document.querySelectorAll('.tabs button');
+tabs.forEach(b=>b.addEventListener('click',()=>{tabs.forEach(x=>x.setAttribute('aria-selected',x===b));document.querySelectorAll('[data-p]').forEach(p=>p.hidden=p.dataset.p!==b.dataset.v);showExplain(b.dataset.v);
+  if(anims[b.dataset.v]){cur=anims[b.dataset.v];cur.draw()}}));
+document.querySelectorAll('[data-run]').forEach(b=>b.addEventListener('click',()=>run(b.dataset.run)));
+document.getElementById('nb').addEventListener('input',e=>document.getElementById('nbv').textContent=e.target.value);
+showExplain('chevaux');
+// état de départ : chaque animation est dessinée une fois, la course démarre toute seule
+Object.values(anims).forEach(a=>a.draw());
+if(!reduce)run('chevaux');
+</script>
