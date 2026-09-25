@@ -7,7 +7,8 @@
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "repetition": "node scripts/repetition.js"
   },
   "engines": {
     "node": ">=18"
@@ -17,5 +18,8 @@
     "morphdom": "^2.7.8",
     "qrcode": "^1.5.4",
     "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.8.4"
   }
 }

@@ -1,0 +1,14 @@
+# Déploiement sur Render (https://render.com) : New → Blueprint → choisir ce dépôt.
+services:
+  - type: web
+    name: soiree-jeux
+    runtime: node
+    plan: free
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
+    healthCheckPath: /jouer
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: ADMIN_PASSWORD
+        sync: false

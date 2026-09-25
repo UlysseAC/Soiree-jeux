@@ -53,6 +53,25 @@ Tout est sauvegardé dans `data/soiree.json` : si l'ordi redémarre, la partie r
 - **Pare-feu Linux** : si les téléphones n'arrivent pas à se connecter, `sudo ufw allow 3000`.
 - Désactive la **mise en veille** de l'ordi pendant la soirée.
 
+## Mettre en ligne (Render, gratuit)
+
+Pour jouer depuis n'importe où (4G, Wi-Fi différents), sans ordi allumé :
+
+1. Crée un compte sur https://render.com (bouton « Sign in with GitHub »).
+2. **New → Blueprint**, choisis le dépôt `Soiree-jeux` et la branche à déployer. Render lit `render.yaml`.
+3. Render demande **ADMIN_PASSWORD** : choisis le mot de passe de l'admin (il n'y a pas de mot de passe par défaut en ligne).
+4. Clique sur **Apply**. Après 2-3 minutes, l'adresse s'affiche, par exemple `https://soiree-jeux.onrender.com`.
+   - Admin : `…/admin` · Écran public : `…/ecran` · Joueurs : `…/jouer` (le QR code de l'écran pointe déjà dessus).
+
+À savoir avec l'offre gratuite :
+- Le serveur **s'endort après 15 minutes sans visite** : la première ouverture prend environ une minute. Ouvre l'admin un peu avant la soirée.
+- La sauvegarde n'est **pas conservée** quand le serveur redémarre ou est mis à jour : les réglages faits dans l'admin sont perdus. Pour la vraie soirée, garde l'ordi (plus fiable) ou note tes réglages.
+- Chaque `git push` sur la branche déployée met le site à jour automatiquement.
+
+## Répétition générale
+
+`npm run repetition` lance le serveur et joue une soirée complète (les 3 jeux puis le grand final) avec 20 faux joueurs, et affiche un bilan. `npm run repetition -- 45` pour 45 joueurs.
+
 ## Déroulé d'un jeu
 
 1. Dans l'admin, onglet **Soirée** : choisis le jeu, règle le décompte (45 min) et l'ouverture des inscriptions (15 min avant), puis **Démarrer le décompte**.

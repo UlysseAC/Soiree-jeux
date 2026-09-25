@@ -13,7 +13,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DATA = process.env.DATA_DIR || join(ROOT, 'data');
 const FILE = join(DATA, 'soiree.json');
 const PORT = Number(process.env.PORT) || 3000;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'soiree';
+// En ligne, pas de mot de passe par défaut : s'il manque, on en tire un au hasard (visible dans les logs).
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || (process.env.RENDER ? Math.random().toString(36).slice(2, 10) : 'soiree');
 
 // ---------- persistance ----------
 mkdirSync(DATA, { recursive: true });
@@ -38,7 +39,8 @@ function lanAddress() {
   }
   return 'localhost';
 }
-const PUBLIC_URL = (process.env.PUBLIC_URL || `http://${lanAddress()}:${PORT}`).replace(/\/$/, '');
+// En ligne (Render), l'adresse publique est fournie par l'hébergeur ; sinon, l'adresse de l'ordi sur le Wi-Fi.
+const PUBLIC_URL = (process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || `http://${lanAddress()}:${PORT}`).replace(/\/$/, '');
 const JOIN_URL = `${PUBLIC_URL}/jouer`;
 const qr = await QRCode.toDataURL(JOIN_URL, { margin: 1, width: 360, color: { dark: '#17110c', light: '#f0e3c8' } });
 
@@ -122,6 +124,6 @@ http.listen(PORT, '0.0.0.0', () => {
   console.log('\n  🎲 Soirée jeux prête !\n');
   console.log(`  Téléphones (QR code sur l'écran) : ${JOIN_URL}`);
   console.log(`  Écran public : ${PUBLIC_URL}/ecran`);
-  console.log(`  Admin        : ${PUBLIC_URL}/admin   (mot de passe : ${ADMIN_PASSWORD === 'soiree' ? 'soiree, change-le avec ADMIN_PASSWORD' : 'celui de ADMIN_PASSWORD'})`);
+  console.log(`  Admin        : ${PUBLIC_URL}/admin   (mot de passe : ${process.env.ADMIN_PASSWORD ? 'celui de ADMIN_PASSWORD' : ADMIN_PASSWORD})`);
   console.log(`  Orga         : ${PUBLIC_URL}/orga\n`);
 });
