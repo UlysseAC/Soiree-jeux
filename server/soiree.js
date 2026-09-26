@@ -162,6 +162,12 @@ export class Soiree {
       case 'afficherClassement':
         this.s.show = ['classement', 'final'].includes(a.mode) ? a.mode : null;
         return { ok: true };
+      case 'importerReglages': {
+        const c = a.config;
+        if (!c || typeof c !== 'object' || !c.games) return { ok: false, msg: 'Fichier de réglages invalide.' };
+        this.s.config = restore({ config: c }).config;
+        return { ok: true, msg: 'Réglages importés.' };
+      }
       case 'reinitialiserSoiree':
         this.s.history = [];
         this.s.bonus = {};
@@ -313,6 +319,7 @@ export class Soiree {
       ...this.common(),
       config: { decompte: this.s.config.decompte, inscriptions: this.s.config.inscriptions, orgaCode: this.s.config.orgaCode, classement: this.s.config.classement, nomsJeux: this.s.config.nomsJeux },
       show: this.s.show,
+      fullConfig: this.s.config,
       classement: this.classement(),
       people: Object.values(this.s.people).map(p => ({ pid: p.id, name: p.name })).sort((a, b) => a.name.localeCompare(b.name, 'fr')),
       gameConfig: this.gameCfg(),

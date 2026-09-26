@@ -93,6 +93,10 @@ function soiree() {
         <div>🛡 Orga safe zone : <a href="/orga" target="_blank" class="mono">${location.origin}/orga</a></div>
       </div>
       <div class="grid-auto">${cfgInput('orgaCode', V.config.orgaCode, 'text', { scope: 'soiree', label: 'Code orga' })}</div>
+      <h2 style="margin-top:8px">Sauvegarde des réglages</h2>
+      <p class="muted" style="margin:0;font-size:14px">Tous les réglages (noms, indices, codes, armes, durées, primes, points) dans un fichier, pour les garder ou les remettre sur un autre serveur.</p>
+      <div class="row"><button class="btn" data-act="exporter">⬇ Exporter les réglages</button>
+        <label class="btn" style="cursor:pointer">⬆ Importer un fichier<input type="file" id="import-file" accept="application/json,.json" hidden></label></div>
       <h2 style="margin-top:8px">Noms des jeux</h2>
       <p class="muted" style="margin:0;font-size:14px">Affichés partout : écran public, téléphones, classement. Laisse vide pour revenir au nom d'origine.</p>
       <div class="grid-auto">${V.games.map((g, i) => cfgInput(`nomsJeux.${g.id}`, V.config.nomsJeux?.[g.id] ?? g.name, 'text', { scope: 'soiree', label: { chemin: 'Jeu de la chaîne et des détectives', duel: 'Jeu des cowboys', grandpari: 'Jeu des paris sportifs' }[g.id] || `Jeu ${i + 1}` })).join('')}</div>
@@ -371,6 +375,15 @@ app.addEventListener('click', e => {
     return admin({ type: 'bonus', pid, delta });
   }
   if (a === 'afficherClassement') return admin({ type: 'afficherClassement', mode: t.dataset.mode });
+  if (a === 'exporter') {
+    const blob = new Blob([JSON.stringify(V.fullConfig, null, 2)], { type: 'application/json' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `reglages-soiree-${new Date().toISOString().slice(0, 10)}.json`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(link.href), 5000);
+    return SJ.toast({ ok: true, msg: 'Réglages exportés.' });
+  }
   if (a) return admin({ type: a });
   const j = t.dataset.jeu;
   const action = { type: j, pid: t.dataset.pid, team: t.dataset.team, duel: t.dataset.duel, winner: t.dataset.winner, sec: t.dataset.sec };
@@ -379,6 +392,16 @@ app.addEventListener('click', e => {
     if (!action.remplacant) return SJ.toast({ ok: false, msg: 'Choisis un remplaçant.' });
   }
   jeu(action).then(r => { if (r.ok && (j === 'remplacer' || j === 'sauter')) { ui.parti = null; draw(); } });
+});
+
+// Import d'un fichier de réglages.
+app.addEventListener('change', async e => {
+  if (e.target.id !== 'import-file' || !e.target.files[0]) return;
+  try {
+    const config = JSON.parse(await e.target.files[0].text());
+    await admin({ type: 'importerReglages', config });
+  } catch { SJ.toast({ ok: false, msg: 'Ce fichier n\'est pas un fichier de réglages.' }); }
+  e.target.value = '';
 });
 
 // Dossards du duel : enregistrés en quittant le champ.

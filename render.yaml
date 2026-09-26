@@ -12,3 +12,8 @@ services:
         value: "22"
       - key: ADMIN_PASSWORD
         sync: false
+      # Sauvegarde en ligne (facultatif mais conseillé) : base Upstash Redis gratuite
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false

@@ -2,35 +2,23 @@
 import express from 'express';
 import { createServer } from 'node:http';
 import { networkInterfaces } from 'node:os';
-import { readFileSync, writeFileSync, mkdirSync, renameSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { Server } from 'socket.io';
 import QRCode from 'qrcode';
 import { Soiree, restore } from './soiree.js';
+import { makeStorage } from './stockage.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DATA = process.env.DATA_DIR || join(ROOT, 'data');
-const FILE = join(DATA, 'soiree.json');
 const PORT = Number(process.env.PORT) || 3000;
 // En ligne, pas de mot de passe par défaut : s'il manque, on en tire un au hasard (visible dans les logs).
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || (process.env.RENDER ? Math.random().toString(36).slice(2, 10) : 'soiree');
 
 // ---------- persistance ----------
-mkdirSync(DATA, { recursive: true });
-let saved = null;
-if (existsSync(FILE)) {
-  try { saved = JSON.parse(readFileSync(FILE, 'utf8')); } catch (e) { console.error('Sauvegarde illisible, on repart de zéro :', e.message); }
-}
-let saveTimer = null;
-function save() {
-  if (saveTimer) return;
-  saveTimer = setTimeout(() => {
-    saveTimer = null;
-    writeFileSync(FILE + '.tmp', JSON.stringify(soiree.s));
-    renameSync(FILE + '.tmp', FILE);
-  }, 500);
-}
+const storage = makeStorage(DATA);
+const saved = await storage.load();
+const save = () => storage.save(() => soiree.s);
 
 // ---------- adresse pour les téléphones ----------
 function lanAddress() {
@@ -126,4 +114,5 @@ http.listen(PORT, '0.0.0.0', () => {
   console.log(`  Écran public : ${PUBLIC_URL}/ecran`);
   console.log(`  Admin        : ${PUBLIC_URL}/admin   (mot de passe : ${process.env.ADMIN_PASSWORD ? 'celui de ADMIN_PASSWORD' : ADMIN_PASSWORD})`);
   console.log(`  Orga         : ${PUBLIC_URL}/orga\n`);
+  console.log(storage.remote ? '  Sauvegarde : fichier local + en ligne (Upstash)\n' : '  Sauvegarde : fichier local (data/soiree.json)\n');
 });

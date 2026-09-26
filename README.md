@@ -65,8 +65,20 @@ Pour jouer depuis n'importe où (4G, Wi-Fi différents), sans ordi allumé :
 
 À savoir avec l'offre gratuite :
 - Le serveur **s'endort après 15 minutes sans visite** : la première ouverture prend environ une minute. Ouvre l'admin un peu avant la soirée.
-- La sauvegarde n'est **pas conservée** quand le serveur redémarre ou est mis à jour : les réglages faits dans l'admin sont perdus. Pour la vraie soirée, garde l'ordi (plus fiable) ou note tes réglages.
+- Son disque est **effacé à chaque redémarrage** (réveil, mise à jour). Pour garder les réglages, active la sauvegarde en ligne ci-dessous.
 - Chaque `git push` sur la branche déployée met le site à jour automatiquement.
+
+### Garder les réglages en ligne (Upstash, gratuit)
+
+1. Crée un compte sur https://upstash.com et une base **Redis** (offre gratuite, région Europe).
+2. Dans la base, section **REST API**, copie `UPSTASH_REDIS_REST_URL` et `UPSTASH_REDIS_REST_TOKEN`.
+3. Sur Render : ton service → **Environment** → ajoute ces deux variables → **Save**. Le serveur redémarre.
+
+Au démarrage, le serveur indique « Sauvegarde : fichier local + en ligne (Upstash) ». Réglages, joueurs et classement sont alors conservés même quand Render redémarre.
+
+### Exporter / importer les réglages
+
+Dans l'admin, onglet **Soirée** : **Exporter les réglages** télécharge un fichier avec tous les réglages (noms, indices, codes, armes, durées, primes, points). **Importer un fichier** les remet, par exemple pour passer du serveur en ligne à ton ordi le jour J.
 
 ## Répétition générale
 
