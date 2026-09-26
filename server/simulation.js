@@ -133,7 +133,8 @@ export class Simulation {
     this.admin({ type: 'choisirJeu', gameId: id });
     await this.setup(id);
     // Décompte court : on voit le QR code et la liste des inscrits se remplir.
-    this.cfg('decompte', 75); this.cfg('inscriptions', 70);
+    this.admin({ type: 'config', scope: 'soiree', path: 'decompte', value: 75 });
+    this.admin({ type: 'config', scope: 'soiree', path: 'inscriptions', value: 75 });
     this.admin({ type: 'demarrer' });
     const skip = new Set(id === 'chemin' ? this.bots.slice(-3) : id === 'grandpari' ? this.bots.slice(0, 2) : []);
     let num = 10;
