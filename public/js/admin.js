@@ -52,14 +52,31 @@ function cfgInput(path, value, kind = 'text', { scope = 'jeu', label, width, ph 
   return label ? `<label class="field"><span class="label">${esc(label)}</span>${input}</label>` : input;
 }
 
-app.addEventListener('change', e => {
-  const el = e.target;
-  if (!el.dataset.cfg) return;
+// Enregistrement d'un réglage : en quittant le champ, et pour les textes déjà pendant la frappe.
+const typing = new Map();
+async function saveCfg(el) {
+  clearTimeout(typing.get(el)?.t);
+  typing.delete(el);
   let value = el.type === 'checkbox' ? el.checked : el.value;
   if (el.dataset.kind === 'dur') { value = parseDur(value); if (value == null) return SJ.toast({ ok: false, msg: 'Durée au format minutes:secondes, ex. 4:30' }); }
   if (el.dataset.kind === 'num') value = Number(String(value).replace(',', '.'));
-  admin({ type: 'config', scope: el.dataset.scope === 'soiree' ? 'soiree' : 'jeu', path: el.dataset.cfg, value });
+  const r = await admin({ type: 'config', scope: el.dataset.scope === 'soiree' ? 'soiree' : 'jeu', path: el.dataset.cfg, value });
+  const cur = document.getElementById(el.id) || el;
+  cur.classList.remove('saving');
+  if (r.ok) { cur.classList.add('saved'); setTimeout(() => cur.classList.remove('saved'), 1500); }
+}
+app.addEventListener('change', e => { if (e.target.dataset.cfg) saveCfg(e.target); });
+app.addEventListener('input', e => {
+  const el = e.target;
+  if (!el.dataset.cfg || !['text', 'area'].includes(el.dataset.kind)) return;
+  el.classList.add('saving');
+  clearTimeout(typing.get(el)?.t);
+  typing.set(el, { t: setTimeout(() => saveCfg(el), 700) });
 });
+// Page fermée ou téléphone verrouillé en pleine frappe : on enregistre tout de suite.
+const flushCfg = () => { for (const el of [...typing.keys()]) saveCfg(el); };
+addEventListener('pagehide', flushCfg);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushCfg(); });
 
 // ---------- onglet Soirée ----------
 function soiree() {
@@ -272,7 +289,7 @@ function reglagesChemin(c) {
   const cles = TT => c.cles[TT].map((k, i) => `<tr><td class="mono">${TT}${i + 1}</td><td>${cfgInput(`cles.${TT}.${i}.code`, k.code, 'text', { width: '90px' })}</td><td>${cfgInput(`cles.${TT}.${i}.lieu`, k.lieu, 'text', { ph: 'ex. dans la théière' })}</td></tr>`).join('');
   return `<div class="box">
       <div class="spread"><h2>Étapes</h2><div class="row"><button class="btn sm ${T === 'A' ? 'primary' : ''}" data-team-tab="A">Équipe A</button><button class="btn sm ${T === 'B' ? 'primary' : ''}" data-team-tab="B">Équipe B</button></div></div>
-      <p class="muted" style="margin:0;font-size:14px">Numéro vide = tiré au hasard (4 chiffres). Indice bonus : le joueur bloqué peut le voir, mais le joueur suivant attend la pénalité avant de voir son indice. Avec moins de joueurs, les étapes jouées sont 1, 2, 3… puis la 15. Les réglages sont enregistrés dès que tu quittes un champ.</p>
+      <p class="muted" style="margin:0;font-size:14px">Numéro vide = tiré au hasard (4 chiffres). Indice bonus : le joueur bloqué peut le voir, mais le joueur suivant attend la pénalité avant de voir son indice. Avec moins de joueurs, les étapes jouées sont 1, 2, 3… puis la 15. Les textes sont enregistrés pendant que tu écris (cadre vert = enregistré).</p>
       <div class="scroll"><table><thead><tr><th>Étape</th><th>Numéro reçu</th><th>Indice affiché</th><th>Indice bonus</th><th>Code physique</th><th>Longue</th></tr></thead><tbody>${rows}${finalRow}</tbody></table></div>
     </div>
     <div class="grid-auto" style="grid-template-columns:repeat(auto-fit,minmax(340px,1fr))">

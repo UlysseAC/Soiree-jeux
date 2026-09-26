@@ -62,6 +62,8 @@ button { cursor: pointer; }
 
 input.in, textarea.in, select.in { background: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; width: 100%; }
 textarea.in { resize: vertical; min-height: 60px; }
+.in.saving { border-color: var(--accent); }
+.in.saved { border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok); }
 .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 
 /* ---------- toast ---------- */
