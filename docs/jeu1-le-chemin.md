@@ -39,9 +39,10 @@ Détails :
 - **L'étape 15 est toujours la dernière et commune aux deux équipes** (même indice, même code). Avec N randoms : étapes 1 → N−1, puis 15.
 - Le code de l'étape 15 n'est accepté que sur le téléphone du dernier joueur, une fois qu'il a reçu son numéro : toutes les étapes d'avant doivent être validées.
 - **Épreuve longue** (case à cocher par étape) : le joueur voit « Tu peux te mettre en safe zone : va voir l'orga dans la cuisine ».
+- **Indice bonus** (texte par étape, facultatif) : un joueur bloqué peut l'afficher (bouton « 💡 Bloqué ? », avec confirmation). Pénalité : le joueur à qui il donne ensuite le numéro attend **1 min** (réglable) avant de voir son indice ; le code n'est pas accepté pendant ce temps. Pas de pénalité à la dernière étape. L'écran affiche « 💡 L'équipe A utilise un indice bonus », l'admin voit 💡 sur l'étape.
 - **Durée max de partie** (réglable) : à la fin, l'équipe la plus avancée gagne ; à égalité, celle qui a atteint son étape en premier.
 
-Configuration admin, par équipe et par étape : numéro reçu, indice (texte libre), code physique, épreuve longue. Boutons : générer les numéros vides au hasard, copier depuis l'autre équipe, enregistrer.
+Configuration admin, par équipe et par étape : numéro reçu, indice (texte libre), indice bonus, code physique, épreuve longue. Boutons : générer les numéros vides au hasard, copier depuis l'autre équipe, enregistrer.
 
 ## Détectives et armes
 

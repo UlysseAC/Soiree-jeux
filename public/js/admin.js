@@ -138,7 +138,7 @@ function partieChemin(g) {
       <div class="spread"><span class="pill ${T.toLowerCase()}">Équipe ${T}</span><span class="label">${t.progress} / ${t.total} étapes${t.skipped ? ` · ${t.skipped} sautée(s)` : ''}</span></div>
       ${t.protectUntil ? `<span class="pill safe">🦺 Gilet <span class="mono" data-until="${t.protectUntil}"></span></span>` : ''}
       <div class="scroll"><table><thead><tr><th>Étape</th><th>Joueur</th><th>Numéro</th><th>État</th></tr></thead><tbody>
-      ${t.chain.map(c => `<tr><td class="mono">${c.step}</td><td>${nm(c.name)}</td><td class="mono">${c.numero ?? '—'}</td><td>${c.state === 'faite' ? '<span class="pill ok">✓</span>' : c.state ? `<span class="pill accent">${c.state}</span>` : ''}</td></tr>`).join('')}
+      ${t.chain.map(c => `<tr><td class="mono">${c.step}</td><td>${nm(c.name)}</td><td class="mono">${c.numero ?? '—'}</td><td>${c.state === 'faite' ? '<span class="pill ok">✓</span>' : c.state ? `<span class="pill accent">${c.state}</span>` : ''}${c.aide ? ' <span title="Indice bonus utilisé">💡</span>' : ''}</td></tr>`).join('')}
       </tbody></table></div>
       <div><span class="label">Détectives</span><p style="margin:4px 0 0">${t.detectives.map(d => `${nm(d.name)} ${d.inv}`).join(' · ') || '—'}</p></div>
       <button class="btn sm" data-jeu="validerEtape" data-team="${T}" data-confirm="Valider l'étape en cours de l'équipe ${T} ?">Débloquer l'étape en cours</button>
@@ -260,19 +260,20 @@ function reglagesChemin(c) {
   const rows = c.teams[T].steps.map((s, i) => `<tr><td class="mono">${i + 1}</td>
     <td>${i === 0 ? '<span class="muted">départ</span>' : cfgInput(`teams.${T}.steps.${i}.numero`, s.numero, 'text', { width: '80px', ph: 'auto' })}</td>
     <td>${cfgInput(`teams.${T}.steps.${i}.indice`, s.indice, 'area')}</td>
+    <td>${cfgInput(`teams.${T}.steps.${i}.aide`, s.aide, 'area', { ph: 'vide = pas d\'indice bonus' })}</td>
     <td>${cfgInput(`teams.${T}.steps.${i}.code`, s.code, 'text', { width: '90px' })}</td>
     <td>${cfgInput(`teams.${T}.steps.${i}.longue`, s.longue, 'bool')}</td></tr>`).join('');
   const finalRow = `<tr style="background:var(--accent-soft)"><td class="mono">15<br><span class="pill accent" style="margin-top:4px">commune</span></td>
     <td>${cfgInput(`teams.${T}.finalNumero`, c.teams[T].finalNumero, 'text', { width: '80px', ph: 'auto' })}</td>
-    <td>${cfgInput('final.indice', c.final.indice, 'area')}</td><td>${cfgInput('final.code', c.final.code, 'text', { width: '90px' })}</td><td>${cfgInput('final.longue', c.final.longue, 'bool')}</td></tr>`;
+    <td>${cfgInput('final.indice', c.final.indice, 'area')}</td><td>${cfgInput('final.aide', c.final.aide, 'area', { ph: 'vide = pas d\'indice bonus' })}</td><td>${cfgInput('final.code', c.final.code, 'text', { width: '90px' })}</td><td>${cfgInput('final.longue', c.final.longue, 'bool')}</td></tr>`;
   const arme = (k, label, d, r) => `<tr><td>${label}</td><td>${cfgInput(`armes.${k}.code`, c.armes[k].code, 'text', { width: '90px' })}</td>
     <td>${d ? cfgInput(`armes.${k}.duree`, c.armes[k].duree, 'dur', { width: '80px' }) : '<span class="muted">—</span>'}</td>
     <td>${r ? cfgInput(`armes.${k}.recharge`, c.armes[k].recharge, 'dur', { width: '80px' }) : '<span class="muted">—</span>'}</td></tr>`;
   const cles = TT => c.cles[TT].map((k, i) => `<tr><td class="mono">${TT}${i + 1}</td><td>${cfgInput(`cles.${TT}.${i}.code`, k.code, 'text', { width: '90px' })}</td><td>${cfgInput(`cles.${TT}.${i}.lieu`, k.lieu, 'text', { ph: 'ex. dans la théière' })}</td></tr>`).join('');
   return `<div class="box">
       <div class="spread"><h2>Étapes</h2><div class="row"><button class="btn sm ${T === 'A' ? 'primary' : ''}" data-team-tab="A">Équipe A</button><button class="btn sm ${T === 'B' ? 'primary' : ''}" data-team-tab="B">Équipe B</button></div></div>
-      <p class="muted" style="margin:0;font-size:14px">Numéro vide = tiré au hasard (4 chiffres). Avec moins de joueurs, les étapes jouées sont 1, 2, 3… puis la 15. Les réglages sont enregistrés dès que tu quittes un champ.</p>
-      <div class="scroll"><table><thead><tr><th>Étape</th><th>Numéro reçu</th><th>Indice affiché</th><th>Code physique</th><th>Longue</th></tr></thead><tbody>${rows}${finalRow}</tbody></table></div>
+      <p class="muted" style="margin:0;font-size:14px">Numéro vide = tiré au hasard (4 chiffres). Indice bonus : le joueur bloqué peut le voir, mais le joueur suivant attend la pénalité avant de voir son indice. Avec moins de joueurs, les étapes jouées sont 1, 2, 3… puis la 15. Les réglages sont enregistrés dès que tu quittes un champ.</p>
+      <div class="scroll"><table><thead><tr><th>Étape</th><th>Numéro reçu</th><th>Indice affiché</th><th>Indice bonus</th><th>Code physique</th><th>Longue</th></tr></thead><tbody>${rows}${finalRow}</tbody></table></div>
     </div>
     <div class="grid-auto" style="grid-template-columns:repeat(auto-fit,minmax(340px,1fr))">
       <div class="box"><h2>Armes</h2><div class="scroll"><table><thead><tr><th>Arme</th><th>Code</th><th>Durée effet</th><th>Recharge</th></tr></thead><tbody>
@@ -292,6 +293,7 @@ function reglagesChemin(c) {
       ${cfgInput('safeZone.lieu', c.safeZone.lieu, 'text', { label: 'Safe zone : lieu' })}
       ${cfgInput('erreursNumero', c.erreursNumero, 'num', { label: 'Erreurs de numéro avant blocage' })}
       ${cfgInput('blocageErreurs', c.blocageErreurs, 'dur', { label: 'Blocage après erreurs' })}
+      ${cfgInput('penaliteIndice', c.penaliteIndice, 'dur', { label: 'Pénalité indice bonus (joueur suivant)' })}
     </div></div>`;
 }
 

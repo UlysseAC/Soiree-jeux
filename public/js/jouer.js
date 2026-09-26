@@ -38,7 +38,8 @@ function buzz(a, b) {
   if (!g1) return;
   if (!g0?.duel && g1.duel) navigator.vibrate?.([80, 60, 80]);
   if (!g0?.block && g1.block) navigator.vibrate?.(400);
-  if (g0?.random?.stage !== 'hint' && g1.random?.stage === 'hint') navigator.vibrate?.(150);
+  if (g0?.random?.stage !== 'hint' && g1.random?.stage === 'hint') { navigator.vibrate?.(150); ui.aideConfirm = false; }
+  if (g0?.random?.attente && g1.random?.stage === 'hint' && !g1.random.attente) navigator.vibrate?.(150);
 }
 
 // ---------- pavé numérique ----------
@@ -146,13 +147,27 @@ function chemin(g) {
 
 function randomPart(g) {
   const r = g.random;
+  const label = `<span class="label">Étape ${r.step === 15 ? r.total : r.step} / ${r.total}${r.step === 15 ? ' · dernière étape' : ''}</span>`;
+  if (r.stage === 'hint' && r.attente) {
+    return `<div class="card danger">${label}<p style="font-size:18px"><strong>⏳ Pénalité</strong> : ton coéquipier a utilisé l'indice bonus.</p><p>Ton indice arrive dans <span class="mono" style="font-size:26px" data-until="${r.attente}"></span></p></div>`;
+  }
   if (r.stage === 'hint') {
-    return `<div class="card accent"><span class="label">Étape ${r.step === 15 ? r.total : r.step} / ${r.total}${r.step === 15 ? ' · dernière étape' : ''}</span><p style="font-size:19px;white-space:pre-wrap">${esc(r.indice) || '<span class="muted">(indice non renseigné)</span>'}</p></div>
+    const min = r.penalite ? SJ.fmt(r.penalite * 1000) : '';
+    const aide = r.aide
+      ? `<div class="card safe"><span class="label" style="color:var(--safe)">💡 Indice bonus</span><p style="font-size:18px;white-space:pre-wrap">${esc(r.aide)}</p>${min ? `<p class="muted" style="margin:0">Le prochain joueur attendra ${min} avant de voir son indice.</p>` : ''}</div>`
+      : !r.aideDispo ? ''
+      : ui.aideConfirm
+        ? `<div class="card"><p><strong>Utiliser l'indice bonus ?</strong></p><p class="muted">${min ? `Pénalité : le joueur à qui tu donneras le numéro attendra <strong>${min}</strong> avant de voir son indice.` : 'Pas de pénalité à la dernière étape.'}</p>
+           <div class="row"><button class="btn primary" data-act="aide">Oui, voir l'indice bonus</button><button class="btn" data-act="aideNon">Non</button></div></div>`
+        : `<button class="btn" data-act="aideAsk" style="align-self:flex-start">💡 Bloqué ? Indice bonus${min ? ` (pénalité ${min})` : ''}</button>`;
+    return `<div class="card accent">${label}<p style="font-size:19px;white-space:pre-wrap">${esc(r.indice) || '<span class="muted">(indice non renseigné)</span>'}</p></div>
+      ${aide}
       ${r.longue ? `<div class="card safe"><strong>🛡 Épreuve longue</strong><p>Tu peux te mettre en safe zone : va voir l'orga dans ${esc(r.safeLieu)}.</p></div>` : ''}
       <div class="label">Code trouvé</div>${pad('code')}`;
   }
   if (r.stage === 'sent') {
     return `<div class="card accent"><span class="label" style="color:var(--accent)">✓ Code correct</span><p>Va voir discrètement</p><div class="bigname">${esc(r.next.name)}</div><p>et donne-lui le numéro</p><div class="bignum">${esc(r.next.numero)}</div></div>
+      ${r.penalite ? `<p class="muted" style="margin:0">💡 Tu as utilisé l'indice bonus : ${esc(r.next.name)} attendra ${SJ.fmt(r.penalite * 1000)} avant de voir son indice.</p>` : ''}
       <p class="muted" style="margin:0">Attention aux détectives adverses : ne te fais pas repérer.</p>`;
   }
   if (r.stage === 'done') return `<div class="card"><p style="font-size:18px">✓ Ta mission est terminée.</p><p class="muted">Aide ton équipe discrètement.</p></div>`;
@@ -409,6 +424,9 @@ app.addEventListener('click', e => {
   const a = t.dataset.act;
   if (a === 'inscrire') act({ type: 'inscription', on: true });
   if (a === 'desinscrire') act({ type: 'inscription', on: false });
+  if (a === 'aideAsk') { ui.aideConfirm = true; draw(); }
+  if (a === 'aideNon') { ui.aideConfirm = false; draw(); }
+  if (a === 'aide') act({ type: 'aide' }).then(() => { ui.aideConfirm = false; draw(); });
   if (a === 'ouvrirArme') { ui.showArme = true; draw(); }
   if (a === 'fermerArme') { ui.showArme = false; draw(); }
   if (a === 'attaque') act({ type: 'attaque', arme: ui.weapon, target: ui.target }).then(r => { if (r.ok) { ui.target = null; draw(); } });

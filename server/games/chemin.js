@@ -22,12 +22,13 @@ export function defaultConfig() {
   const steps = () => Array.from({ length: 14 }, (_, i) => ({
     numero: '',
     indice: i === 0 ? 'Tu es le premier ! ' : '',
+    aide: '',
     code: '',
     longue: false,
   }));
   return {
     teams: { A: { steps: steps(), finalNumero: '' }, B: { steps: steps(), finalNumero: '' } },
-    final: { indice: '', code: '', longue: false },
+    final: { indice: '', aide: '', code: '', longue: false },
     armes: {
       pistolet: { code: '', duree: 240, recharge: 300 },
       fumigene: { code: '', duree: 60, recharge: 600 },
@@ -47,6 +48,7 @@ export function defaultConfig() {
     dureeMax: 3600,
     erreursNumero: 3,
     blocageErreurs: 30,
+    penaliteIndice: 60,
   };
 }
 
@@ -106,6 +108,7 @@ export function start(ctx, pids) {
     g.teams[t] = {
       chain, nums, cur: 0, stage: 'hint',
       skipped: chain.map(() => false), done: chain.map(() => null),
+      aideUsed: chain.map(() => false), penalty: false, hintAt: 0,
       finishedAt: null, protectUntil: 0, pending: [],
     };
     for (const p of chain) g.roles[p] = { team: t, role: 'random' };
@@ -141,6 +144,8 @@ function advance(g, ctx, T, fromIndex) {
   while (j < team.chain.length && team.skipped[j]) j++;
   team.cur = j;
   team.stage = 'number';
+  // Indice bonus utilisé : le joueur suivant attendra avant de voir son indice.
+  team.penalty = !!team.aideUsed?.[fromIndex];
   if (j >= team.chain.length) {
     team.finishedAt = ctx.now();
     const clean = !team.skipped.some(Boolean);
@@ -257,7 +262,9 @@ export function playerAction(ctx, g, p, a) {
       if (mine && team.stage === 'number' && v === team.nums[i]) {
         team.stage = 'hint';
         s.errors = 0;
-        return ok('Numéro correct !');
+        team.hintAt = team.penalty ? now + cfg.penaliteIndice * 1000 : 0;
+        team.penalty = false;
+        return ok(team.hintAt ? 'Numéro correct ! Ton coéquipier a utilisé l\'indice bonus : attends un peu.' : 'Numéro correct !');
       }
       s.errors++;
       if (s.errors >= cfg.erreursNumero) {
@@ -268,6 +275,7 @@ export function playerAction(ctx, g, p, a) {
       return err('Numéro incorrect.');
     }
     const step = stepOf(cfg, T, i, team.chain.length);
+    if (mine && team.stage === 'hint' && team.hintAt > now) return err('Attends la fin de la pénalité.');
     if (mine && team.stage === 'hint' && v && v === cleanCode(step.conf.code)) {
       team.done[i] = now;
       advance(g, ctx, T, i);
@@ -275,6 +283,19 @@ export function playerAction(ctx, g, p, a) {
       return ok('Code correct !');
     }
     return err('Code incorrect.');
+  }
+
+  if (a.type === 'aide') {
+    const T = role.team, team = g.teams[T], i = team.cur;
+    if (team.chain[i] !== p || team.stage !== 'hint') return err("Ce n'est pas ton tour.");
+    if (team.hintAt > now) return err('Attends la fin de la pénalité.');
+    if (!stepOf(cfg, T, i, team.chain.length).conf.aide) return err("Pas d'indice bonus pour cette étape.");
+    team.aideUsed ??= team.chain.map(() => false);
+    if (!team.aideUsed[i]) {
+      team.aideUsed[i] = true;
+      feed(g, ctx, `💡 L'équipe ${T} utilise un indice bonus`);
+    }
+    return ok('Indice bonus débloqué.');
   }
 
   if (role.role !== 'detective') return err('Action réservée aux détectives.');
@@ -415,6 +436,8 @@ export function adminAction(ctx, g, a) {
     if (!n) return err("Ce joueur n'a plus d'étape à jouer.");
     if (team.skipped[team.cur]) {
       advance(g, ctx, T, team.cur);
+      team.penalty = false;
+      team.hintAt = 0;
       if (team.cur < team.chain.length) team.stage = 'hint';
     }
     return ok('Étape sautée.');
@@ -459,14 +482,20 @@ export function playerView(ctx, g, p) {
       const step = stepOf(cfg, T, active, R);
       r.step = step.label;
       r.stage = team.stage;
-      if (team.stage === 'hint') {
+      if (team.stage === 'hint' && team.hintAt > now) {
+        r.attente = team.hintAt;
+      } else if (team.stage === 'hint') {
         r.indice = step.conf.indice;
         r.longue = step.conf.longue;
         r.safeLieu = cfg.safeZone.lieu;
+        r.aideDispo = !!step.conf.aide;
+        r.aide = team.aideUsed?.[active] ? step.conf.aide : '';
+        r.penalite = active < R - 1 ? cfg.penaliteIndice : 0;
       }
     } else if (prev >= 0 && team.chain[prev] === p && team.cur < R && team.stage === 'number') {
       r.stage = 'sent';
       r.next = { name: ctx.name(team.chain[team.cur]), numero: team.nums[team.cur] };
+      r.penalite = team.penalty ? cfg.penaliteIndice : 0;
     } else if (nextMine !== undefined) {
       r.stage = 'waiting';
     } else {
@@ -523,7 +552,8 @@ export function adminView(ctx, g) {
       protectUntil: t.protectUntil > now ? t.protectUntil : 0,
       chain: t.chain.map((p, i) => ({
         pid: p, name: ctx.name(p), step: stepOf(ctx.cfg, T, i, t.chain.length).label, numero: t.nums[i],
-        state: t.skipped[i] ? 'sautée' : t.done[i] ? 'faite' : i === t.cur ? (t.stage === 'hint' ? 'en cours' : 'attend son numéro') : '',
+        state: t.skipped[i] ? 'sautée' : t.done[i] ? 'faite' : i === t.cur ? (t.stage === 'number' ? 'attend son numéro' : t.hintAt > now ? 'pénalité' : 'en cours') : '',
+        aide: !!t.aideUsed?.[i],
       })),
       detectives: Object.keys(g.det).filter(p => g.roles[p].team === T).map(p => ({
         pid: p, name: ctx.name(p), inv: Object.keys(g.det[p].inv).map(k => WEAPONS[k].icon).join(' '),

@@ -127,3 +127,32 @@ test('joueur parti : sauter une étape empêche de gagner en finissant', () => {
   assert.equal(team.finishedAt > 0, true);
   assert.equal(g.winner, null);
 });
+
+test('indice bonus : le joueur suivant attend la pénalité avant de voir son indice', () => {
+  const { g, ctx, advance } = setup(8, c => {
+    for (const T of ['A', 'B']) c.teams[T].steps.forEach((s, i) => { s.code = String(1000 + i); s.aide = 'Regarde sous le tapis'; s.indice = 'Indice ' + i; });
+    return c;
+  });
+  const team = g.teams.A;
+  const [p0, p1, p2] = team.chain;
+  assert.equal(chemin.playerView(ctx, g, p0).random.aide, '');
+  assert.ok(chemin.playerAction(ctx, g, p0, { type: 'aide' }).ok);
+  assert.equal(chemin.playerView(ctx, g, p0).random.aide, 'Regarde sous le tapis');
+  assert.ok(chemin.playerAction(ctx, g, p0, { type: 'code', value: '1000' }).ok);
+  assert.equal(chemin.playerView(ctx, g, p0).random.penalite, 60);
+  assert.ok(chemin.playerAction(ctx, g, p1, { type: 'numero', value: team.nums[1] }).ok);
+  let v = chemin.playerView(ctx, g, p1).random;
+  assert.ok(v.attente);
+  assert.equal(v.indice, undefined);
+  assert.equal(chemin.playerAction(ctx, g, p1, { type: 'code', value: '1001' }).ok, false);
+  advance(59_000);
+  assert.ok(chemin.playerView(ctx, g, p1).random.attente);
+  advance(1_000);
+  v = chemin.playerView(ctx, g, p1).random;
+  assert.equal(v.attente, undefined);
+  assert.equal(v.indice, 'Indice 1');
+  // Sans indice bonus, pas de pénalité pour le suivant.
+  assert.ok(chemin.playerAction(ctx, g, p1, { type: 'code', value: '1001' }).ok);
+  assert.ok(chemin.playerAction(ctx, g, p2, { type: 'numero', value: team.nums[2] }).ok);
+  assert.equal(chemin.playerView(ctx, g, p2).random.attente, undefined);
+});
