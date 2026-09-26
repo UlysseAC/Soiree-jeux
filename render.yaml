@@ -7,6 +7,8 @@ services:
     buildCommand: npm install --omit=dev
     startCommand: npm start
     healthCheckPath: /jouer
+    # Pas de mise à jour automatique : un redéploiement redémarre le serveur et coupe la partie.
+    autoDeploy: false
     envVars:
       - key: NODE_VERSION
         value: "22"

@@ -8,6 +8,7 @@ import { Server } from 'socket.io';
 import QRCode from 'qrcode';
 import { Soiree, restore } from './soiree.js';
 import { makeStorage } from './stockage.js';
+import { Simulation } from './simulation.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DATA = process.env.DATA_DIR || join(ROOT, 'data');
@@ -48,7 +49,7 @@ app.get('/ping', (_, res) => res.type('text').send('ok'));
 // ---------- temps réel ----------
 function viewFor(sock) {
   const d = sock.data;
-  if (d.role === 'admin') return soiree.adminView();
+  if (d.role === 'admin') return { ...soiree.adminView(), simulation: sim.status(), sauvegardeEnLigne: storage.remote, enLigne: !!process.env.RENDER };
   if (d.role === 'ecran') return { ...soiree.screenView(), joinUrl: JOIN_URL, qr };
   if (d.role === 'orga') return soiree.orgaView();
   return soiree.playerView(d.token);
@@ -64,6 +65,12 @@ function broadcast(persist = true) {
     for (const sock of io.sockets.sockets.values()) if (sock.data.role) sock.emit('etat', viewFor(sock));
   });
 }
+
+const sim = new Simulation(soiree, () => broadcast());
+
+// Une erreur imprévue ne doit jamais arrêter le serveur en pleine soirée.
+process.on('uncaughtException', e => console.error('Erreur imprévue :', e));
+process.on('unhandledRejection', e => console.error('Erreur imprévue :', e));
 
 io.on('connection', sock => {
   // Synchronisation d'horloge : le téléphone compare son heure à celle du serveur.
@@ -100,12 +107,14 @@ io.on('connection', sock => {
     cb(soiree.data(q));
   });
   sock.on('joueur', guard('joueur', a => soiree.player(sock.data.token, a)));
-  sock.on('admin', guard('admin', a => soiree.admin(a)));
+  sock.on('admin', guard('admin', a => (a.type === 'simulation' ? sim.handle(a) : soiree.admin(a))));
   sock.on('orga', guard('orga', a => soiree.orga(a)));
 });
 
 // Tick rapide : le « FEU ! » du face-à-face doit partir au bon moment.
-setInterval(() => { if (soiree.tick()) broadcast(); }, 40);
+setInterval(() => {
+  try { if (soiree.tick()) broadcast(); } catch (e) { console.error('Erreur pendant le jeu :', e); }
+}, 40);
 // Rafraîchit aussi les vues chaque seconde (disponibilités, recharges, résultats affichés).
 setInterval(() => broadcast(false), 1000);
 

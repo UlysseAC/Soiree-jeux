@@ -102,7 +102,8 @@ export class Soiree {
     const taken = Object.values(this.s.people).find(p => normName(p.name) === normName(clean) && p !== me);
     if (taken) return { ok: false, msg: 'Ce prénom est déjà pris : ajoute l\'initiale de ton nom (ex. « Léa M. »).' };
     if (!me) {
-      me = { id: uid(), token: uid(16), name: clean };
+      // Jeton déjà présent sur le téléphone (serveur redémarré sans sauvegarde) : on le garde.
+      me = { id: uid(), token: /^[a-f0-9]{32}$/.test(token || '') ? token : uid(16), name: clean };
       this.s.people[me.id] = me;
     } else me.name = clean;
     return { ok: true, token: me.token, pid: me.id };

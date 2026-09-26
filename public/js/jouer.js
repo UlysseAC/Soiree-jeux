@@ -10,7 +10,15 @@ function hello() {
   SJ.emit('hello', { role: 'joueur', token: SJ.store('sj-token') });
 }
 SJ.sock.on('connect', hello);
+let autoJoin = false;
 SJ.sock.on('etat', v => {
+  // Le serveur ne nous connaît plus (il a redémarré) : on se réinscrit tout seul avec le même prénom.
+  const nom = SJ.store('sj-nom');
+  if (!v.me && nom && SJ.store('sj-token') && !autoJoin) {
+    autoJoin = true;
+    SJ.emit('rejoindre', { name: nom }).then(r => { if (r.ok) { SJ.store('sj-token', r.token); hello(); } });
+    return;
+  }
   const before = V;
   V = v;
   document.body.dataset.game = v.gameId;
@@ -371,6 +379,7 @@ app.addEventListener('submit', async e => {
   const r = await SJ.emit('rejoindre', { name: document.getElementById('nom').value });
   if (!r.ok) return SJ.toast(r);
   SJ.store('sj-token', r.token);
+  SJ.store('sj-nom', document.getElementById('nom').value.trim());
   hello();
 });
 

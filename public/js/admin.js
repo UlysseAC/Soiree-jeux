@@ -96,6 +96,13 @@ ${[[-300, '−5 min'], [-60, '−1 min'], [60, '+1 min'], [300, '+5 min']].map((
         <div>🛡 Orga safe zone : <a href="/orga" target="_blank" class="mono">${location.origin}/orga</a></div>
       </div>
       <div class="grid-auto">${cfgInput('orgaCode', V.config.orgaCode, 'text', { scope: 'soiree', label: 'Code orga' })}</div>
+      <h2 style="margin-top:8px">Simulation</h2>
+      <p class="muted" style="margin:0;font-size:14px">De faux joueurs jouent pour de vrai : regarde l'écran public. Tes réglages sont remis comme avant à la fin.</p>
+      ${V.simulation?.running ? `<div class="row"><span class="pill accent">▶ ${esc(V.simulation.step)}</span><span class="muted">${V.simulation.bots} faux joueurs</span><button class="btn sm danger" data-act="simStop">Arrêter</button></div>` : `
+      <div class="row"><label class="field" style="max-width:120px"><span class="label">Faux joueurs</span><input class="in" id="sim-n" inputmode="numeric" value="50"></label>
+        <label class="field" style="max-width:220px"><span class="label">Jeux</span><select class="in" id="sim-jeux"><option value="chemin,grandpari,duel">Les 3 jeux (~25 min)</option>${V.games.map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join('')}</select></label>
+        <button class="btn primary" data-act="simStart" style="align-self:flex-end">▶ Lancer la simulation</button></div>
+      ${V.simulation?.canErase ? `<div class="row"><span class="muted">${esc(V.simulation.step)}</span><button class="btn sm danger" data-act="simErase" data-confirm="Effacer les faux joueurs et leurs points ?">Effacer la simulation</button></div>` : ''}`}
       <h2 style="margin-top:8px">Sauvegarde des réglages</h2>
       <p class="muted" style="margin:0;font-size:14px">Tous les réglages (noms, indices, codes, armes, durées, primes, points) dans un fichier, pour les garder ou les remettre sur un autre serveur.</p>
       <div class="row"><button class="btn" data-act="exporter">⬇ Exporter les réglages</button>
@@ -328,6 +335,17 @@ function reglages() {
     (V.gameId === 'chemin' ? reglagesChemin(c) : V.gameId === 'grandpari' ? reglagesGrandPari(c) : reglagesDuel(c));
 }
 
+// Alertes visibles dans tous les onglets.
+function alerts() {
+  const out = [];
+  if (V.gameId === 'duel') {
+    const missing = V.game ? V.game.players.filter(p => !p.num).map(p => p.name) : V.registered.filter(p => !p.dossard).map(p => p.name);
+    if (missing.length) out.push(`👕 <strong>${missing.length} joueur${missing.length > 1 ? 's' : ''} sans numéro de maillot</strong> : ${missing.slice(0, 12).map(esc).join(', ')}${missing.length > 12 ? '…' : ''}`);
+  }
+  if (V.enLigne && !V.sauvegardeEnLigne) out.push('💾 <strong>Sauvegarde en ligne non activée</strong> : si le serveur redémarre, la partie et les joueurs sont perdus. Ajoute Upstash (voir le guide).');
+  return out.map(t => `<div class="card danger" style="flex-direction:row;align-items:center">${t}</div>`).join('');
+}
+
 // ---------- rendu ----------
 function draw() {
   if (!authed) {
@@ -340,7 +358,7 @@ function draw() {
   if (!V) return;
   const tabs = [['soiree', 'Soirée'], ['partie', 'Partie en cours'], ['reglages', 'Réglages du jeu'], ['classement', 'Classement']];
   const body = ui.tab === 'partie' ? partie() : ui.tab === 'reglages' ? reglages() : ui.tab === 'classement' ? classementTab() : soiree();
-  SJ.render(app, `<div class="spread"><h1 class="sc-title" style="font-size:34px">${esc(V.gameName)}</h1>
+  SJ.render(app, alerts() + `<div class="spread"><h1 class="sc-title" style="font-size:34px">${esc(V.gameName)}</h1>
     <nav class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${ui.tab === k}">${l}</button>`).join('')}</nav></div>${body}`);
 }
 
@@ -377,6 +395,9 @@ app.addEventListener('click', e => {
     return admin({ type: 'bonus', pid, delta });
   }
   if (a === 'afficherClassement') return admin({ type: 'afficherClassement', mode: t.dataset.mode });
+  if (a === 'simStart') return admin({ type: 'simulation', cmd: 'start', n: Number(document.getElementById('sim-n').value), games: document.getElementById('sim-jeux').value.split(',') });
+  if (a === 'simStop') return admin({ type: 'simulation', cmd: 'stop' });
+  if (a === 'simErase') return admin({ type: 'simulation', cmd: 'effacer' });
   if (a === 'exporter') {
     const blob = new Blob([JSON.stringify(V.fullConfig, null, 2)], { type: 'application/json' });
     const link = document.createElement('a');

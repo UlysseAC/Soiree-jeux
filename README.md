@@ -66,7 +66,7 @@ Pour jouer depuis n'importe où (4G, Wi-Fi différents), sans ordi allumé :
 À savoir avec l'offre gratuite :
 - Le serveur **s'endort après 15 minutes sans visite** : la première ouverture prend environ une minute. Ouvre l'admin un peu avant la soirée.
 - Son disque est **effacé à chaque redémarrage** (réveil, mise à jour). Pour garder les réglages, active la sauvegarde en ligne ci-dessous.
-- Chaque `git push` sur la branche déployée met le site à jour automatiquement.
+- **Mises à jour** : `render.yaml` désactive la mise à jour automatique, car un redéploiement redémarre le serveur et coupe la partie en cours. Pour installer une nouvelle version, clique sur **Manual Deploy → Deploy latest commit** dans Render, en dehors des parties.
 
 ### Garder les réglages en ligne (Upstash, gratuit)
 
