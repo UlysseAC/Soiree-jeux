@@ -13,6 +13,7 @@ export function defaultState() {
       decompte: 2700,
       inscriptions: 900,
       orgaCode: '1234',
+      nomsJeux: Object.fromEntries(Object.values(GAMES).map(m => [m.id, m.name])),
       classement: classement.defaultConfig(),
       games: Object.fromEntries(Object.values(GAMES).map(m => [m.id, m.defaultConfig()])),
     },
@@ -204,7 +205,7 @@ export class Soiree {
     const recs = this.s.history.slice();
     const sess = this.sess;
     if (sess.game && sess.status === 'finished') recs.push({ gameId: sess.gameId, results: this.module.results(this.ctx(), sess.game) });
-    return classement.compute(this.s.config.classement, recs, pid => this.s.people[pid]?.name ?? '?', this.s.bonus);
+    return classement.compute(this.s.config.classement, recs, pid => this.s.people[pid]?.name ?? '?', this.s.bonus, id => this.gameName(id));
   }
 
   archive() {
@@ -252,13 +253,18 @@ export class Soiree {
     return this.module.orgaAction(this.ctx(), g, a);
   }
 
+  // Nom affiché d'un jeu (modifiable dans l'admin).
+  gameName(id = this.sess.gameId) {
+    return (this.s.config.nomsJeux?.[id] || '').trim() || GAMES[id]?.name || id;
+  }
+
   // ---------- vues ----------
   common() {
     const sess = this.sess;
     return {
       gameId: sess.gameId,
-      gameName: this.module.name,
-      games: Object.values(GAMES).map(m => ({ id: m.id, name: m.name })),
+      gameName: this.gameName(),
+      games: Object.values(GAMES).map(m => ({ id: m.id, name: this.gameName(m.id) })),
       status: sess.status,
       paused: !!sess.countdown.pausedAt,
       remaining: this.remaining(),
@@ -305,7 +311,7 @@ export class Soiree {
     const sess = this.sess;
     return {
       ...this.common(),
-      config: { decompte: this.s.config.decompte, inscriptions: this.s.config.inscriptions, orgaCode: this.s.config.orgaCode, classement: this.s.config.classement },
+      config: { decompte: this.s.config.decompte, inscriptions: this.s.config.inscriptions, orgaCode: this.s.config.orgaCode, classement: this.s.config.classement, nomsJeux: this.s.config.nomsJeux },
       show: this.s.show,
       classement: this.classement(),
       people: Object.values(this.s.people).map(p => ({ pid: p.id, name: p.name })).sort((a, b) => a.name.localeCompare(b.name, 'fr')),

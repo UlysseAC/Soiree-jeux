@@ -40,7 +40,7 @@ export function gamePoints(cfg, rec) {
 }
 
 // records : [{ gameId, results }] (le dernier de chaque jeu compte). bonus : { pid: points }.
-export function compute(cfg, records, names, bonus = {}) {
+export function compute(cfg, records, names, bonus = {}, gameName = id => GAME_NAMES[id] ?? id) {
   const latest = {};
   for (const r of records) latest[r.gameId] = r;
   const held = Object.keys(latest);
@@ -65,5 +65,5 @@ export function compute(cfg, records, names, bonus = {}) {
   });
   rows.sort((a, b) => b.total - a.total || b.wins - a.wins || (b.games[cfg.ordre] ?? -1) - (a.games[cfg.ordre] ?? -1) || a.name.localeCompare(b.name, 'fr'));
   rows.forEach((r, i) => { r.rank = i + 1; });
-  return { rows, held: held.map(id => ({ id, name: GAME_NAMES[id] ?? id, max: maxOf(cfg, id) })) };
+  return { rows, held: held.map(id => ({ id, name: gameName(id), max: maxOf(cfg, id) })) };
 }

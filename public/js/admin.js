@@ -93,6 +93,9 @@ function soiree() {
         <div>🛡 Orga safe zone : <a href="/orga" target="_blank" class="mono">${location.origin}/orga</a></div>
       </div>
       <div class="grid-auto">${cfgInput('orgaCode', V.config.orgaCode, 'text', { scope: 'soiree', label: 'Code orga' })}</div>
+      <h2 style="margin-top:8px">Noms des jeux</h2>
+      <p class="muted" style="margin:0;font-size:14px">Affichés partout : écran public, téléphones, classement. Laisse vide pour revenir au nom d'origine.</p>
+      <div class="grid-auto">${V.games.map((g, i) => cfgInput(`nomsJeux.${g.id}`, V.config.nomsJeux?.[g.id] ?? g.name, 'text', { scope: 'soiree', label: { chemin: 'Jeu de la chaîne et des détectives', duel: 'Jeu des cowboys', grandpari: 'Jeu des paris sportifs' }[g.id] || `Jeu ${i + 1}` })).join('')}</div>
     </div>
   </div>`;
 }
