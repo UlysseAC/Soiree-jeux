@@ -212,6 +212,12 @@ export class Soiree {
     sess.game = this.module.start(this.ctx(), pids);
     sess.status = 'playing';
     sess.regOverride = null;
+    // Duel : si tout le monde a son numéro de maillot, les duels commencent tout de suite.
+    if (this.module.id === 'duel') {
+      const r = this.module.adminAction(this.ctx(), sess.game, { type: 'lancer' });
+      if (!r.ok) return { ok: true, msg: `Partie lancée, mais il manque des numéros de maillot : saisis-les puis « Lancer le premier tour ».` };
+      return { ok: true, msg: 'C\'est parti, les duels commencent !' };
+    }
     return { ok: true, msg: 'La partie commence !' };
   }
 

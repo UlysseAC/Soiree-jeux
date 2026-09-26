@@ -77,7 +77,10 @@ ${[[-300, '−5 min'], [-60, '−1 min'], [60, '+1 min'], [300, '+5 min']].map((
         <button class="btn sm" data-act="inscriptions" data-v="auto">Auto</button>
       </div>
       <div class="row">
-        <button class="btn danger" data-act="lancerJeu" ${V.status === 'playing' ? 'disabled' : ''}>Lancer le jeu maintenant</button>
+        ${V.gameId === 'duel' && V.status !== 'playing' ? (() => {
+          const n = V.registered.length, missing = V.registered.filter(p => !p.dossard).length;
+          return `<button class="btn primary" data-act="lancerJeu" ${n >= 2 && !missing ? '' : 'disabled'} title="${missing ? `${missing} joueur(s) sans numéro` : ''}">▶ Tout lancer : ${n} joueurs${missing ? ` · ${missing} sans numéro` : ', tous numérotés'}</button>`;
+        })() : `<button class="btn danger" data-act="lancerJeu" ${V.status === 'playing' ? 'disabled' : ''}>Lancer le jeu maintenant</button>`}
         <button class="btn sm" data-act="arreter">Arrêter</button>
         <button class="btn sm" data-act="reinitialiser" data-confirm="Tout remettre à zéro pour ce jeu (inscrits compris) ?">Réinitialiser</button>
       </div>
