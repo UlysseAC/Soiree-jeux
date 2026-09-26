@@ -25,8 +25,12 @@ export function defaultState() {
   };
 }
 
+// Change à chaque démarrage du serveur : les téléphones savent ainsi qu'il a redémarré.
+const BOOT = uid();
+
 function newSession(gameId) {
   return {
+    id: uid(),
     gameId,
     status: 'idle', // idle | countdown | playing | finished
     countdown: { startedAt: 0, adjust: 0, pausedAt: 0, pausedTotal: 0 },
@@ -294,6 +298,8 @@ export class Soiree {
     const sess = this.sess;
     return {
       gameId: sess.gameId,
+      sessionId: sess.id || '',
+      boot: BOOT,
       gameName: this.gameName(),
       games: Object.values(GAMES).map(m => ({ id: m.id, name: this.gameName(m.id) })),
       status: sess.status,

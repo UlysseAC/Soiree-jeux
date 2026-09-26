@@ -14,8 +14,9 @@ function setup(n, tweak = c => c) {
 
 test('répartition : détectives proportionnels et même nombre d\'étapes', () => {
   assert.equal(chemin.detectivesFor(5), 0);
-  assert.equal(chemin.detectivesFor(6), 1);
-  assert.equal(chemin.detectivesFor(8), 1);
+  assert.equal(chemin.detectivesFor(8), 0);
+  assert.equal(chemin.detectivesFor(15), 0);
+  assert.equal(chemin.detectivesFor(16), 1);
   assert.equal(chemin.detectivesFor(20), 5);
   assert.equal(chemin.detectivesFor(24), 9);
   const s = chemin.split(Array.from({ length: 17 }, (_, i) => i));
@@ -60,7 +61,7 @@ test('une chaîne complète fait gagner l\'équipe', () => {
 });
 
 test('pistolet, immunité, gilet et fumigène en attente', () => {
-  const { g, ctx, cfg, advance } = setup(16, c => { c.armes.pistolet.code = '111'; c.armes.gilet.code = '222'; c.armes.fumigene.code = '333'; c.bandage.code = '444'; return c; });
+  const { g, ctx, cfg, advance } = setup(34, c => { c.armes.pistolet.code = '111'; c.armes.gilet.code = '222'; c.armes.fumigene.code = '333'; c.bandage.code = '444'; return c; });
   const detA = Object.keys(g.det).find(p => g.roles[p].team === 'A');
   const detB = Object.keys(g.det).find(p => g.roles[p].team === 'B');
   const victim = g.teams.B.chain[0];
@@ -90,7 +91,7 @@ test('pistolet, immunité, gilet et fumigène en attente', () => {
 });
 
 test('menottes : une clé de son équipe libère, une seule fois', () => {
-  const { g, ctx } = setup(16, c => { c.armes.menottes.code = '5'; c.cles.B[0].code = '71'; return c; });
+  const { g, ctx } = setup(34, c => { c.armes.menottes.code = '5'; c.cles.B[0].code = '71'; return c; });
   const detA = Object.keys(g.det).find(p => g.roles[p].team === 'A');
   const victim = g.teams.B.chain[1];
   chemin.playerAction(ctx, g, detA, { type: 'arme', value: '5' });
@@ -102,7 +103,7 @@ test('menottes : une clé de son équipe libère, une seule fois', () => {
 });
 
 test('safe zone : impossible à viser', () => {
-  const { g, ctx } = setup(16, c => { c.armes.pistolet.code = '1'; return c; });
+  const { g, ctx } = setup(34, c => { c.armes.pistolet.code = '1'; return c; });
   const detA = Object.keys(g.det).find(p => g.roles[p].team === 'A');
   const t = g.teams.B.chain[0];
   assert.equal(chemin.orgaAction(ctx, g, { type: 'safe', pid: t, duree: 300 }).ok, true);

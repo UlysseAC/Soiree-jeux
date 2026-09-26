@@ -52,10 +52,9 @@ export function defaultConfig() {
   };
 }
 
-// Détectives par équipe selon sa taille (0 sous 6 joueurs, 5 à 20, 15 randoms max).
+// Détectives par équipe : seulement au-delà de 15 joueurs (15 randoms max, les joueurs en plus deviennent détectives).
 export function detectivesFor(n) {
-  if (n < 6) return 0;
-  return Math.max(Math.floor(1 + (n - 6) * 2 / 7), n - 15);
+  return Math.max(0, n - 15);
 }
 
 // Répartition : 2 équipes, même nombre de randoms (étapes) dans chacune.

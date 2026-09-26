@@ -71,6 +71,14 @@ const sim = new Simulation(soiree, () => broadcast());
 // Une erreur imprévue ne doit jamais arrêter le serveur en pleine soirée.
 process.on('uncaughtException', e => console.error('Erreur imprévue :', e));
 process.on('unhandledRejection', e => console.error('Erreur imprévue :', e));
+// Mise à jour ou redémarrage : on sauvegarde avant de s'arrêter, pour ne perdre aucun inscrit.
+for (const sig of ['SIGTERM', 'SIGINT']) {
+  process.on(sig, async () => {
+    setTimeout(() => process.exit(0), 5000).unref();
+    await storage.flush(() => soiree.s);
+    process.exit(0);
+  });
+}
 
 io.on('connection', sock => {
   // Synchronisation d'horloge : le téléphone compare son heure à celle du serveur.

@@ -49,5 +49,21 @@ export function makeStorage(dataDir, env = process.env) {
     }
   }
 
-  return { load, save, remote };
+  // Arrêt du serveur (mise à jour Render) : on écrit tout de suite ce qui attendait.
+  async function flush(getState = pending) {
+    if (!getState) return;
+    clearTimeout(localTimer); clearTimeout(remoteTimer);
+    localTimer = remoteTimer = null;
+    try {
+      writeFileSync(file + '.tmp', JSON.stringify(getState()));
+      renameSync(file + '.tmp', file);
+    } catch (e) { console.error('Sauvegarde locale impossible :', e.message); }
+    if (remote) {
+      try {
+        await fetch(`${url}/set/${KEY}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: light(getState()) });
+      } catch (e) { console.error('Sauvegarde en ligne impossible :', e.message); }
+    }
+  }
+
+  return { load, save, flush, remote };
 }

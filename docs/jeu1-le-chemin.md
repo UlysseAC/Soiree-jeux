@@ -16,14 +16,13 @@ Cahier des charges validé. Maquette : [`maquettes/le-chemin.html`](maquettes/le
 - Les inscrits sont répartis au hasard en **2 équipes**.
 - Chaque équipe a des **randoms** (la chaîne) et des **détectives**.
 - Les deux équipes ont **le même nombre d'étapes** ; un joueur en trop devient détective.
-- Répartition par équipe (15 randoms max, les joueurs en plus deviennent détectives) :
+- Répartition par équipe : **pas de détective jusqu'à 15 joueurs par équipe**. Au-delà, 15 randoms (15 étapes max) et les joueurs en plus deviennent détectives.
 
-| Joueurs / équipe | < 6 | 6 | 8 | 10 | 12 | 14 | 16 | 18 | 20 | > 20 |
-|---|---|---|---|---|---|---|---|---|---|---|
-| Détectives | 0 | 1 | 1 | 2 | 2 | 3 | 3 | 4 | 5 | le reste |
-| Randoms | tous | 5 | 7 | 8 | 10 | 11 | 13 | 14 | 15 | 15 |
+| Joueurs / équipe | ≤ 15 | 16 | 18 | 20 | 25 |
+|---|---|---|---|---|---|
+| Détectives | 0 | 1 | 3 | 5 | 10 |
+| Randoms | tous | 15 | 15 | 15 | 15 |
 
-  Formule entre 6 et 20 : `détectives = floor(1 + (n − 6) × 2/7)`.
 - Chaque joueur voit son rôle et son équipe. Un random ne connaît pas ses coéquipiers. Un détective connaît **les autres détectives de son équipe**, mais pas les randoms.
 
 ## La chaîne (randoms)

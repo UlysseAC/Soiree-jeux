@@ -19,6 +19,7 @@ SJ.sock.on('etat', v => {
     SJ.emit('rejoindre', { name: nom }).then(r => { if (r.ok) { SJ.store('sj-token', r.token); hello(); } });
     return;
   }
+  reinscrire(v);
   const before = V;
   V = v;
   document.body.dataset.game = v.gameId;
@@ -30,6 +31,26 @@ async function act(a) {
   const r = await SJ.emit('joueur', a);
   SJ.toast(r);
   return r;
+}
+
+// Inscription perdue pendant un redémarrage du serveur (mise à jour) : le téléphone se réinscrit tout seul,
+// dès que les inscriptions sont ouvertes.
+let reinscription = false;
+function reinscrire(v) {
+  const lastBoot = SJ.store('sj-boot');
+  SJ.store('sj-boot', v.boot);
+  if (!v.me) return;
+  let mine = null;
+  try { mine = JSON.parse(SJ.store('sj-inscrit') || 'null'); } catch { /* rien */ }
+  if (v.me.registered) { SJ.store('sj-inscrit', JSON.stringify({ game: v.gameId, session: v.sessionId })); return; }
+  if (!mine) return;
+  if (mine.game !== v.gameId || v.status === 'playing' || v.status === 'finished') { SJ.store('sj-inscrit', null); return; }
+  if (lastBoot && lastBoot !== v.boot && !mine.pending) { mine.pending = true; SJ.store('sj-inscrit', JSON.stringify(mine)); }
+  if (!mine.pending) { SJ.store('sj-inscrit', null); return; } // désinscrit par l'admin
+  if (v.inscriptionsOpen && !reinscription) {
+    reinscription = true;
+    act({ type: 'inscription', on: true }).finally(() => { reinscription = false; });
+  }
 }
 
 // Vibre quand quelque chose arrive au joueur.
@@ -423,7 +444,7 @@ app.addEventListener('click', e => {
   }
   const a = t.dataset.act;
   if (a === 'inscrire') act({ type: 'inscription', on: true });
-  if (a === 'desinscrire') act({ type: 'inscription', on: false });
+  if (a === 'desinscrire') { SJ.store('sj-inscrit', null); act({ type: 'inscription', on: false }); }
   if (a === 'aideAsk') { ui.aideConfirm = true; draw(); }
   if (a === 'aideNon') { ui.aideConfirm = false; draw(); }
   if (a === 'aide') act({ type: 'aide' }).then(() => { ui.aideConfirm = false; draw(); });
