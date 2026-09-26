@@ -84,7 +84,11 @@ ${[[-300, '−5 min'], [-60, '−1 min'], [60, '+1 min'], [300, '+5 min']].map((
     </div>
     <div class="box">
       <h2>Inscrits (${V.registered.length})</h2>
-      ${V.registered.length ? `<div class="row">${V.registered.map(p => `<span class="pill">${esc(p.name)} <button class="btn sm" style="padding:0 6px;border:0;background:none" data-act="retirerInscrit" data-pid="${p.pid}" aria-label="Retirer ${esc(p.name)}">✕</button></span>`).join('')}</div>` : '<p class="muted" style="margin:0">Personne pour l\'instant.</p>'}
+      ${V.gameId === 'duel' && V.registered.length ? `<p class="muted" style="margin:0;font-size:14px">Saisis le numéro du maillot de chacun dès qu'il vient le chercher. ${V.registered.filter(p => !p.dossard).length ? `<strong style="color:var(--danger)">${V.registered.filter(p => !p.dossard).length} sans numéro.</strong>` : '<strong style="color:var(--ok)">Tout le monde a son numéro.</strong>'}</p>
+        <div class="scroll"><table><thead><tr><th>Joueur</th><th>Maillot</th><th></th></tr></thead><tbody>${V.registered.map(p => `<tr><td>${esc(p.name)}</td>
+          <td><input class="in" style="width:90px" inputmode="numeric" id="dos-${p.pid}" data-dossard="${p.pid}" value="${esc(p.dossard)}" aria-label="Maillot de ${esc(p.name)}"></td>
+          <td><button class="btn sm" data-act="retirerInscrit" data-pid="${p.pid}" aria-label="Retirer ${esc(p.name)}">✕</button></td></tr>`).join('')}</tbody></table></div>` :
+      V.registered.length ? `<div class="row">${V.registered.map(p => `<span class="pill">${esc(p.name)} <button class="btn sm" style="padding:0 6px;border:0;background:none" data-act="retirerInscrit" data-pid="${p.pid}" aria-label="Retirer ${esc(p.name)}">✕</button></span>`).join('')}</div>` : '<p class="muted" style="margin:0">Personne pour l\'instant.</p>'}
       <h2 style="margin-top:8px">Liens</h2>
       <div class="stack" style="gap:6px;font-size:14px">
         <div>📺 Écran public : <a href="/ecran" target="_blank" class="mono">${location.origin}/ecran</a></div>
@@ -400,6 +404,12 @@ app.addEventListener('change', async e => {
     await admin({ type: 'importerReglages', config });
   } catch { SJ.toast({ ok: false, msg: 'Ce fichier n\'est pas un fichier de réglages.' }); }
   e.target.value = '';
+});
+
+// Maillots saisis pendant les inscriptions.
+app.addEventListener('change', e => {
+  const pid = e.target.dataset.dossard;
+  if (pid) admin({ type: 'dossard', pid, value: e.target.value });
 });
 
 // Dossards du duel : enregistrés en quittant le champ.

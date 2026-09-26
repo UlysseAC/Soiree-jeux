@@ -51,7 +51,7 @@ export function start(ctx, pids) {
   const cfg = ctx.cfg;
   const players = {};
   for (const p of pids) {
-    players[p] = { num: '', lives: cfg.vies, alive: true, wins: 0, elimRound: null, elimLabel: null, prime: 0, bonus: 0, errors: 0, bet: null, lastOpp: null, met: [] };
+    players[p] = { num: cleanCode(ctx.dossards?.[p]), lives: cfg.vies, alive: true, wins: 0, elimRound: null, elimLabel: null, prime: 0, bonus: 0, errors: 0, bet: null, lastOpp: null, met: [] };
   }
   return {
     phase: 'prep',

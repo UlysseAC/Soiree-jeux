@@ -89,7 +89,9 @@ function waitingScreen() {
   let body = counting ? `<div class="card center"><span class="label">Début du jeu dans</span><div class="huge mono">${V.paused ? fmt(V.remaining) : `<span data-until="${V.endsAt}"></span>`}</div>${V.paused ? '<p class="muted">Décompte en pause</p>' : ''}</div>` : '';
   if (me.registered) {
     body += `<div class="card accent center"><p style="font-size:20px">✓ Tu es inscrit !</p><p class="muted">${V.registeredCount} inscrits pour l'instant.</p></div>`;
-    if (V.gameId === 'duel') body += `<div class="card center" style="border-color:var(--accent)"><p style="font-size:22px">👕 Va chercher ton maillot auprès de l'admin !</p><p class="muted">Ton numéro est dans le dos : garde-le caché des autres.</p></div>`;
+    if (V.gameId === 'duel') body += me.dossard
+      ? `<div class="card center"><span class="label">Ton numéro de maillot</span><div class="huge mono" style="color:var(--accent)">${esc(me.dossard)}</div><p class="muted">Enfile ton maillot, le numéro dans le dos, et garde-le caché des autres.</p></div>`
+      : `<div class="card center" style="border-color:var(--accent)"><p style="font-size:22px">👕 Va chercher ton maillot auprès de l'admin !</p><p class="muted">Ton numéro est dans le dos : garde-le caché des autres.</p></div>`;
     if (V.inscriptionsOpen) body += `<button class="btn" data-act="desinscrire">Me désinscrire</button>`;
   } else if (V.inscriptionsOpen) {
     body += `<button class="btn primary big" data-act="inscrire">S'inscrire au jeu</button><p class="muted center" style="margin:0">${V.registeredCount} inscrits pour l'instant</p>`;

@@ -2,7 +2,7 @@
 import * as chemin from './games/chemin.js';
 import * as duel from './games/duel.js';
 import * as grandpari from './games/grandpari.js';
-import { uid, normName, setPath, mergeDefaults } from './util.js';
+import { uid, normName, setPath, mergeDefaults, cleanCode } from './util.js';
 import * as classement from './classement.js';
 
 export const GAMES = { chemin, duel, grandpari };
@@ -32,6 +32,7 @@ function newSession(gameId) {
     countdown: { startedAt: 0, adjust: 0, pausedAt: 0, pausedTotal: 0 },
     regOverride: null, // null | 'open' | 'closed'
     registered: [],
+    dossards: {}, // numéros de maillot saisis pendant les inscriptions (Duel au Far West)
     game: null,
     message: null,
   };
@@ -66,6 +67,7 @@ export class Soiree {
       cfg: this.gameCfg(),
       name: pid => this.s.people[pid]?.name ?? '?',
       sfx: name => this.onSfx?.(name),
+      dossards: this.sess.dossards || {},
     };
   }
 
@@ -174,6 +176,15 @@ export class Soiree {
         this.s.bonus = {};
         this.s.show = null;
         return { ok: true, msg: 'Classement de la soirée remis à zéro.' };
+      case 'dossard': {
+        const v = cleanCode(a.value);
+        sess.dossards = sess.dossards || {};
+        if (v && Object.entries(sess.dossards).some(([p, n]) => p !== a.pid && n === v)) return { ok: false, msg: `Le numéro ${v} est déjà pris.` };
+        if (v) sess.dossards[a.pid] = v; else delete sess.dossards[a.pid];
+        // Partie déjà lancée : le numéro va aussi dans le jeu.
+        if (sess.game && this.module.id === 'duel') return this.module.adminAction(this.ctx(), sess.game, { type: 'num', pid: a.pid, value: v });
+        return { ok: true };
+      }
       case 'retirerInscrit':
         sess.registered = sess.registered.filter(x => x !== a.pid);
         return { ok: true };
@@ -185,6 +196,7 @@ export class Soiree {
       }
       case 'jeu':
         if (!sess.game) return { ok: false, msg: 'Aucune partie en cours.' };
+        if (a.action?.type === 'num') return this.admin({ type: 'dossard', pid: a.action.pid, value: a.action.value });
         return this.module.adminAction(this.ctx(), sess.game, a.action);
       default:
         return { ok: false, msg: 'Action inconnue.' };
@@ -301,7 +313,7 @@ export class Soiree {
     const sess = this.sess;
     const v = { ...this.common(), me: null };
     if (!me) return v;
-    v.me = { name: me.name, registered: sess.registered.includes(me.id) };
+    v.me = { name: me.name, registered: sess.registered.includes(me.id), dossard: sess.dossards?.[me.id] || '' };
     const c = this.classement();
     const row = c.rows.find(r => r.pid === me.id);
     if (row) v.me.soiree = { rank: row.rank, total: row.total, mult: row.mult, count: c.rows.length };
@@ -324,7 +336,7 @@ export class Soiree {
       classement: this.classement(),
       people: Object.values(this.s.people).map(p => ({ pid: p.id, name: p.name })).sort((a, b) => a.name.localeCompare(b.name, 'fr')),
       gameConfig: this.gameCfg(),
-      registered: sess.registered.map(p => ({ pid: p, name: this.s.people[p]?.name })),
+      registered: sess.registered.map(p => ({ pid: p, name: this.s.people[p]?.name, dossard: sess.dossards?.[p] || '' })),
       game: sess.game ? this.module.adminView(this.ctx(), sess.game) : null,
     };
   }
