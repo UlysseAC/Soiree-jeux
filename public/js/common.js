@@ -22,6 +22,9 @@ const SJ = (() => {
 
   const now = () => Date.now() + offset;
 
+  // En ligne (Render gratuit), le serveur s'endort après 15 min sans requête : chaque page ouverte le garde éveillé.
+  setInterval(() => { fetch('/ping', { cache: 'no-store' }).catch(() => {}); }, 4 * 60 * 1000);
+
   function emit(ev, payload) {
     return new Promise(res => sock.timeout(8000).emit(ev, payload, (e, r) => res(e ? { ok: false, msg: 'Connexion perdue, réessaie.' } : r)));
   }

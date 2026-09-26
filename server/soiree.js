@@ -140,7 +140,8 @@ export class Soiree {
         return { ok: true };
       case 'ajuster':
         if (sess.status !== 'countdown') return { ok: false, msg: 'Pas de décompte en cours.' };
-        c.adjust += Number(a.sec || 0) * 1000;
+        // On ne descend jamais sous 10 s : « −5 min » à 3 min du départ lance le jeu dans 10 s, pas tout de suite.
+        c.adjust += Math.max(Number(a.sec || 0) * 1000, 10000 - this.remaining());
         return { ok: true };
       case 'inscriptions':
         sess.regOverride = a.value === 'auto' ? null : a.value;

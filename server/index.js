@@ -43,6 +43,7 @@ app.use(express.static(pub, { extensions: ['html'] }));
 app.get('/vendor/morphdom.js', (_, res) => res.sendFile(join(ROOT, 'node_modules/morphdom/dist/morphdom-umd.min.js')));
 app.get('/', (_, res) => res.redirect('/jouer'));
 app.get('/infos', (_, res) => res.json({ joinUrl: JOIN_URL, qr }));
+app.get('/ping', (_, res) => res.type('text').send('ok'));
 
 // ---------- temps réel ----------
 function viewFor(sock) {

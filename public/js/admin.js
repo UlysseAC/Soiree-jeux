@@ -69,8 +69,7 @@ function soiree() {
       <div class="row">
         <button class="btn primary" data-act="demarrer">▶ Démarrer le décompte</button>
         <button class="btn" data-act="pause" ${V.status === 'countdown' ? '' : 'disabled'}>${V.paused ? '▶ Reprendre' : '⏸ Pause'}</button>
-        <button class="btn sm" data-act="ajuster" data-sec="60" ${V.status === 'countdown' ? '' : 'disabled'}>+1 min</button>
-        <button class="btn sm" data-act="ajuster" data-sec="-60" ${V.status === 'countdown' ? '' : 'disabled'}>−1 min</button>
+${[[-300, '−5 min'], [-60, '−1 min'], [60, '+1 min'], [300, '+5 min']].map(([sec, l]) => `<button class="btn sm" data-act="ajuster" data-sec="${sec}" ${V.status === 'countdown' ? '' : 'disabled'}>${l}</button>`).join('')}
       </div>
       <div class="row">
         <button class="btn sm" data-act="inscriptions" data-v="open">Ouvrir les inscriptions</button>
@@ -175,8 +174,7 @@ function partieGrandPari(g) {
       ${g.oddsPending ? '<span class="pill">Cotes du foot en calcul…</span>' : ''}</div>
     <div class="row">
       <button class="btn primary" data-jeu="lancerSport" ${g.phase === 'entre' ? '' : 'disabled'} data-confirm="Lancer le sport maintenant ? Les paris et investissements se ferment.">▶ Lancer le sport maintenant</button>
-      <button class="btn sm" data-jeu="decaler" data-sec="60" ${g.phase === 'entre' ? '' : 'disabled'}>+1 min</button>
-      <button class="btn sm" data-jeu="decaler" data-sec="-60" ${g.phase === 'entre' ? '' : 'disabled'}>−1 min</button>
+      ${[[-300, '−5 min'], [-60, '−1 min'], [60, '+1 min'], [300, '+5 min']].map(([sec, l]) => `<button class="btn sm" data-jeu="decaler" data-sec="${sec}" ${g.phase === 'entre' ? '' : 'disabled'}>${l}</button>`).join('')}
       <button class="btn sm danger" data-jeu="terminer" data-confirm="Terminer la partie maintenant ?">Terminer</button></div></div>`;
   h += `<div class="box"><h2>Programme</h2><div class="scroll"><table><thead><tr><th>Sport</th><th>Départ</th><th>Paris</th><th>État</th></tr></thead><tbody>${g.sports.map((s, k) => `<tr>
       <td>${s.icon} ${esc(s.name)}</td><td class="mono">${new Date(s.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</td>
