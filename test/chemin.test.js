@@ -13,10 +13,12 @@ function setup(n, tweak = c => c) {
 }
 
 test('répartition : détectives proportionnels et même nombre d\'étapes', () => {
-  assert.equal(chemin.detectivesFor(5), 0);
-  assert.equal(chemin.detectivesFor(8), 0);
-  assert.equal(chemin.detectivesFor(15), 0);
+  assert.equal(chemin.detectivesFor(2), 0);
+  assert.equal(chemin.detectivesFor(3), 1);
+  assert.equal(chemin.detectivesFor(8), 1);
+  assert.equal(chemin.detectivesFor(15), 1);
   assert.equal(chemin.detectivesFor(16), 1);
+  assert.equal(chemin.detectivesFor(17), 2);
   assert.equal(chemin.detectivesFor(20), 5);
   assert.equal(chemin.detectivesFor(24), 9);
   const s = chemin.split(Array.from({ length: 17 }, (_, i) => i));
