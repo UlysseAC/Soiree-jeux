@@ -23,11 +23,23 @@ function head(right) {
 }
 
 // ---------- avant le jeu ----------
+// QR code pour rejoindre : grand sur l'écran d'attente, petit dans un coin pendant les jeux.
+function qrBlock(big) {
+  const local = /^http:\/\/(\d+\.){3}\d+/.test(V.joinUrl || '');
+  return `<div class="stack center" style="align-items:center;gap:1vh">
+    <img class="qr" src="${V.qr}" alt="QR code pour rejoindre la soirée" style="${big ? '' : 'width:clamp(90px,8vw,130px)'}">
+    <span class="mono muted" style="font-size:${big ? 'clamp(12px,1.1vw,18px)' : '11px'}">${esc(V.joinUrl)}</span>
+    ${big && local ? '<span class="muted">Connecte-toi d\'abord au Wi-Fi</span>' : ''}</div>`;
+}
+
 function waiting() {
   if (V.status === 'idle' && !V.inscriptionsOpen) {
-    return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3vh;text-align:center">
-      <div class="label" style="font-size:18px">Prochain jeu</div><h1 class="sc-title" style="font-size:clamp(50px,9vw,140px)">${esc(V.gameName)}</h1>
-      <p class="sc-sub muted">Le décompte va bientôt commencer</p></div>`;
+    return `<div style="flex:1;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5vw;align-items:center">
+      <div class="stack" style="gap:3vh;min-width:0">
+        <div class="label" style="font-size:18px">Prochain jeu</div><h1 class="sc-title" style="font-size:clamp(50px,8vw,130px)">${esc(V.gameName)}</h1>
+        <p class="sc-sub">Scanne le QR code et entre ton prénom pour rejoindre la soirée.</p>
+        <p class="sc-sub muted">Les inscriptions au jeu s'ouvriront sur ton téléphone.</p></div>
+      ${qrBlock(true)}</div>`;
   }
   const open = V.inscriptionsOpen;
   return `${head(`${V.registeredCount} inscrits`)}
@@ -38,11 +50,7 @@ function waiting() {
         <div class="sc-sub">${open ? '<strong style="color:var(--accent)">Inscriptions ouvertes</strong> : scanne le QR code !' : `Inscriptions dans <strong class="mono" data-until="${V.inscriptionsAt}"></strong>`}</div>
         ${V.registered.length ? `<div class="names">${V.registered.map(n => `<span>${esc(n)}</span>`).join('')}</div>` : ''}
       </div>
-      <div class="stack center" style="align-items:center">
-        <img class="qr" src="${V.qr}" alt="QR code pour rejoindre">
-        <span class="mono muted" style="font-size:clamp(12px,1.1vw,18px)">${esc(V.joinUrl)}</span>
-        <span class="muted">Connecte-toi d'abord au Wi-Fi</span>
-      </div>
+      ${qrBlock(true)}
     </div>`;
 }
 
@@ -328,6 +336,12 @@ function draw() {
   const before = {};
   document.querySelectorAll('#board li, #board-soiree li').forEach(li => { before[li.dataset.pid] = li.getBoundingClientRect().top; });
   SJ.render(app, html);
+  // Petit QR code dans un coin pendant les jeux, pour ceux qui arrivent en retard.
+  const mini = document.getElementById('qr-mini');
+  const showMini = !ov && g && V.status === 'playing' && V.qr;
+  mini.hidden = !showMini;
+  document.body.classList.toggle('with-qr', !!showMini);
+  if (showMini && !mini.innerHTML) mini.innerHTML = `<img src="${V.qr}" alt="QR code pour rejoindre"><span>Rejoindre</span>`;
   overlay.hidden = !ov;
   if (ov) SJ.render(overlay, ov);
   // Classement des parieurs : les lignes glissent vers leur nouvelle place.

@@ -121,7 +121,10 @@ body[data-game="duel"] .sc-big { font-weight: 400; }
 .feed { display: flex; flex-direction: column; gap: 10px; font-size: clamp(16px, 1.6vw, 26px); }
 .feed div { display: flex; gap: 12px; align-items: baseline; }
 .feed time { font: 500 .6em var(--mono); color: var(--muted); }
-.sound { position: fixed; right: 14px; bottom: 14px; z-index: 30; }
+.qr-mini { position: fixed; right: 14px; bottom: 14px; z-index: 12; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; align-items: center; gap: 4px; font: 600 12px var(--body); color: var(--muted); }
+.qr-mini img { width: clamp(80px, 7vw, 120px); border-radius: 6px; }
+.sound { position: fixed; left: 14px; bottom: 14px; z-index: 30; }
+body.with-qr .screen { padding-bottom: calc(3vh + 150px); }
 .win { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3vh; text-align: center; padding: 4vw; background: radial-gradient(ellipse at 50% 40%, var(--accent-soft), transparent 70%), var(--ink); z-index: 10; }
 .win h2 { font: 800 clamp(48px, 9vw, 150px)/.95 var(--display); text-transform: uppercase; color: var(--accent); margin: 0; }
 body[data-game="duel"] .win h2 { font-weight: 400; text-transform: none; }
