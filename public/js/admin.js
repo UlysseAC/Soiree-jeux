@@ -13,7 +13,18 @@ async function login(pw) {
   draw();
 }
 SJ.sock.on('connect', () => { const pw = SJ.store('sj-admin'); if (pw) login(pw); else draw(); });
-SJ.sock.on('etat', v => { V = v; document.body.dataset.game = v.gameId; draw(); });
+SJ.sock.on('etat', v => { V = v; document.body.dataset.game = v.gameId; keepCopy(); draw(); });
+
+// Copie des réglages dans ce navigateur : si le serveur repart de zéro, on les remet en un clic.
+function localCopy() {
+  try { return JSON.parse(SJ.store('sj-admin-reglages') || 'null'); } catch { return null; }
+}
+function keepCopy() {
+  if (!V.fullConfig || !V.reglagesMaj || V.simulation?.running) return;
+  const c = localCopy();
+  if (c && c.at === V.reglagesMaj) return;
+  SJ.store('sj-admin-reglages', JSON.stringify({ at: V.reglagesMaj, config: V.fullConfig }));
+}
 
 async function admin(a) {
   const r = await SJ.emit('admin', a);
@@ -345,6 +356,9 @@ function alerts() {
     const missing = V.game ? V.game.players.filter(p => !p.num).map(p => p.name) : V.registered.filter(p => !p.dossard).map(p => p.name);
     if (missing.length) out.push(`👕 <strong>${missing.length} joueur${missing.length > 1 ? 's' : ''} sans numéro de maillot</strong> : ${missing.slice(0, 12).map(esc).join(', ')}${missing.length > 12 ? '…' : ''}`);
   }
+  const copy = !V.reglagesMaj && localCopy();
+  if (copy) out.push(`♻️ <span><strong>Le serveur a perdu tes réglages</strong> (codes, indices, durées, noms des jeux). Ce navigateur en garde une copie du ${esc(new Date(copy.at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }))}.</span>
+    <button class="btn primary" data-act="restaurerCopie">Restaurer mes réglages</button><button class="btn" data-act="oublierCopie" data-confirm="Oublier la copie de ce navigateur ?">Ignorer</button>`);
   if (V.enLigne && !V.sauvegardeEnLigne) out.push('💾 <strong>Sauvegarde en ligne non activée</strong> : si le serveur redémarre, la partie et les joueurs sont perdus. Ajoute Upstash (voir le guide).');
   return out.map(t => `<div class="card danger" style="flex-direction:row;align-items:center">${t}</div>`).join('');
 }
@@ -401,6 +415,11 @@ app.addEventListener('click', e => {
   if (a === 'simStart') return admin({ type: 'simulation', cmd: 'start', n: Number(document.getElementById('sim-n').value), games: document.getElementById('sim-jeux').value.split(',') });
   if (a === 'simStop') return admin({ type: 'simulation', cmd: 'stop' });
   if (a === 'simErase') return admin({ type: 'simulation', cmd: 'effacer' });
+  if (a === 'restaurerCopie') {
+    const c = localCopy();
+    return c && admin({ type: 'importerReglages', config: c.config });
+  }
+  if (a === 'oublierCopie') { SJ.store('sj-admin-reglages', null); return draw(); }
   if (a === 'exporter') {
     const blob = new Blob([JSON.stringify(V.fullConfig, null, 2)], { type: 'application/json' });
     const link = document.createElement('a');

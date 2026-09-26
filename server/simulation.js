@@ -19,8 +19,17 @@ export class Simulation {
     this.running = false;
     this.step = '';
     this.bots = [];
-    this.backup = null;
+    // Serveur redémarré pendant (ou après) une simulation : on remet les vrais réglages et on efface les faux joueurs.
+    if (this.backup) {
+      soiree.s.config = clone(this.backup.config);
+      this.erase();
+      console.log('  Simulation interrompue : vrais réglages remis, faux joueurs effacés.');
+    }
   }
+
+  // Copie des vrais réglages gardée dans la sauvegarde : un redémarrage en pleine simulation ne les perd pas.
+  get backup() { return this.so.s.simBackup ?? null; }
+  set backup(v) { if (v) this.so.s.simBackup = v; else delete this.so.s.simBackup; }
 
   status() {
     return { running: this.running, step: this.step, bots: this.bots.length, canErase: !!this.backup && !this.running };

@@ -47,6 +47,8 @@ export function restore(saved) {
     ...saved,
     config: mergeDefaults(def.config, saved.config),
     bonus: saved.bonus || {},
+    // Sauvegarde d'avant ce champ : ses réglages sont les vrais.
+    reglagesMaj: saved.reglagesMaj || (saved.config ? Date.now() : 0),
   };
 }
 
@@ -170,6 +172,7 @@ export class Soiree {
         const c = a.config;
         if (!c || typeof c !== 'object' || !c.games) return { ok: false, msg: 'Fichier de réglages invalide.' };
         this.s.config = restore({ config: c }).config;
+        this.s.reglagesMaj = this.now();
         return { ok: true, msg: 'Réglages importés.' };
       }
       case 'reinitialiserSoiree':
@@ -193,7 +196,9 @@ export class Soiree {
         const done = a.scope === 'soiree'
           ? setPath(this.s.config, a.path, a.value)
           : setPath(this.gameCfg(a.gameId ?? sess.gameId), a.path, a.value);
-        return done ? { ok: true } : { ok: false, msg: 'Réglage inconnu.' };
+        if (!done) return { ok: false, msg: 'Réglage inconnu.' };
+        this.s.reglagesMaj = this.now();
+        return { ok: true };
       }
       case 'jeu':
         if (!sess.game) return { ok: false, msg: 'Aucune partie en cours.' };
@@ -340,6 +345,7 @@ export class Soiree {
       config: { decompte: this.s.config.decompte, inscriptions: this.s.config.inscriptions, orgaCode: this.s.config.orgaCode, classement: this.s.config.classement, nomsJeux: this.s.config.nomsJeux },
       show: this.s.show,
       fullConfig: this.s.config,
+      reglagesMaj: this.s.reglagesMaj || 0,
       classement: this.classement(),
       people: Object.values(this.s.people).map(p => ({ pid: p.id, name: p.name })).sort((a, b) => a.name.localeCompare(b.name, 'fr')),
       gameConfig: this.gameCfg(),
