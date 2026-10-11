@@ -81,26 +81,35 @@ const SJ = (() => {
     return `<span class="hearts" aria-label="${n} vie${n > 1 ? 's' : ''}">${'♥'.repeat(Math.max(0, n))}<span class="off">${'♥'.repeat(Math.max(0, max - n))}</span></span>`;
   }
 
-  function confetti(ms = 8000) {
+  // Pluie de confettis raisonnable : une seule à la fois, durée bornée, nombre de pièces adapté à la taille de l'écran,
+  // et arrêt garanti quoi qu'il arrive (un écran public qui reste allumé toute la soirée ne doit jamais ramer).
+  function confetti(ms = 6000) {
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (document.hidden || document.querySelector('canvas.confetti')) return;
+    ms = Math.min(ms, 10000);
     const cv = document.createElement('canvas');
     cv.className = 'confetti';
     document.body.appendChild(cv);
-    const dp = devicePixelRatio || 1;
+    const dp = Math.min(devicePixelRatio || 1, 1.5);
     const ctx = cv.getContext('2d');
-    const size = () => { cv.width = innerWidth * dp; cv.height = innerHeight * dp; };
-    size();
+    cv.width = innerWidth * dp; cv.height = innerHeight * dp;
+    const n = Math.max(40, Math.min(130, Math.round(innerWidth * innerHeight / 9000)));
     const cols = ['#e5a83b', '#43b8a6', '#ece6d9', '#e7584f', '#7fa8f0'];
-    const ps = Array.from({ length: 220 }, () => ({ x: Math.random() * cv.width, y: -Math.random() * cv.height, w: (6 + Math.random() * 8) * dp, h: (3 + Math.random() * 5) * dp, vy: (1.5 + Math.random() * 3) * dp, vx: (Math.random() - .5) * 1.5 * dp, r: Math.random() * 6, vr: (Math.random() - .5) * .2, c: cols[Math.random() * cols.length | 0] }));
+    const ps = Array.from({ length: n }, () => ({ x: Math.random() * cv.width, y: -Math.random() * cv.height, w: (6 + Math.random() * 8) * dp, h: (3 + Math.random() * 5) * dp, vy: (1.5 + Math.random() * 3) * dp, vx: (Math.random() - .5) * 1.5 * dp, r: Math.random() * 6, vr: (Math.random() - .5) * .2, c: cols[Math.random() * cols.length | 0] }));
     const end = Date.now() + ms;
+    let raf = 0;
+    const stop = () => { cancelAnimationFrame(raf); clearTimeout(guard); cv.remove(); };
+    const guard = setTimeout(stop, ms + 6000);
     (function f() {
       ctx.clearRect(0, 0, cv.width, cv.height);
+      const spawning = Date.now() < end;
       for (const p of ps) {
         p.y += p.vy; p.x += p.vx; p.r += p.vr;
-        if (p.y > cv.height + 20 && Date.now() < end) { p.y = -20; p.x = Math.random() * cv.width; }
+        if (p.y > cv.height + 20 && spawning) { p.y = -20; p.x = Math.random() * cv.width; }
         ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); ctx.restore();
       }
-      if (ps.some(p => p.y < cv.height + 20)) requestAnimationFrame(f); else cv.remove();
+      if (document.hidden || !ps.some(p => p.y < cv.height + 20)) return stop();
+      raf = requestAnimationFrame(f);
     })();
   }
 

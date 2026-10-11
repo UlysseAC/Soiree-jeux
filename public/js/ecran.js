@@ -4,7 +4,16 @@ const app = document.getElementById('app');
 const overlay = document.getElementById('overlay');
 const { esc, fmt, money } = SJ;
 let V = null;
-let celebrated = null;
+// Fêtes déjà jouées : chaque victoire ou grand final ne déclenche qu'une seule pluie de confettis, une seule fois.
+const celebrated = new Set();
+let premierRendu = true; // une page ouverte ou rechargée sur un état déjà terminé ne refait pas la fête
+function celebrate(key, ms, extra) {
+  if (celebrated.has(key)) return;
+  celebrated.add(key);
+  if (premierRendu) return;
+  SJ.confetti(ms);
+  extra?.();
+}
 
 SJ.sock.on('connect', () => SJ.emit('hello', { role: 'ecran' }));
 SJ.sock.on('etat', v => { V = v; document.body.dataset.game = v.gameId; draw(); });
@@ -319,8 +328,8 @@ function draw() {
       html = duel(g);
       ov = duelOverlay(g);
     }
-    const key = V.gameId + ':' + (g.winner?.name ?? g.winner ?? g.final?.[0]?.name);
-    if (g.finished && (g.winner || g.final) && celebrated !== key) { celebrated = key; SJ.confetti(12000); }
+    const key = `${V.sessionId || ''}:${V.gameId}:${g.winner?.name ?? g.winner ?? g.final?.[0]?.name}`;
+    if (g.finished && (g.winner || g.final)) celebrate(key, 7000);
   } else {
     html = waiting();
     Sons.marcher(false);
@@ -331,8 +340,9 @@ function draw() {
   if (mode && V.classement?.rows.length) {
     trackBettors(V.classement.rows.map(r => ({ pid: 's:' + r.pid })));
     ov = soireeView(V.classement, mode === 'final');
-    if (mode === 'final' && celebrated !== 'final') { celebrated = 'final'; SJ.confetti(15000); Sons.fanfare(); }
+    if (mode === 'final') celebrate(`final:${V.classement.held?.length ?? 0}`, 9000, () => Sons.fanfare());
   }
+  premierRendu = false;
   const before = {};
   document.querySelectorAll('#board li, #board-soiree li').forEach(li => { before[li.dataset.pid] = li.getBoundingClientRect().top; });
   SJ.render(app, html);
