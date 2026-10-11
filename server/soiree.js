@@ -14,6 +14,7 @@ export function defaultState() {
       inscriptions: 900,
       orgaCode: '1234',
       nomsJeux: Object.fromEntries(Object.values(GAMES).map(m => [m.id, m.name])),
+      programme: Object.keys(GAMES), // jeux choisis pour la soirée, dans l'ordre
       classement: classement.defaultConfig(),
       games: Object.fromEntries(Object.values(GAMES).map(m => [m.id, m.defaultConfig()])),
     },
@@ -22,7 +23,13 @@ export function defaultState() {
     history: [],
     bonus: {},
     show: null, // null | 'classement' | 'final' : classement affiché sur l'écran public
+    soiree: { started: false, startedAt: 0 },
   };
+}
+
+// Programme : seulement des jeux qui existent, chacun une fois.
+function cleanProgramme(ids) {
+  return Array.isArray(ids) ? [...new Set(ids.filter(id => GAMES[id]))] : [];
 }
 
 // Change à chaque démarrage du serveur : les téléphones savent ainsi qu'il a redémarré.
@@ -46,14 +53,18 @@ function newSession(gameId) {
 export function restore(saved) {
   const def = defaultState();
   if (!saved) return def;
-  return {
+  const out = {
     ...def,
     ...saved,
     config: mergeDefaults(def.config, saved.config),
     bonus: saved.bonus || {},
+    soiree: { ...def.soiree, ...saved.soiree },
     // Sauvegarde d'avant ce champ : ses réglages sont les vrais.
     reglagesMaj: saved.reglagesMaj || (saved.config ? Date.now() : 0),
   };
+  // Sauvegarde d'avant le programme : tous les jeux, comme avant.
+  out.config.programme = saved.config && 'programme' in saved.config ? cleanProgramme(saved.config.programme) : def.config.programme;
+  return out;
 }
 
 export class Soiree {
@@ -172,6 +183,32 @@ export class Soiree {
       case 'afficherClassement':
         this.s.show = ['classement', 'final'].includes(a.mode) ? a.mode : null;
         return { ok: true };
+      case 'programme':
+        this.s.config.programme = cleanProgramme(a.ids);
+        this.s.reglagesMaj = this.now();
+        return { ok: true };
+      case 'demarrerSoiree': {
+        const prog = this.s.config.programme;
+        if (!prog.length) return { ok: false, msg: 'Choisis au moins un jeu pour la soirée.' };
+        if (sess.status === 'playing') return { ok: false, msg: 'Termine d\'abord la partie en cours.' };
+        // Nouvelle soirée : classement à zéro, on se place sur le premier jeu du programme.
+        this.s.history = [];
+        this.s.bonus = {};
+        this.s.show = null;
+        this.s.session = newSession(prog[0]);
+        this.s.soiree = { started: true, startedAt: now };
+        return { ok: true, msg: `Soirée démarrée ! Premier jeu : ${this.gameName(prog[0])}.` };
+      }
+      case 'jeuSuivant': {
+        const prog = this.s.config.programme;
+        const next = prog[prog.indexOf(sess.gameId) + 1];
+        if (!next) return { ok: false, msg: 'C\'était le dernier jeu : affiche le grand final dans l\'onglet Classement.' };
+        const r = this.admin({ type: 'choisirJeu', gameId: next });
+        return r.ok ? { ok: true, msg: `Jeu suivant : ${this.gameName(next)}.` } : r;
+      }
+      case 'terminerSoiree':
+        this.s.soiree = { ...this.s.soiree, started: false };
+        return { ok: true, msg: 'Soirée terminée. Le classement reste visible.' };
       case 'importerReglages': {
         const c = a.config;
         if (!c || typeof c !== 'object' || !c.games) return { ok: false, msg: 'Fichier de réglages invalide.' };
@@ -350,6 +387,10 @@ export class Soiree {
       ...this.common(),
       config: { decompte: this.s.config.decompte, inscriptions: this.s.config.inscriptions, orgaCode: this.s.config.orgaCode, classement: this.s.config.classement, nomsJeux: this.s.config.nomsJeux },
       show: this.s.show,
+      programme: this.s.config.programme,
+      soiree: this.s.soiree,
+      // Jeux déjà joués à cette soirée (dans le classement).
+      joues: [...this.s.history.map(h => h.gameId), ...(sess.game && sess.status === 'finished' ? [sess.gameId] : [])],
       fullConfig: this.s.config,
       reglagesMaj: this.s.reglagesMaj || 0,
       classement: this.classement(),

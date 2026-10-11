@@ -4,7 +4,9 @@ const app = document.getElementById('app');
 const { esc, fmt, money } = SJ;
 let V = null;
 let authed = false;
-const ui = { tab: SJ.store('sj-admin-tab') || 'soiree', team: 'A', hideNames: false, parti: null };
+const ui = { tab: SJ.store('sj-admin-tab') || 'soiree', team: 'A', hideNames: false, parti: null, reglJeu: null };
+// Jeu dont on affiche les réglages (peut être un autre que le jeu en cours).
+let cfgGame = null;
 
 async function login(pw) {
   const r = await SJ.emit('hello', { role: 'admin', password: pw });
@@ -43,8 +45,9 @@ function parseDur(v) {
 
 // Champ de réglage lié à un chemin de config. kind : text | num | dur | area | bool
 function cfgInput(path, value, kind = 'text', { scope = 'jeu', label, width, ph = '' } = {}) {
-  const id = 'c-' + scope + '-' + path.replace(/\./g, '-');
-  const attrs = `id="${id}" data-cfg="${path}" data-kind="${kind}" data-scope="${scope}"${label ? '' : ` aria-label="${esc(path)}"`}`;
+  const game = scope === 'jeu' ? cfgGame : '';
+  const id = 'c-' + scope + (game ? '-' + game : '') + '-' + path.replace(/\./g, '-');
+  const attrs = `id="${id}" data-cfg="${path}" data-kind="${kind}" data-scope="${scope}"${game ? ` data-game="${game}"` : ''}${label ? '' : ` aria-label="${esc(path)}"`}`;
   let input;
   if (kind === 'area') input = `<textarea class="in" rows="2" ${attrs} placeholder="${esc(ph)}">${esc(value)}</textarea>`;
   else if (kind === 'bool') input = `<input type="checkbox" ${attrs} ${value ? 'checked' : ''} style="width:20px;height:20px;accent-color:var(--accent)">`;
@@ -60,7 +63,7 @@ async function saveCfg(el) {
   let value = el.type === 'checkbox' ? el.checked : el.value;
   if (el.dataset.kind === 'dur') { value = parseDur(value); if (value == null) return SJ.toast({ ok: false, msg: 'Durée au format minutes:secondes, ex. 4:30' }); }
   if (el.dataset.kind === 'num') value = Number(String(value).replace(',', '.'));
-  const r = await admin({ type: 'config', scope: el.dataset.scope === 'soiree' ? 'soiree' : 'jeu', path: el.dataset.cfg, value });
+  const r = await admin({ type: 'config', scope: el.dataset.scope === 'soiree' ? 'soiree' : 'jeu', gameId: el.dataset.game || undefined, path: el.dataset.cfg, value });
   const cur = document.getElementById(el.id) || el;
   cur.classList.remove('saving');
   if (r.ok) { cur.classList.add('saved'); setTimeout(() => cur.classList.remove('saved'), 1500); }
@@ -78,15 +81,58 @@ const flushCfg = () => { for (const el of [...typing.keys()]) saveCfg(el); };
 addEventListener('pagehide', flushCfg);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushCfg(); });
 
+// ---------- programme de la soirée ----------
+const nomJeu = id => V.games.find(g => g.id === id)?.name ?? id;
+
+function programme() {
+  const prog = V.programme, started = V.soiree?.started;
+  const autres = V.games.filter(g => !prog.includes(g.id));
+  const idx = prog.indexOf(V.gameId);
+  const suivant = idx >= 0 ? prog[idx + 1] : prog[0];
+  const etat = id => id === V.gameId
+    ? `<span class="pill accent">${{ idle: 'jeu actuel', countdown: 'décompte', playing: '▶ en cours', finished: 'terminé' }[V.status]}</span>`
+    : V.joues.includes(id) ? '<span class="pill ok">✓ joué</span>' : '';
+  const lignes = prog.map((id, i) => `<div class="stack" style="gap:6px;padding:8px 0;border-bottom:1px solid var(--line)">
+    <div class="row"><span class="mono muted">${i + 1}.</span><strong>${esc(nomJeu(id))}</strong>${etat(id)}</div>
+    <div class="row">
+      ${id !== V.gameId ? `<button class="btn sm" data-act="choisirJeu" data-id="${id}" ${V.status === 'playing' ? 'disabled' : ''}>Choisir</button>` : ''}
+      <button class="btn sm" data-regler="${id}">⚙ Régler</button>
+      <button class="btn sm" data-prog="monter" data-id="${id}" ${i === 0 ? 'disabled' : ''} aria-label="Monter">↑</button>
+      <button class="btn sm" data-prog="descendre" data-id="${id}" ${i === prog.length - 1 ? 'disabled' : ''} aria-label="Descendre">↓</button>
+      <button class="btn sm" data-prog="retirer" data-id="${id}" aria-label="Retirer ${esc(nomJeu(id))} de la soirée">✕</button>
+    </div></div>`).join('');
+  return `<div class="spread"><h2>${started ? 'Soirée en cours' : 'Programme de la soirée'}</h2>
+      ${started && idx >= 0 ? `<span class="pill accent">Jeu ${idx + 1} / ${prog.length}</span>` : ''}</div>
+    <p class="muted" style="margin:0;font-size:14px">${started
+      ? 'Tu peux encore ajouter, retirer ou réordonner les jeux, et changer leurs réglages.'
+      : 'Choisis les jeux de ce soir et leur ordre, règle chacun avec « ⚙ Régler », puis démarre la soirée.'}</p>
+    ${prog.length ? `<div>${lignes}</div>` : '<p class="muted" style="margin:0">Aucun jeu choisi.</p>'}
+    ${autres.length ? `<div class="row"><span class="muted">Ajouter :</span>${autres.map(g => `<button class="btn sm" data-prog="ajouter" data-id="${g.id}">+ ${esc(g.name)}</button>
+      <button class="btn sm" data-regler="${g.id}" aria-label="Régler ${esc(g.name)}">⚙</button>`).join('')}</div>` : ''}
+    <div class="row">${started
+      ? `${suivant ? `<button class="btn primary" data-act="jeuSuivant" ${V.status === 'playing' ? 'disabled title="Termine d\'abord la partie en cours"' : ''}>Jeu suivant : ${esc(nomJeu(suivant))} ▶</button>`
+          : '<span class="muted">Dernier jeu : affiche le grand final dans l\'onglet Classement.</span>'}
+         <button class="btn sm" data-act="terminerSoiree" data-confirm="Terminer la soirée ? Le classement reste visible.">Terminer la soirée</button>`
+      : `<button class="btn primary" data-act="demarrerSoiree" ${prog.length ? '' : 'disabled'} data-confirm="Démarrer la soirée ? Le classement repart de zéro.">▶ Démarrer la soirée</button>`}</div>`;
+}
+
+function changerProgramme(action, id) {
+  const p = [...V.programme], i = p.indexOf(id);
+  if (action === 'ajouter' && i < 0) p.push(id);
+  if (action === 'retirer' && i >= 0) p.splice(i, 1);
+  if (action === 'monter' && i > 0) [p[i - 1], p[i]] = [p[i], p[i - 1]];
+  if (action === 'descendre' && i >= 0 && i < p.length - 1) [p[i + 1], p[i]] = [p[i], p[i + 1]];
+  return admin({ type: 'programme', ids: p });
+}
+
 // ---------- onglet Soirée ----------
 function soiree() {
   const statusLabel = { idle: 'En attente', countdown: V.paused ? 'Décompte en pause' : 'Décompte en cours', playing: 'Partie en cours', finished: 'Partie terminée' }[V.status];
   const clock = V.status === 'countdown' ? (V.paused ? fmt(V.remaining) : `<span data-until="${V.endsAt}"></span>`) : V.status === 'playing' ? '▶' : '—';
   return `<div class="grid-2">
     <div class="box">
-      <h2>Jeu</h2>
-      <div class="row">${V.games.map(g => `<button class="btn ${g.id === V.gameId ? 'primary' : ''}" data-act="choisirJeu" data-id="${g.id}">${esc(g.name)}</button>`).join('')}</div>
-      <h2 style="margin-top:8px">Décompte</h2>
+      ${programme()}
+      <h2 style="margin-top:8px">Décompte : ${esc(V.gameName)}</h2>
       <div class="clock">${clock}</div>
       <div class="row"><span class="pill accent">${statusLabel}</span><span class="pill ${V.inscriptionsOpen ? 'ok' : ''}">${V.inscriptionsOpen ? '● Inscriptions ouvertes' : 'Inscriptions fermées'}</span><span class="pill">${V.registeredCount} inscrits</span></div>
       ${V.message ? `<p class="muted" style="margin:0;color:var(--danger)">${esc(V.message)}</p>` : ''}
@@ -363,9 +409,19 @@ function reglagesGrandPari(c) {
 }
 
 function reglages() {
-  const c = V.gameConfig;
-  return `<p class="muted" style="margin:0">Réglages de : <strong>${esc(V.gameName)}</strong>. Pour régler un autre jeu, choisis-le dans l'onglet Soirée.</p>` +
-    (V.gameId === 'chemin' ? reglagesChemin(c) : V.gameId === 'grandpari' ? reglagesGrandPari(c) : reglagesDuel(c));
+  const id = V.games.some(g => g.id === ui.reglJeu) ? ui.reglJeu : V.gameId;
+  const c = V.fullConfig.games[id];
+  cfgGame = id;
+  const note = id !== V.gameId
+    ? 'Ce jeu n\'est pas le jeu actuel : tes changements serviront quand il sera lancé.'
+    : V.status === 'playing'
+      ? 'Partie en cours : les changements sont enregistrés tout de suite ; ceux utilisés au lancement de la partie serviront à la prochaine.'
+      : 'Jeu actuel de la soirée.';
+  const html = `<div class="row">${V.games.map(g => `<button class="btn ${g.id === id ? 'primary' : ''}" data-regler="${g.id}">${esc(g.name)}${g.id === V.gameId ? ' ●' : ''}${V.programme.includes(g.id) ? '' : ' <span class="muted">(pas au programme)</span>'}</button>`).join('')}</div>
+    <p class="muted" style="margin:0">${note}</p>` +
+    (id === 'chemin' ? reglagesChemin(c) : id === 'grandpari' ? reglagesGrandPari(c) : reglagesDuel(c));
+  cfgGame = null;
+  return html;
 }
 
 // Alertes visibles dans tous les onglets.
@@ -392,7 +448,7 @@ function draw() {
     return;
   }
   if (!V) return;
-  const tabs = [['soiree', 'Soirée'], ['partie', 'Partie en cours'], ['reglages', 'Réglages du jeu'], ['classement', 'Classement']];
+  const tabs = [['soiree', 'Soirée'], ['partie', 'Partie en cours'], ['reglages', 'Réglages des jeux'], ['classement', 'Classement']];
   const body = ui.tab === 'partie' ? partie() : ui.tab === 'reglages' ? reglages() : ui.tab === 'classement' ? classementTab() : soiree();
   SJ.render(app, alerts() + `<div class="spread"><h1 class="sc-title" style="font-size:34px">${esc(V.gameName)}</h1>
     <nav class="tabs" role="tablist">${tabs.map(([k, l]) => `<button role="tab" data-tab="${k}" aria-selected="${ui.tab === k}">${l}</button>`).join('')}</nav></div>${body}`);
@@ -412,9 +468,11 @@ function confirmed(el) {
 }
 
 app.addEventListener('click', e => {
-  const t = e.target.closest('[data-tab],[data-act],[data-jeu],[data-team-tab],[data-parti]');
-  if (!t) return;
+  const t = e.target.closest('[data-tab],[data-act],[data-jeu],[data-team-tab],[data-parti],[data-regler],[data-prog]');
+  if (!t || t.disabled) return;
   if (t.dataset.tab) { ui.tab = t.dataset.tab; SJ.store('sj-admin-tab', ui.tab); return draw(); }
+  if (t.dataset.regler) { ui.reglJeu = t.dataset.regler; ui.tab = 'reglages'; SJ.store('sj-admin-tab', ui.tab); return draw(); }
+  if (t.dataset.prog) return changerProgramme(t.dataset.prog, t.dataset.id);
   if (t.dataset.teamTab) { ui.team = t.dataset.teamTab; return draw(); }
   if (t.dataset.parti) { ui.parti = ui.parti === t.dataset.parti ? null : t.dataset.parti; return draw(); }
   if (!confirmed(t)) return;
