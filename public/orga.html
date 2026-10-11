@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Soirée jeux — orga</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<main class="phone" id="app"><p class="muted">Connexion…</p></main>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/vendor/morphdom.js"></script>
+<script src="/js/common.js"></script>
+<script>
+// Page orga : mettre un joueur en safe zone pour une durée.
+const app = document.getElementById('app');
+const { esc } = SJ;
+let V = null, authed = false;
+const ui = { q: '', pid: null, dur: null };
+
+async function login(code) {
+  const r = await SJ.emit('hello', { role: 'orga', code });
+  authed = r.ok;
+  if (r.ok) SJ.store('sj-orga', code); else { SJ.store('sj-orga', null); SJ.toast(r); }
+  draw();
+}
+SJ.sock.on('connect', () => { const c = SJ.store('sj-orga'); if (c) login(c); else draw(); });
+SJ.sock.on('etat', v => { V = v; draw(); });
+
+function draw() {
+  if (!authed) {
+    if (!document.getElementById('code')) SJ.render(app, `<header class="ph-head"><h1 class="ph-title">Orga safe zone</h1></header>
+      <form id="login" class="stack"><label class="field"><span class="label">Code orga</span><input class="in" id="code" inputmode="numeric" style="font-size:22px"></label><button class="btn primary big">Entrer</button></form>`);
+    return;
+  }
+  if (!V) return;
+  const o = V.orga;
+  if (!o) return SJ.render(app, `<header class="ph-head"><h1 class="ph-title">Orga safe zone</h1></header><div class="card"><p>Pas de partie avec safe zone en cours.</p><p class="muted">Cette page servira pendant « Le Chemin ».</p></div>`);
+  const def = Math.round(o.duree / 60);
+  const dur = ui.dur ?? def;
+  const q = ui.q.trim().toLocaleLowerCase('fr');
+  const list = o.players.filter(p => !q || p.name.toLocaleLowerCase('fr').includes(q));
+  const sel = o.players.find(p => p.pid === ui.pid);
+  const active = o.players.filter(p => p.safeUntil);
+  SJ.render(app, `<header class="ph-head"><h1 class="ph-title">Orga</h1><span class="pill safe">🛡 ${esc(o.lieu)}</span></header>
+    <label class="field"><span class="label">Joueur</span><input class="in" id="q" value="${esc(ui.q)}" placeholder="Tape le prénom…" autocomplete="off" style="font-size:20px"></label>
+    <div class="list" style="max-height:240px;overflow:auto">${list.map(p => `<button type="button" data-pid="${p.pid}" aria-pressed="${p.pid === ui.pid}" ${p.blocked ? 'disabled' : ''}><span>${esc(p.name)}</span><span class="muted">${p.blocked ? 'bloqué' : p.safeUntil ? '🛡' : ''}</span></button>`).join('') || '<div class="li muted">Personne</div>'}</div>
+    <div class="label">Durée</div>
+    <div class="row">${[3, def, 8].filter((v, i, a) => a.indexOf(v) === i).map(m => `<button type="button" class="btn ${dur === m ? 'primary' : ''}" data-dur="${m}">${m} min</button>`).join('')}</div>
+    <button class="btn big" data-act="safe" style="background:var(--safe);color:#0d1526;border-color:var(--safe)" ${sel && !sel.blocked ? '' : 'disabled'}>${sel ? `Mettre ${esc(sel.name)} en safe zone` : 'Choisis un joueur'}</button>
+    <div class="label">En safe zone maintenant</div>
+    <div class="list">${active.map(p => `<div class="li"><span>${esc(p.name)}</span><span class="row"><span class="mono" data-until="${p.safeUntil}"></span><button class="btn sm" data-fin="${p.pid}">Retirer</button></span></div>`).join('') || '<div class="li muted">Personne</div>'}</div>`);
+}
+
+app.addEventListener('submit', e => { if (e.target.id === 'login') { e.preventDefault(); login(document.getElementById('code').value); } });
+app.addEventListener('input', e => { if (e.target.id === 'q') { ui.q = e.target.value; draw(); } });
+app.addEventListener('click', async e => {
+  const t = e.target.closest('[data-pid],[data-dur],[data-act],[data-fin]');
+  if (!t) return;
+  if (t.dataset.pid) { ui.pid = t.dataset.pid; return draw(); }
+  if (t.dataset.dur) { ui.dur = Number(t.dataset.dur); return draw(); }
+  if (t.dataset.fin) return SJ.toast(await SJ.emit('orga', { type: 'finSafe', pid: t.dataset.fin }));
+  if (t.dataset.act === 'safe') {
+    const r = await SJ.emit('orga', { type: 'safe', pid: ui.pid, duree: (ui.dur ?? Math.round(V.orga.duree / 60)) * 60 });
+    SJ.toast(r);
+    if (r.ok) { ui.pid = null; ui.q = ''; draw(); }
+  }
+});
+</script>
+</body>
+</html>

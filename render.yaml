@@ -1,0 +1,21 @@
+# Déploiement sur Render (https://render.com) : New → Blueprint → choisir ce dépôt.
+services:
+  - type: web
+    name: soiree-jeux
+    runtime: node
+    plan: free
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
+    healthCheckPath: /jouer
+    # Pas de mise à jour automatique : un redéploiement redémarre le serveur et coupe la partie.
+    autoDeploy: false
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: ADMIN_PASSWORD
+        sync: false
+      # Sauvegarde en ligne (facultatif mais conseillé) : base Upstash Redis gratuite
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false

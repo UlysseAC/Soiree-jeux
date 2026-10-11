@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="fr"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Le Chemin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+:root{
+  color-scheme: dark;
+  --ink:#11141b; --panel:#191e28; --panel2:#212735; --line:#2e3545;
+  --text:#ece6d9; --muted:#98a0ae;
+  --a:#e5a83b; --a-soft:rgba(229,168,59,.14);
+  --b:#43b8a6; --b-soft:rgba(67,184,166,.14);
+  --danger:#e7584f; --danger-soft:rgba(231,88,79,.15);
+  --safe:#7fa8f0; --safe-soft:rgba(127,168,240,.15);
+  --display:"Big Shoulders Display", Impact, "Arial Narrow", sans-serif;
+  --body:"IBM Plex Sans", system-ui, sans-serif;
+  --mono:"JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+body{background:var(--ink);color:var(--text);font:15px/1.5 var(--body);padding:24px 16px 48px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+header.top{display:flex;flex-wrap:wrap;align-items:end;justify-content:space-between;gap:12px}
+h1{font:800 44px/1 var(--display);letter-spacing:.02em;margin:0;text-transform:uppercase}
+h1 small{display:block;font:500 13px/1.4 var(--body);letter-spacing:.08em;color:var(--muted);text-transform:uppercase;margin-top:6px}
+.tabs{display:flex;gap:4px;background:var(--panel);padding:4px;border-radius:10px;border:1px solid var(--line);flex-wrap:wrap}
+.tabs button{font:600 14px var(--body);color:var(--muted);background:none;border:0;padding:9px 16px;border-radius:7px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--panel2);color:var(--text)}
+.tabs button:focus-visible,.btn:focus-visible,.chip:focus-visible{outline:2px solid var(--a);outline-offset:2px}
+.note{color:var(--muted);font-size:13px;max-width:70ch;margin:0}
+.label{font:600 11px var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.mono{font-family:var(--mono)}
+.btn{font:600 14px var(--body);border-radius:8px;padding:9px 14px;border:1px solid var(--line);background:var(--panel2);color:var(--text);cursor:pointer}
+.btn.primary{background:var(--a);color:#1d1406;border-color:var(--a)}
+.btn.danger{color:var(--danger);border-color:rgba(231,88,79,.4)}
+.btn.sm{padding:5px 10px;font-size:12px}
+.pill{display:inline-flex;align-items:center;gap:6px;font:600 12px var(--body);padding:3px 9px;border-radius:99px;white-space:nowrap}
+.pill.a{background:var(--a-soft);color:var(--a)} .pill.b{background:var(--b-soft);color:var(--b)}
+.pill.danger{background:var(--danger-soft);color:var(--danger)} .pill.safe{background:var(--safe-soft);color:var(--safe)}
+.pill.muted{background:var(--panel2);color:var(--muted)}
+
+/* ADMIN */
+.admin{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:16px}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.box h2{font:700 15px var(--body);margin:0}
+.clock{font:800 64px/1 var(--display);font-variant-numeric:tabular-nums;letter-spacing:.02em}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.field{display:flex;flex-direction:column;gap:4px;flex:1;min-width:120px}
+.field input{font:500 15px var(--mono);background:var(--ink);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:8px 10px;width:100%;box-sizing:border-box}
+.phase{display:flex;height:8px;border-radius:99px;overflow:hidden;background:var(--panel2)}
+.phase i{display:block}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{font:600 11px var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);text-align:left;padding:8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:8px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+td.wrapcell{white-space:normal;min-width:220px}
+tr:last-child td{border-bottom:0}
+table.edit textarea{font:400 13px/1.4 var(--body);background:var(--ink);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:5px 7px;width:100%;min-width:240px;resize:vertical;box-sizing:border-box}
+table.steps td{vertical-align:top}
+table.edit input{font:500 13px var(--mono);background:var(--ink);border:1px solid var(--line);color:var(--text);border-radius:6px;padding:5px 7px;width:92px}
+input[type=checkbox]{accent-color:var(--safe);width:18px;height:18px;vertical-align:middle}
+.subtabs{display:flex;gap:6px;flex-wrap:wrap}
+.chip{font:600 12px var(--body);padding:6px 11px;border-radius:99px;border:1px solid var(--line);background:none;color:var(--muted);cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--text);color:var(--ink);border-color:var(--text)}
+
+/* ECRAN */
+.screen{background:#0b0d12;border:1px solid var(--line);border-radius:14px;padding:28px;display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:28px;aspect-ratio:16/9;max-width:100%;box-sizing:border-box}
+.screen .big{font:800 clamp(64px,11vw,150px)/.9 var(--display);font-variant-numeric:tabular-nums}
+.screen h3{font:800 clamp(28px,4vw,48px)/1 var(--display);text-transform:uppercase;margin:0;letter-spacing:.02em}
+.track{display:flex;flex-direction:column;gap:8px}
+.dots{display:grid;grid-template-columns:repeat(15,1fr);gap:4px}
+.dots span{height:14px;border-radius:3px;background:var(--panel2)}
+.dots.a span.on{background:var(--a)} .dots.b span.on{background:var(--b)}
+.dots span.cur{outline:2px solid currentColor;outline-offset:1px}
+.feed{display:flex;flex-direction:column;gap:8px;font-size:15px}
+.feed div{display:flex;gap:10px;align-items:baseline}
+.feed time{font:500 12px var(--mono);color:var(--muted)}
+.qr{width:120px;height:120px;background:
+  conic-gradient(from 90deg at 30% 30%,#ece6d9 25%,transparent 0) 0 0/24px 24px,
+  #11141b;border:8px solid #ece6d9;border-radius:6px;flex:none}
+
+.win{min-height:380px;position:relative;overflow:hidden;display:flex!important;align-items:center;justify-content:center;background:radial-gradient(ellipse at 50% 40%,rgba(229,168,59,.22),#0b0d12 70%)}
+#confetti{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.wininner{position:relative;display:flex;flex-direction:column;gap:18px;text-align:center;max-width:90%}
+.wintitle{font:800 clamp(44px,8vw,110px)/.95 var(--display);text-transform:uppercase;color:var(--a);letter-spacing:.01em;text-wrap:balance}
+.winnames{display:flex;flex-direction:column;gap:12px;font-size:clamp(15px,1.8vw,22px)}
+.winnames p{margin:4px 0 0;text-wrap:balance}
+/* PHONE */
+.phones{display:grid;grid-template-columns:auto minmax(0,1fr);gap:24px;align-items:start}
+.phone{width:320px;max-width:100%;background:#000;border-radius:38px;padding:12px;box-sizing:border-box;border:1px solid var(--line)}
+.scr{background:var(--ink);border-radius:28px;min-height:600px;padding:22px 18px;display:flex;flex-direction:column;gap:14px;box-sizing:border-box;position:relative;overflow:hidden}
+.scr .who{display:flex;justify-content:space-between;align-items:center}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.card p{margin:0}
+.bigname{font:800 34px/1 var(--display);text-transform:uppercase}
+.num{font:700 40px/1 var(--mono);letter-spacing:.08em}
+.pad{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pad b{font:600 20px var(--mono);background:var(--panel2);border-radius:10px;padding:12px 0;text-align:center}
+.codebox{font:700 28px var(--mono);letter-spacing:.3em;text-align:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px}
+.weapons{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.weapon{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;display:flex;flex-direction:column;gap:2px;font-size:13px}
+.weapon strong{font-size:14px}
+.weapon.cd{opacity:.5}
+.blocked{background:linear-gradient(180deg,rgba(231,88,79,.22),var(--ink) 55%)}
+.safezone{background:linear-gradient(180deg,rgba(127,168,240,.22),var(--ink) 55%)}
+.states{display:flex;flex-direction:column;gap:12px}
+.states .subtabs{gap:8px}
+.explain{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:6px}
+.explain h3{margin:0;font:700 16px var(--body)}
+.explain p{margin:0;color:var(--muted);max-width:60ch}
+
+@media (max-width:860px){
+  .admin,.phones{grid-template-columns:minmax(0,1fr)}
+  .screen{grid-template-columns:minmax(0,1fr);aspect-ratio:auto}
+  .phone{margin:0 auto}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>Le Chemin<small>Maquette des 3 interfaces · données d'exemple</small></h1>
+    <nav class="tabs" role="tablist">
+      <button role="tab" aria-selected="true" data-view="admin" id="t-admin">Admin</button>
+      <button role="tab" aria-selected="false" data-view="ecran" id="t-ecran">Écran public</button>
+      <button role="tab" aria-selected="false" data-view="tel" id="t-tel">Téléphone</button>
+      <button role="tab" aria-selected="false" data-view="orga" id="t-orga">Orga safe zone</button>
+    </nav>
+  </header>
+
+  <!-- ================= ADMIN ================= -->
+  <section data-panel="admin">
+    <div class="admin">
+      <div class="box">
+        <h2>Décompte</h2>
+        <div class="clock" id="adminClock">12:47</div>
+        <div class="phase" aria-hidden="true"><i style="width:66%;background:var(--muted)"></i><i style="width:6%;background:var(--a)"></i></div>
+        <div class="row"><span class="pill a">● Inscriptions ouvertes</span><span class="pill muted">23 inscrits</span></div>
+        <div class="row">
+          <label class="field"><span class="label">Décompte total (min)</span><input id="f-total" value="45"></label>
+          <label class="field"><span class="label">Inscriptions avant (min)</span><input id="f-insc" value="15"></label>
+        </div>
+        <div class="row">
+          <button class="btn primary">▶ Démarrer</button><button class="btn">⏸ Pause</button>
+          <button class="btn sm">+1 min</button><button class="btn sm">−1 min</button>
+        </div>
+        <div class="row">
+          <button class="btn sm">Ouvrir inscriptions</button><button class="btn sm">Fermer inscriptions</button>
+          <button class="btn sm danger">Lancer le jeu maintenant</button>
+        </div>
+      </div>
+
+      <div class="box">
+        <div class="row" style="justify-content:space-between">
+          <h2>Partie en cours</h2>
+          <div class="subtabs" id="adminSub">
+            <button class="chip" aria-pressed="true" data-sub="repartition">Répartition</button>
+            <button class="chip" aria-pressed="false" data-sub="joueurs">Joueurs</button>
+            <button class="chip" aria-pressed="false" data-sub="etapes">Étapes</button>
+            <button class="chip" aria-pressed="false" data-sub="armes">Armes &amp; antidotes</button>
+            <button class="chip" aria-pressed="false" data-sub="regles">Réglages</button>
+          </div>
+        </div>
+
+        <div data-subpanel="repartition">
+          <div class="row" style="justify-content:space-between"><p class="note" style="margin:0">Générée à 21:45 avec 40 inscrits. Visible uniquement dans l'admin.</p><div class="row"><button class="btn sm">Régénérer (avant le départ)</button><button class="btn sm">Afficher / masquer les noms</button></div></div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px">
+          <div class="box" style="background:var(--ink);gap:8px">
+            <div class="row" style="justify-content:space-between"><span class="pill a">Équipe A</span><span class="label">15 randoms · 5 détectives</span></div>
+            <table><thead><tr><th>Étape</th><th>Joueur</th><th>État</th></tr></thead><tbody><tr><td class="mono" style="color:var(--muted)">1</td><td>Léa M.</td><td class="mono" style="color:var(--a)">✓</td></tr><tr><td class="mono" style="color:var(--muted)">2</td><td>Hugo</td><td class="mono" style="color:var(--a)">✓</td></tr><tr><td class="mono" style="color:var(--muted)">3</td><td>Tom</td><td class="mono" style="color:var(--a)">✓</td></tr><tr><td class="mono" style="color:var(--muted)">4</td><td>Sarah</td><td class="mono" style="color:var(--a)">✓</td></tr><tr><td class="mono" style="color:var(--muted)">5</td><td>Nico</td><td class="mono" style="color:var(--a)">✓</td></tr><tr><td class="mono" style="color:var(--muted)">6</td><td>Jade</td><td class="mono" style="color:var(--a)">✓</td></tr><tr><td class="mono" style="color:var(--muted)">7</td><td>Yanis B.</td><td class="mono" style="color:var(--a)">✓</td></tr><tr><td class="mono" style="color:var(--muted)">8</td><td>Camille</td><td class="mono" style="color:var(--a)">● en cours</td></tr><tr><td class="mono" style="color:var(--muted)">9</td><td>Enzo</td><td class="mono" style="color:var(--muted)"></td></tr><tr><td class="mono" style="color:var(--muted)">10</td><td>Lina</td><td class="mono" style="color:var(--muted)"></td></tr><tr><td class="mono" style="color:var(--muted)">11</td><td>Rayan</td><td class="mono" style="color:var(--muted)"></td></tr><tr><td class="mono" style="color:var(--muted)">12</td><td>Manon</td><td class="mono" style="color:var(--muted)"></td></tr><tr><td class="mono" style="color:var(--muted)">13</td><td>Théo</td><td class="mono" style="color:var(--muted)"></td></tr><tr><td class="mono" style="color:var(--muted)">14</td><td>Zoé</td><td class="mono" style="color:var(--muted)"></td></tr><tr><td class="mono" style="color:var(--muted)">15</td><td>Adam</td><td class="mono" style="color:var(--muted)"></td></tr></tbody></table>
+            <div><span class="label">Détectives</span><p style="margin:4px 0 0">Chloé · Yanis · Emma · Louis · Nora</p></div>
+          </div>
+          <div class="box" style="background:var(--ink);gap:8px">
+            <div class="row" style="justify-content:space-between"><span class="pill b">Équipe B</span><span class="label">15 randoms · 5 détectives</span></div>
+            <table><thead><tr><th>Étape</th><th>Joueur</th><th>État</th></tr></thead><tbody><tr><td class="mono" style="color:var(--muted)">1</td><td>Inès</td><td class="mono" style="color:var(--b)">✓</td></tr><tr><td class="mono" style="color:var(--muted)">2</td><td>Paul</td><td class="mono" style="color:var(--b)">✓</td></tr><tr><td class="mono" style="color:var(--muted)">3</td><td>Maëlys</td><td class="mono" style="color:var(--b)">✓</td></tr><tr><td class="mono" style="color:var(--muted)">4</td><td>Karim</td><td class="mono" style="color:var(--b)">✓</td></tr><tr><td class="mono" style="color:var(--muted)">5</td><td>Julie</td><td class="mono" style="color:var(--b)">● en cours</td></tr><tr><td class="mono" style="color:var(--muted)">6</td><td>Sami</td><td class="mono" style="color:var(--muted)"></td></tr><tr><td class="mono" style="color:var(--muted)">7</td><td>Anaïs</td><td class="mono" style="color:var(--muted)"></td></tr><tr><td class="mono" style="color:var(--muted)">8</td><td>Lucas</td><td class="mono" style="color:var(--muted)"></td></tr><tr><td class="mono" style="color:var(--muted)">9</td><td>Clara</td><td class="mono" style="color:var(--muted)"></td></tr><tr><td class="mono" style="color:var(--muted)">10</td><td>Noah</td><td class="mono" style="color:var(--muted)"></td></tr><tr><td class="mono" style="color:var(--muted)">11</td><td>Eva</td><td class="mono" style="color:var(--muted)"></td></tr><tr><td class="mono" style="color:var(--muted)">12</td><td>Mehdi</td><td class="mono" style="color:var(--muted)"></td></tr><tr><td class="mono" style="color:var(--muted)">13</td><td>Alice</td><td class="mono" style="color:var(--muted)"></td></tr><tr><td class="mono" style="color:var(--muted)">14</td><td>Victor</td><td class="mono" style="color:var(--muted)"></td></tr><tr><td class="mono" style="color:var(--muted)">15</td><td>Léna</td><td class="mono" style="color:var(--muted)"></td></tr></tbody></table>
+            <div><span class="label">Détectives</span><p style="margin:4px 0 0">Malik · Rose · Hamza · Lou · Ethan</p></div>
+          </div>
+          </div>
+        </div>
+
+        <div data-subpanel="joueurs" class="scroll" hidden>
+          <table>
+            <thead><tr><th>Joueur</th><th>Équipe</th><th>Rôle</th><th>État</th><th>Actions</th></tr></thead>
+            <tbody>
+              <tr><td>Léa</td><td><span class="pill a">A</span></td><td>Random · étape 7</td><td><span class="pill muted">En jeu</span></td><td class="row"><button class="btn sm">🛡 Safe zone</button><button class="btn sm">Débloquer étape</button><button class="btn sm danger">Joueur parti</button></td></tr>
+              <tr><td>Hugo</td><td><span class="pill a">A</span></td><td>Random · étape 8</td><td><span class="pill safe">🛡 Safe zone 3:20</span></td><td class="row"><button class="btn sm">Retirer safe zone</button></td></tr>
+              <tr><td>Inès</td><td><span class="pill b">B</span></td><td>Random · étape 5</td><td><span class="pill danger">🔫 Bloquée 2:41</span></td><td class="row"><button class="btn sm">Libérer</button></td></tr>
+              <tr><td>Malik</td><td><span class="pill b">B</span></td><td>Détective</td><td><span class="pill muted">Immunisé 1:12</span></td><td class="row"><button class="btn sm">🛡 Safe zone</button></td></tr>
+              <tr><td>Chloé</td><td><span class="pill a">A</span></td><td>Détective</td><td><span class="pill muted">3 armes</span></td><td class="row"><button class="btn sm">🛡 Safe zone</button></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div data-subpanel="etapes" class="scroll" hidden>
+          <div class="row"><span class="pill a">Équipe A</span><span class="pill muted">Équipe B</span></div>
+          <table class="edit steps">
+            <thead><tr><th>Étape</th><th>Numéro reçu</th><th>Indice affiché</th><th>Code physique</th><th>Longue</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">1</td><td class="mono" style="color:var(--muted)">— départ</td><td><textarea id="e1i" rows="2" aria-label="Indice étape 1">Tu es le premier ! Va voir sous le vinyle de Johnny.</textarea></td><td><input id="e1c" value="4821" inputmode="numeric" aria-label="Code étape 1"></td><td><input type="checkbox" id="long1" aria-label="Épreuve longue étape 1"></td></tr>
+              <tr><td class="mono">2</td><td><input id="e2n" value="3719" inputmode="numeric" aria-label="Numéro étape 2"></td><td><textarea id="e2i" rows="2" aria-label="Indice étape 2">Compte les bouteilles vertes du bar, multiplie par 3.</textarea></td><td><input id="e2c" value="1836" inputmode="numeric" aria-label="Code étape 2"></td><td><input type="checkbox" id="long2" checked aria-label="Épreuve longue étape 2"></td></tr>
+              <tr><td class="mono">3</td><td><input id="e3n" value="9052" inputmode="numeric" aria-label="Numéro étape 3"></td><td><textarea id="e3i" rows="2" aria-label="Indice étape 3">Le cadre penché du couloir cache un chiffre.</textarea></td><td><input id="e3c" value="7702" inputmode="numeric" aria-label="Code étape 3"></td><td><input type="checkbox" id="long3" aria-label="Épreuve longue étape 3"></td></tr>
+              <tr><td colspan="5" style="color:var(--muted);font-size:12px">… étapes 4 à 14 …</td></tr>
+              <tr style="background:var(--a-soft)"><td class="mono">15<br><span class="pill a" style="margin-top:4px">toujours la dernière</span></td><td><input id="e15n" value="9207" inputmode="numeric" aria-label="Numéro étape 15"></td><td><textarea id="e15i" rows="2" aria-label="Indice étape 15">Dernière étape : la boîte à chaussures du placard.</textarea></td><td><input id="e15c" value="1515" inputmode="numeric" aria-label="Code étape 15"></td><td><input type="checkbox" id="long15" aria-label="Épreuve longue étape 15"></td></tr>
+            </tbody>
+          </table>
+          <div class="row"><button class="btn sm">Générer les numéros vides au hasard</button><button class="btn sm">Copier depuis l'équipe A</button><button class="btn sm primary">Enregistrer</button></div>
+          <p class="note">Avec 8 randoms, les étapes jouées sont 1 → 7 puis 15. Numéros laissés vides = générés au hasard (4 chiffres).</p>
+          <p class="note">Cochée, l'étape affiche au joueur : « Épreuve longue : tu peux te mettre en safe zone dans la cuisine ».</p>
+        </div>
+
+        <div data-subpanel="armes" class="scroll" hidden>
+          <table class="edit">
+            <thead><tr><th>Objet</th><th>Code</th><th>Effet</th><th>Durée effet</th><th>Recharge</th></tr></thead>
+            <tbody>
+              <tr><td>🔫 Pistolet</td><td><input id="w1c" value="3301"></td><td>Bloque la cible</td><td><input id="w1d" value="4:00"></td><td><input id="w1r" value="5:00"></td></tr>
+              <tr><td>💨 Fumigène</td><td><input id="w2c" value="6420"></td><td>Bloque l'équipe adverse</td><td><input id="w2d" value="1:00"></td><td><input id="w2r" value="10:00"></td></tr>
+              <tr><td>⛓ Menottes</td><td><input id="w3c" value="1177"></td><td>Bloque jusqu'à la clé</td><td class="mono" style="color:var(--muted)">jusqu'à la clé</td><td class="mono" style="color:var(--muted)">1 usage</td></tr>
+              <tr><td>🔍 Loupe</td><td><input id="w4c" value="5058"></td><td>Révèle rôle + équipe</td><td class="mono" style="color:var(--muted)">instantané</td><td><input id="w4r" value="3:00"></td></tr>
+              <tr><td>🦺 Gilet</td><td><input id="w5c" value="2290"></td><td>Protège son équipe</td><td><input id="w5d" value="1:00"></td><td><input id="w5r" value="8:00"></td></tr>
+              <tr><td>🔮 Voyance</td><td><input id="w6c" value="8813"></td><td>Voit les attaques et l'antidote</td><td class="mono" style="color:var(--muted)">passif</td><td class="mono" style="color:var(--muted)">—</td></tr>
+              <tr><td>🔑 Clés A</td><td><input id="w7c" value="4410, 4411, 4412"></td><td>Libère des menottes</td><td class="mono" style="color:var(--muted)">—</td><td class="mono" style="color:var(--muted)">1 usage / clé</td></tr>
+              <tr><td>🩹 Bandage</td><td><input id="w8c" value="7070"></td><td>Réduit le pistolet de</td><td><input id="w8d" value="1:00"></td><td class="mono" style="color:var(--muted)">—</td></tr>
+              <tr><td>🌬 Antidote fumigène</td><td><input id="w9c" value="7171"></td><td>Réduit le fumigène de</td><td><input id="w9d" value="1/3"></td><td class="mono" style="color:var(--muted)">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div data-subpanel="regles" hidden>
+          <div class="row">
+            <label class="field"><span class="label">Durée max de partie</span><input id="f-max" value="60:00"></label>
+            <label class="field"><span class="label">Immunité après attaque</span><input id="f-immu" value="2:00"></label>
+            <label class="field"><span class="label">Safe zone : durée</span><input id="f-sz" value="5:00"></label>
+            <label class="field" style="flex:2"><span class="label">Safe zone : lieu</span><input id="f-szl" value="la cuisine" style="font-family:var(--body)"></label>
+          </div>
+          <p class="note">Répartition automatique : 2 équipes, détectives proportionnels (0 sous 6 joueurs/équipe, 5 à 20), 15 randoms max.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ECRAN ================= -->
+  <section data-panel="ecran" hidden>
+    <div class="screen">
+      <div style="display:flex;flex-direction:column;gap:22px;justify-content:space-between;min-width:0">
+        <div>
+          <div class="label">Jeu 1 · en cours depuis 18 min</div>
+          <h3>Le Chemin</h3>
+        </div>
+        <div class="track" style="color:var(--a)">
+          <div class="row" style="justify-content:space-between"><strong style="font:800 26px var(--display);text-transform:uppercase">Équipe A</strong><span class="mono">8 / 15</span></div>
+          <div class="dots a" id="dotsA"></div>
+        </div>
+        <div class="track" style="color:var(--b)">
+          <div class="row" style="justify-content:space-between"><strong style="font:800 26px var(--display);text-transform:uppercase">Équipe B</strong><span class="mono">5 / 15</span></div>
+          <div class="dots b" id="dotsB"></div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <div class="label">En direct</div>
+        <div class="feed">
+          <div><time>21:52</time><span>💨 L'équipe B est dans la fumée !</span></div>
+          <div><time>21:50</time><span>🔫 Quelqu'un de l'équipe B a été touché</span></div>
+          <div><time>21:49</time><span>✅ Équipe A passe l'étape 8</span></div>
+          <div><time>21:47</time><span>🦺 L'équipe A enfile ses gilets</span></div>
+          <div><time>21:44</time><span>⛓ Un joueur A menotté… puis libéré</span></div>
+        </div>
+      </div>
+    </div>
+    <p class="note" style="margin-top:12px">Quand le dernier joueur valide, l'écran passe en victoire :</p>
+    <div class="screen win" id="winScreen" style="margin-top:12px">
+      <canvas id="confetti" aria-hidden="true"></canvas>
+      <div class="wininner">
+        <div class="label" style="color:var(--a)">Le Chemin · terminé en 41:18</div>
+        <div class="wintitle">L'équipe A gagne !</div>
+        <div class="winnames">
+          <div><span class="label">Le chemin</span><p>Léa M. · Hugo · Tom · Sarah · Nico · Jade · Yanis B. · Camille · Enzo · Lina · Rayan · Manon · Théo · Zoé · Adam</p></div>
+          <div><span class="label">Les détectives</span><p>Chloé · Yanis · Emma · Louis · Nora</p></div>
+        </div>
+        <button class="btn sm" id="replay" style="align-self:center">Rejouer les confettis</button>
+      </div>
+    </div>
+    <p class="note" style="margin-top:12px">Avant le jeu, cet écran affiche le grand décompte, le nom du jeu et le QR code d'inscription :</p>
+    <div class="screen" style="margin-top:12px;grid-template-columns:minmax(0,1fr) auto;align-items:center">
+      <div style="display:flex;flex-direction:column;gap:10px;min-width:0">
+        <div class="label">Prochain jeu · Le Chemin</div>
+        <div class="big" id="screenClock">12:47</div>
+        <div style="font-size:20px">Inscriptions ouvertes · <strong>23 inscrits</strong></div>
+        <div class="muted" style="color:var(--muted)">Léa · Hugo · Inès · Malik · Chloé · Tom · Sarah · Nico · …</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px"><div class="qr" aria-label="QR code d'inscription"></div><span class="mono" style="font-size:13px;color:var(--muted)">scanne pour jouer</span></div>
+    </div>
+  </section>
+
+  <!-- ================= TELEPHONE ================= -->
+  <section data-panel="tel" hidden>
+    <div class="phones">
+      <div class="phone"><div class="scr" id="scr"></div></div>
+      <div class="states">
+        <div class="label">Choisis un écran</div>
+        <div class="subtabs" id="phoneStates"></div>
+        <div class="explain"><h3 id="exT"></h3><p id="exP"></p></div>
+      </div>
+    </div>
+  </section>
+  <!-- ================= ORGA ================= -->
+  <section data-panel="orga" hidden>
+    <div class="phones">
+      <div class="phone"><div class="scr">
+        <div class="who"><span class="pill safe">🛡 Orga · cuisine</span><span class="pill muted">Le Chemin</span></div>
+        <div class="label">Joueur</div>
+        <div class="codebox" style="letter-spacing:.05em;text-align:left;font-family:var(--body);font-size:20px">Hu|</div>
+        <div class="card" style="gap:0;padding:4px 14px">
+          <div style="padding:10px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;color:var(--safe);font-weight:600"><span>Hugo</span><span>●</span></div>
+          <div style="padding:10px 0;display:flex;justify-content:space-between;opacity:.45"><span>Hubert · bloqué</span><span></span></div>
+        </div>
+        <div class="label">Durée</div>
+        <div class="row"><span class="pill muted">3 min</span><span class="pill safe">5 min</span><span class="pill muted">8 min</span></div>
+        <button class="btn" style="padding:14px;background:var(--safe);color:#0d1526;border-color:var(--safe)">Mettre Hugo en safe zone</button>
+        <div class="label" style="margin-top:6px">En safe zone maintenant</div>
+        <div class="card" style="gap:6px">
+          <div class="row" style="justify-content:space-between"><span>Léa</span><span class="mono">4:12</span></div>
+          <div class="row" style="justify-content:space-between"><span>Sarah</span><span class="mono">0:48</span></div>
+        </div>
+      </div></div>
+      <div class="states">
+        <div class="explain"><h3>Écran de l'organisateur</h3><p>Une page simple, protégée par un code orga. L'orga tape le prénom, choisit la durée (5 min par défaut, réglable dans l'admin) et valide. La safe zone se termine toute seule à la fin du temps.</p><p>On ne peut pas mettre en safe zone un joueur déjà bloqué par une arme : il doit d'abord s'en libérer.</p></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+// Onglets principaux
+const tabs=document.querySelectorAll('.tabs button');
+tabs.forEach(b=>b.addEventListener('click',()=>{
+  tabs.forEach(x=>x.setAttribute('aria-selected',x===b));
+  document.querySelectorAll('[data-panel]').forEach(p=>p.hidden=p.dataset.panel!==b.dataset.view);
+}));
+// Sous-onglets admin
+const subs=document.querySelectorAll('#adminSub .chip');
+subs.forEach(c=>c.addEventListener('click',()=>{
+  subs.forEach(x=>x.setAttribute('aria-pressed',x===c));
+  document.querySelectorAll('[data-subpanel]').forEach(p=>p.hidden=p.dataset.subpanel!==c.dataset.sub);
+}));
+// Pastilles de progression
+function dots(id,done){const el=document.getElementById(id);for(let i=0;i<15;i++){const s=document.createElement('span');if(i<done)s.className='on';if(i===done)s.className='cur';el.appendChild(s)}}
+dots('dotsA',8);dots('dotsB',5);
+// Décompte d'exemple
+let t=12*60+47;
+setInterval(()=>{t=t>0?t-1:0;const s=String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0');document.getElementById('adminClock').textContent=s;document.getElementById('screenClock').textContent=s},1000);
+
+// Écrans du téléphone
+const hdr=(team,role)=>`<div class="who"><span class="pill ${team==='A'?'a':'b'}">Équipe ${team}</span><span class="pill muted">${role}</span></div>`;
+const pad=`<div class="pad">${[1,2,3,4,5,6,7,8,9,'⌫',0,'OK'].map(k=>`<b>${k}</b>`).join('')}</div>`;
+const S={
+  inscription:{l:'Inscription',t:'Inscription',p:'Pendant les 15 min d\'inscription, le joueur scanne le QR code, tape son prénom et s\'inscrit au prochain jeu.',
+    h:`<div class="label">Prochain jeu</div><div class="bigname">Le Chemin</div><p style="color:var(--muted)">Début dans <strong class="mono" style="color:var(--text)">12:47</strong></p>
+      <div class="card"><span class="label">Ton prénom</span><div class="codebox" style="letter-spacing:.05em;text-align:left;font-family:var(--body);font-size:20px">Léa</div></div>
+      <button class="btn primary" style="padding:14px">S'inscrire</button><p style="color:var(--muted);font-size:13px;margin:0">23 inscrits pour l'instant</p>`},
+  premier:{l:'Random · 1ᵉʳ',t:'Random, premier de la chaîne',p:'Le premier joueur voit directement son indice. Il cherche le code physique puis le tape sur le pavé.',
+    h:`${hdr('A','Random')}<div class="card"><span class="label">Étape 1 / 15</span><p style="font-size:17px">Tu es le premier ! Va voir sous le vinyle de Johnny.</p></div>
+      <div class="label">Code trouvé</div><div class="codebox">48__</div>${pad}`},
+  longue:{l:'Random · épreuve longue',t:'Épreuve longue',p:'Quand tu coches « Épreuve longue » sur une étape, le joueur voit ce bandeau avec son indice. Il peut aller se faire mettre en safe zone.',
+    h:`${hdr('A','Random')}<div class="card"><span class="label">Étape 2 / 15</span><p style="font-size:17px">Compte les bouteilles vertes du bar, multiplie par 3.</p></div>
+      <div class="card" style="border-color:var(--safe);background:var(--safe-soft)"><span class="label" style="color:var(--safe)">🛡 Épreuve longue</span><p>Tu peux te mettre en safe zone : va voir l'orga dans <strong>la cuisine</strong>.</p></div>
+      <div class="label">Code trouvé</div><div class="codebox">____</div>${pad}`},
+  numero:{l:'Random · reçoit un numéro',t:'Random, en attente de son numéro',p:'Les autres randoms attendent qu\'un coéquipier vienne leur donner un numéro. Ils le tapent pour voir leur indice.',
+    h:`${hdr('A','Random')}<div class="card"><p>Quelqu'un de ton équipe va venir te voir avec un numéro.</p><p style="color:var(--muted);font-size:13px">Tape-le ici pour recevoir ton indice.</p></div>
+      <div class="label">Numéro reçu</div><div class="codebox">37_</div>${pad}`},
+  suivant:{l:'Random · code bon',t:'Code correct : au suivant',p:'Quand le code physique est bon, le téléphone affiche le prénom du prochain joueur et le numéro à lui donner.',
+    h:`${hdr('A','Random')}<div class="card" style="border-color:var(--a)"><span class="label" style="color:var(--a)">✓ Code correct · étape 7 validée</span><p>Va voir discrètement</p><div class="bigname">Hugo</div><p>et donne-lui le numéro</p><div class="num">905</div></div>
+      <p style="color:var(--muted);font-size:13px;margin:0">Attention aux détectives adverses : ne te fais pas repérer.</p>`},
+  detective:{l:'Détective',t:'Détective',p:'Le détective voit ses coéquipiers détectives, ses armes (avec recharge) et un bouton pour viser un joueur. Il tape aussi les codes des armes qu\'il trouve.',
+    h:`${hdr('A','Détective')}<div class="card"><span class="label">Tes coéquipiers détectives</span><p>Chloé · Yanis · Emma</p></div>
+      <div class="label">Tes armes</div>
+      <div class="weapons"><div class="weapon"><strong>🔫 Pistolet</strong><span style="color:var(--muted)">prêt</span></div><div class="weapon cd"><strong>🔍 Loupe</strong><span>recharge 1:40</span></div><div class="weapon"><strong>💨 Fumigène</strong><span style="color:var(--muted)">prêt</span></div><div class="weapon"><strong>🔮 Voyance</strong><span style="color:var(--muted)">active</span></div></div>
+      <button class="btn primary" style="padding:14px">🎯 Viser quelqu'un</button><button class="btn">+ Entrer le code d'une arme</button>`},
+  viser:{l:'Détective · viser',t:'Détective : choisir une cible',p:'Il choisit un prénom et une arme. Les joueurs en safe zone, déjà attaqués ou immunisés sont grisés.',
+    h:`${hdr('A','Détective')}<div class="label">Qui vises-tu ?</div>
+      <div class="card" style="gap:0;padding:4px 14px">${['Inès','Tom','Malik · immunisé','Hugo · safe zone','Sarah'].map((n,i)=>`<div style="padding:10px 0;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;${i>1&&i<4?'opacity:.4':''}${i===0?';color:var(--a);font-weight:600':''}"><span>${n}</span><span>${i===0?'●':''}</span></div>`).join('')}</div>
+      <div class="label">Avec</div><div class="row"><span class="pill a">🔫 Pistolet</span><span class="pill muted">⛓ Menottes</span><span class="pill muted">🔍 Loupe</span></div>
+      <button class="btn danger" style="padding:14px;background:var(--danger);color:#fff;border-color:var(--danger)">Tirer sur Inès</button>`},
+  voyance:{l:'Détective · voyance',t:'Détective avec Don de voyance',p:'Quand un coéquipier est touché, le voyant reçoit une alerte : qui, par quoi, et où trouver l\'antidote.',
+    h:`${hdr('A','Détective')}<div class="card" style="border-color:var(--safe)"><span class="label" style="color:var(--safe)">🔮 Vision</span><p><strong>Hugo</strong> vient d'être menotté.</p><p>La clé se trouve <strong>dans la théière de la cuisine</strong>.</p><p style="color:var(--muted);font-size:13px">Va lui dire discrètement : c'est lui qui doit taper le code.</p></div>`},
+  bloque:{l:'Bloqué',t:'Joueur touché',p:'Le téléphone ne montre plus rien d\'autre que le temps restant et un champ pour taper un code d\'antidote (bandage, clé, antidote fumigène).',
+    cls:'blocked',h:`${hdr('B','Random')}<div style="text-align:center;display:flex;flex-direction:column;gap:6px;margin-top:20px"><div style="font-size:54px">🔫</div><div class="bigname" style="color:var(--danger)">Touché !</div><p style="color:var(--muted);margin:0">Tu ne peux rien faire pendant</p><div class="num" style="font-size:56px">2:41</div></div>
+      <div class="label">Code d'antidote</div><div class="codebox">____</div>${pad}`},
+  safe:{l:'Safe zone',t:'Safe zone',p:'L\'orga de la cuisine l\'a mis en safe zone pour une durée fixe. Aucune arme ne peut le toucher, et la safe zone se termine toute seule.',
+    cls:'safezone',h:`${hdr('A','Random')}<div style="text-align:center;display:flex;flex-direction:column;gap:6px;margin-top:10px"><div style="font-size:54px">🛡</div><div class="bigname" style="color:var(--safe)">Safe zone</div><p style="color:var(--muted);margin:0">Personne ne peut t'attaquer pendant</p><div class="num" style="font-size:44px">3:20</div></div>
+      <div class="card"><span class="label">Étape 8 / 15</span><p>Compte les bouteilles vertes du bar, multiplie par 3.</p></div><div class="codebox">____</div>`},
+};
+const box=document.getElementById('phoneStates');
+function show(k){const s=S[k];const scr=document.getElementById('scr');scr.className='scr '+(s.cls||'');scr.innerHTML=s.h;document.getElementById('exT').textContent=s.t;document.getElementById('exP').textContent=s.p;box.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed',c.dataset.k===k))}
+Object.keys(S).forEach(k=>{const c=document.createElement('button');c.className='chip';c.dataset.k=k;c.textContent=S[k].l;c.addEventListener('click',()=>show(k));box.appendChild(c)});
+show('suivant');
+if(['#ecran','#tel','#orga'].includes(location.hash))document.getElementById('t-'+location.hash.slice(1)).click();
+
+// Confettis de victoire
+(function(){
+  const cv=document.getElementById('confetti'),ctx=cv.getContext('2d');
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const cols=['#e5a83b','#43b8a6','#ece6d9','#e7584f','#7fa8f0'];
+  let parts=[],raf;
+  function size(){const r=cv.getBoundingClientRect();cv.width=r.width*devicePixelRatio;cv.height=r.height*devicePixelRatio}
+  function burst(){size();const W=cv.width,H=cv.height;parts=Array.from({length:180},()=>({x:Math.random()*W,y:-Math.random()*H*.8,w:(6+Math.random()*8)*devicePixelRatio,h:(3+Math.random()*5)*devicePixelRatio,vy:(1.5+Math.random()*3)*devicePixelRatio,vx:(Math.random()-.5)*1.5*devicePixelRatio,r:Math.random()*6,vr:(Math.random()-.5)*.2,c:cols[Math.random()*cols.length|0]}));
+    cancelAnimationFrame(raf);
+    if(reduce){parts.forEach(p=>p.y=Math.random()*H);draw();return}
+    loop()}
+  function draw(){ctx.clearRect(0,0,cv.width,cv.height);parts.forEach(p=>{ctx.save();ctx.translate(p.x,p.y);ctx.rotate(p.r);ctx.fillStyle=p.c;ctx.fillRect(-p.w/2,-p.h/2,p.w,p.h);ctx.restore()})}
+  function loop(){parts.forEach(p=>{p.y+=p.vy;p.x+=p.vx;p.r+=p.vr;if(p.y>cv.height+20){p.y=-20;p.x=Math.random()*cv.width}});draw();raf=requestAnimationFrame(loop)}
+  document.getElementById('replay').addEventListener('click',burst);
+  document.getElementById('t-ecran').addEventListener('click',()=>setTimeout(burst,50));
+  if(location.hash==='#ecran')setTimeout(burst,100);
+})();
+</script>
