@@ -58,5 +58,20 @@ const Sons = (() => {
     });
   }
 
-  return { enable, on, marcher, boom, fanfare };
+  // Carillon d'annonce d'un round (Mini-Jeux) : deux notes.
+  function gong() {
+    if (!on()) return;
+    [660, 880].forEach((f, i) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      const t = ac.currentTime + i * .28;
+      g.gain.setValueAtTime(.0001, t);
+      g.gain.exponentialRampToValueAtTime(.3, t + .02);
+      g.gain.exponentialRampToValueAtTime(.0001, t + 1.2);
+      o.connect(g).connect(ac.destination);
+      o.start(t); o.stop(t + 1.3);
+    });
+  }
+
+  return { enable, on, marcher, boom, fanfare, gong };
 })();

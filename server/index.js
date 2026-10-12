@@ -103,6 +103,15 @@ io.on('connection', sock => {
     broadcast();
   });
 
+  sock.on('reclamer', (h = {}, cb = () => {}) => {
+    if (typeof cb !== 'function') return;
+    let r;
+    try { r = soiree.claimMini(sock.data.token, h.nom); } catch (e) { console.error(e); r = { ok: false, msg: 'Erreur interne.' }; }
+    if (r.ok) sock.data.token = r.token;
+    cb(r);
+    broadcast();
+  });
+
   const guard = (role, fn) => (a = {}, cb = () => {}) => {
     if (sock.data.role !== role) return cb({ ok: false, msg: 'Non autorisé.' });
     let r;

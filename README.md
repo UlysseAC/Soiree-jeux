@@ -11,8 +11,9 @@ Trois jeux pour une soirée, avec :
 1. [Le Chemin](docs/jeu1-le-chemin.md) — jouable, [maquette](docs/maquettes/le-chemin.html)
 2. [Duel au Far West](docs/jeu2-duel-far-west.md) — jouable, [maquette](docs/maquettes/duel-far-west.html)
 3. [Le Grand Pari](docs/jeu3-grand-pari.md) — jouable, [croquis](docs/maquettes/jeu3-croquis.html)
+4. [Les Mini-Jeux](docs/jeu4-mini-jeux.md) — structure prête (journée de rounds, tirage équitable) ; les 6 mini-jeux restent à décrire
 
-Les trois jeux comptent pour le [classement de la soirée](docs/classement-soiree.md).
+Les trois premiers jeux comptent pour le [classement de la soirée](docs/classement-soiree.md).
 
 ## Lancer la soirée
 

@@ -17,7 +17,7 @@ function celebrate(key, ms, extra) {
 
 SJ.sock.on('connect', () => SJ.emit('hello', { role: 'ecran' }));
 SJ.sock.on('etat', v => { V = v; document.body.dataset.game = v.gameId; draw(); });
-SJ.sock.on('sfx', n => { if (n === 'boom') Sons.boom(); if (n === 'victoire') Sons.fanfare(); });
+SJ.sock.on('sfx', n => { if (n === 'boom') Sons.boom(); if (n === 'victoire') Sons.fanfare(); if (n === 'annonce') Sons.gong(); });
 
 const soundBtn = document.getElementById('sound');
 soundBtn.addEventListener('click', async () => {
@@ -42,6 +42,13 @@ function qrBlock(big) {
 }
 
 function waiting() {
+  if (V.gameId === 'minijeux') {
+    return `<div style="flex:1;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5vw;align-items:center">
+      <div class="stack" style="gap:3vh;min-width:0">
+        <div class="label" style="font-size:18px">Bientôt</div><h1 class="sc-title" style="font-size:clamp(50px,8vw,130px)">${esc(V.gameName)}</h1>
+        <p class="sc-sub">La journée n'a pas encore commencé.</p><p class="sc-sub muted">Scanne le QR code : dès l'ouverture, tu pourras choisir ton nom.</p></div>
+      ${qrBlock(true)}</div>`;
+  }
   if (V.status === 'idle' && !V.inscriptionsOpen) {
     return `<div style="flex:1;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5vw;align-items:center">
       <div class="stack" style="gap:3vh;min-width:0">
@@ -61,6 +68,59 @@ function waiting() {
       </div>
       ${qrBlock(true)}
     </div>`;
+}
+
+// ---------- jeu 4 : Les Mini-Jeux ----------
+const hm = ts => new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+function mjSide(g, title = 'Classement de la journée') {
+  const rows = g.classement.filter(r => r.points || g.faits).slice(0, 12);
+  return `<aside class="mj-side"><div class="label" style="font-size:clamp(13px,1.1vw,18px)">${esc(title)}</div>
+    ${rows.length ? `<ol class="mj-rank">${rows.map(r => `<li><span class="r">${r.rang}.</span><span>${esc(r.nom)}</span><span class="p">${r.points}</span></li>`).join('')}</ol>` : '<p class="muted" style="margin:0">Pas encore de points.</p>'}</aside>`;
+}
+function minijeux(g) {
+  const pos = `Round ${Math.min(g.faits + (g.actif ? 1 : 0), g.total) || 1} / ${g.total}`;
+  if (g.finished) {
+    const [a, b, c] = g.classement;
+    const step = (r, h, medal) => r ? `<div class="stack" style="align-items:center;gap:1vh;flex:1"><div style="font-size:clamp(40px,5vw,80px)">${medal}</div>
+      <div style="font:800 clamp(26px,3.4vw,58px)/1 var(--display);text-transform:uppercase;text-align:center">${esc(r.nom)}</div><div class="mono" style="color:var(--accent);font-size:clamp(18px,2vw,32px)">${r.points} pts</div>
+      <div style="width:100%;height:${h}vh;background:var(--accent-soft);border:1px solid var(--accent);border-radius:12px 12px 0 0"></div></div>` : '<div style="flex:1"></div>';
+    celebrate(`mj:${V.sessionId || ''}:fin`, 9000, () => Sons.fanfare());
+    return `<header class="sc-head"><h1 class="sc-title">${esc(V.gameName)} · podium</h1><div class="sc-sub muted">${g.faits} rounds joués</div></header>
+      <div style="flex:1;display:flex;align-items:flex-end;gap:3vw;padding:0 6vw">${step(b, 22, '🥈')}${step(a, 34, '🥇')}${step(c, 14, '🥉')}</div>
+      <div class="names" style="justify-content:center">${g.classement.slice(3, 18).map(r => `<span>${r.rang}. ${esc(r.nom)} · ${r.points}</span>`).join('')}</div>`;
+  }
+  let main;
+  const a = g.actif;
+  if (a && a.status === 'annonce') {
+    main = `<div class="mj-kicker">Round ${a.n} · prochain mini-jeu</div><div class="mj-round">${esc(a.nom)}</div>
+      <div class="sc-sub">Venez devant l'écran ! Début dans <strong class="mono" data-until="${a.startAt}"></strong></div>
+      <div class="mj-names">${a.joueurs.map(p => `<span>${esc(p)}</span>`).join('')}</div>
+      ${a.regles ? `<div class="mj-rules">${esc(a.regles)}</div>` : ''}`;
+  } else if (a) {
+    main = `<div class="mj-kicker">Round ${a.n} en cours · <span class="mono" data-since="${a.debutAt}"></span></div><div class="mj-round">${esc(a.nom)}</div>
+      <div class="mj-names">${a.joueurs.map(p => `<span>${esc(p)}</span>`).join('')}</div>
+      ${a.regles ? `<div class="mj-rules">${esc(a.regles)}</div>` : ''}`;
+  } else if (g.recent) {
+    const r = g.recent;
+    const list = r.joueurs.map(p => ({ p, ...(r.points?.[p] || {}) })).sort((x, y) => (x.place ?? 99) - (y.place ?? 99));
+    main = `<div class="mj-kicker">Résultats du round ${r.n}</div><div class="mj-round">${esc(r.nom)}</div>
+      <ol class="mj-results">${list.map(x => `<li><span>${x.place === 1 ? '🥇' : x.place === 2 ? '🥈' : x.place === 3 ? '🥉' : `${x.place}<sup>e</sup>`}</span><span>${esc(x.p)}</span><span class="p">+${x.points ?? 0}</span></li>`).join('')}</ol>`;
+  } else if (g.prochain) {
+    const p = g.prochain;
+    const first = g.faits === 0 && g.rounds.every(r => r.status === 'prevu' || r.status === 'saute');
+    const upcoming = g.rounds.filter(r => r.status === 'prevu').slice(first ? 0 : 1, (first ? 0 : 1) + 4);
+    main = `<div class="mj-kicker">${first ? 'La journée commence bientôt' : 'Prochain round'} · round ${p.n}</div>
+      <div class="mj-round">${esc(p.nom)}</div>
+      <div class="sc-sub">à <strong class="mono">${hm(p.at)}</strong> · dans <strong class="mono" data-until="${p.at}"></strong> · ${p.taille} joueur${p.taille > 1 ? 's' : ''} tirés au sort</div>
+      ${first ? `<div class="grid-auto" style="grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:3vw">
+          <div class="stack" style="gap:1.4vh"><p class="sc-sub" style="margin:0">Scanne le QR code et touche ton nom pour être prévenu quand c'est ton tour.</p>
+          <div class="mj-people">${g.participants.map(x => `<span class="${x.connecte ? 'on' : ''}">${esc(x.nom)}</span>`).join('')}</div></div>${qrBlock(true)}</div>`
+        : (p.regles ? `<div class="mj-rules">${esc(p.regles)}</div>` : '')}
+      ${!first && upcoming.length ? `<div class="label" style="font-size:clamp(13px,1.1vw,18px)">Ensuite</div><ul class="mj-next">${upcoming.map(r => `<li><span class="t">${hm(r.at)}</span><span>Round ${r.n} · ${esc(r.nom)}</span></li>`).join('')}</ul>` : ''}`;
+  } else {
+    main = '<div class="mj-round">Fin des rounds</div>';
+  }
+  return `${head(`${pos} · ${g.inscrits} / ${g.participants.length} connectés`)}<div class="mj-grid"><section class="mj-main">${main}</section>${mjSide(g)}</div>`;
 }
 
 // ---------- jeu 1 : Le Chemin ----------
@@ -318,7 +378,8 @@ function draw() {
   const g = V.game;
   let html, ov = '';
   if (g && (V.status === 'playing' || V.status === 'finished')) {
-    if (V.gameId === 'chemin') html = chemin(g);
+    if (V.gameId === 'minijeux') html = minijeux(g);
+    else if (V.gameId === 'chemin') html = chemin(g);
     else if (V.gameId === 'grandpari') {
       trackBettors(g.richest);
       html = grandpari(g);
@@ -336,7 +397,7 @@ function draw() {
   }
   // Classement de la soirée : à la demande de l'admin, ou automatiquement 20 s après la fin d'un jeu (pendant 40 s).
   const since = V.status === 'finished' && V.finishedAt ? SJ.now() - V.finishedAt : -1;
-  const mode = V.show || (since > 20000 && since < 60000 ? 'classement' : null);
+  const mode = V.show || (since > 20000 && since < 60000 && V.gameId !== 'minijeux' ? 'classement' : null);
   if (mode && V.classement?.rows.length) {
     trackBettors(V.classement.rows.map(r => ({ pid: 's:' + r.pid })));
     ov = soireeView(V.classement, mode === 'final');
@@ -348,7 +409,7 @@ function draw() {
   SJ.render(app, html);
   // Petit QR code dans un coin pendant les jeux, pour ceux qui arrivent en retard.
   const mini = document.getElementById('qr-mini');
-  const showMini = !ov && g && V.status === 'playing' && V.qr;
+  const showMini = !ov && g && V.status === 'playing' && V.qr && !app.querySelector('img.qr');
   mini.hidden = !showMini;
   document.body.classList.toggle('with-qr', !!showMini);
   if (showMini && !mini.innerHTML) mini.innerHTML = `<img src="${V.qr}" alt="QR code pour rejoindre"><span>Rejoindre</span>`;

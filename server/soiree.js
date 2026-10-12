@@ -2,10 +2,13 @@
 import * as chemin from './games/chemin.js';
 import * as duel from './games/duel.js';
 import * as grandpari from './games/grandpari.js';
+import * as minijeux from './games/minijeux.js';
 import { uid, normName, setPath, mergeDefaults, cleanCode } from './util.js';
 import * as classement from './classement.js';
 
-export const GAMES = { chemin, duel, grandpari };
+export const GAMES = { chemin, duel, grandpari, minijeux };
+// Jeux qui comptent dans le classement de la soirée (les Mini-Jeux ont leur propre classement de la journée).
+const inSoiree = id => GAMES[id]?.classementSoiree !== false;
 
 export function defaultState() {
   return {
@@ -237,9 +240,9 @@ export class Soiree {
 
   // Classement de la soirée : jeux archivés + jeu en cours s'il est terminé.
   classement() {
-    const recs = this.s.history.slice();
+    const recs = this.s.history.filter(r => inSoiree(r.gameId));
     const sess = this.sess;
-    if (sess.game && sess.status === 'finished') recs.push({ gameId: sess.gameId, results: this.module.results(this.ctx(), sess.game) });
+    if (sess.game && sess.status === 'finished' && inSoiree(sess.gameId)) recs.push({ gameId: sess.gameId, results: this.module.results(this.ctx(), sess.game) });
     return classement.compute(this.s.config.classement, recs, pid => this.s.people[pid]?.name ?? '?', this.s.bonus, id => this.gameName(id));
   }
 
@@ -273,6 +276,19 @@ export class Soiree {
     const g = this.sess.game;
     if (!g || this.sess.status !== 'playing') return { ok: false, msg: 'Aucune partie en cours.' };
     return this.module.playerAction(this.ctx(), g, me.id, a);
+  }
+
+  // Mini-Jeux : le téléphone prend un nom de la liste (et reçoit une identité s'il n'en a pas encore).
+  claimMini(token, nom) {
+    const sess = this.sess;
+    if (sess.gameId !== 'minijeux' || !sess.game || sess.status !== 'playing') return { ok: false, msg: "La journée n'est pas ouverte." };
+    let me = this.identify(token);
+    const created = !me;
+    if (!me) me = { id: uid(), token: /^[a-f0-9]{32}$/.test(token || '') ? token : uid(16), name: String(nom ?? '').trim().slice(0, 24) || '?' };
+    const r = this.module.claim(this.ctx(), sess.game, me.id, nom);
+    if (!r.ok) return r;
+    if (created) this.s.people[me.id] = me;
+    return { ...r, token: me.token, pid: me.id };
   }
 
   // Données lourdes d'un jeu (ex. le film d'un sport), pour l'écran public.
@@ -330,6 +346,8 @@ export class Soiree {
     const me = this.identify(token);
     const sess = this.sess;
     const v = { ...this.common(), me: null };
+    // Mini-Jeux : un téléphone sans identité peut quand même choisir son nom dans la liste.
+    if (!me && sess.gameId === 'minijeux' && sess.game && (sess.status === 'playing' || sess.status === 'finished')) v.game = this.module.playerView(this.ctx(), sess.game, null);
     if (!me) return v;
     v.me = { name: me.name, registered: sess.registered.includes(me.id), dossard: sess.dossards?.[me.id] || '' };
     const c = this.classement();

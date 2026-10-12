@@ -25,6 +25,9 @@ body[data-game="duel"] {
   --accent: #e0a940; --accent-ink: #22170a; --accent-soft: rgba(224, 169, 64, .16);
   --display: "Rye", Rockwell, Georgia, serif;
 }
+body[data-game="minijeux"] {
+  --accent: #a58cff; --accent-ink: #160f2e; --accent-soft: rgba(165, 140, 255, .16);
+}
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { margin: 0; }
@@ -225,3 +228,32 @@ td.nowrap { white-space: nowrap; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---------- Les Mini-Jeux ---------- */
+.mj-grid { flex: 1; display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 3vw; min-height: 0; }
+.mj-main { display: flex; flex-direction: column; gap: 2.2vh; min-width: 0; justify-content: center; }
+.mj-side { display: flex; flex-direction: column; gap: 1vh; min-width: 0; border-left: 1px solid var(--line); padding-left: 2.4vw; }
+.mj-kicker { font: 700 clamp(14px, 1.3vw, 22px) var(--body); text-transform: uppercase; letter-spacing: .14em; color: var(--accent); }
+.mj-round { font: 800 clamp(40px, 6vw, 104px)/1 var(--display); text-transform: uppercase; }
+.mj-names { display: flex; flex-wrap: wrap; gap: 1vh 1.2vw; }
+.mj-names span { font: 800 clamp(26px, 3.4vw, 60px)/1.1 var(--display); text-transform: uppercase; background: var(--accent-soft); color: var(--accent); border: 2px solid var(--accent); border-radius: 14px; padding: .6vh 1.2vw; }
+.mj-rules { font-size: clamp(17px, 1.7vw, 28px); color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 1.6vh 1.6vw; white-space: pre-wrap; max-height: 30vh; overflow: hidden; }
+.mj-rank { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .6vh; font-size: clamp(15px, 1.4vw, 24px); }
+.mj-rank li { display: grid; grid-template-columns: 2.2em minmax(0, 1fr) auto; gap: .6vw; align-items: baseline; }
+.mj-rank li .r { color: var(--muted); font-family: var(--mono); }
+.mj-rank li .p { font-family: var(--mono); color: var(--accent); }
+.mj-next { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .8vh; font-size: clamp(16px, 1.5vw, 26px); }
+.mj-next li { display: flex; gap: 1vw; }
+.mj-next .t { font-family: var(--mono); color: var(--accent); min-width: 4.2em; }
+.mj-people { display: flex; flex-wrap: wrap; gap: .6vh .8vw; font-size: clamp(15px, 1.4vw, 24px); }
+.mj-people span { color: var(--muted); }
+.mj-people span.on { color: var(--text); }
+.mj-people span.on::before { content: "✓ "; color: var(--ok); }
+.mj-results { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 1vh; font-size: clamp(22px, 2.6vw, 44px); }
+.mj-results li { display: grid; grid-template-columns: 2.6em minmax(0, 1fr) auto; gap: 1vw; align-items: baseline; }
+.mj-results .p { color: var(--accent); font-family: var(--mono); }
+.mj-claim { display: flex; flex-direction: column; gap: 8px; }
+.mj-claim button { font: 600 20px var(--body); padding: 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--text); text-align: left; }
+.mj-claim button:active { border-color: var(--accent); background: var(--accent-soft); }
+.card.turn { border: 2px solid var(--accent); background: var(--accent-soft); }
+.card.turn .huge { color: var(--accent); }

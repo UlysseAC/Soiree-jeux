@@ -58,6 +58,7 @@ function buzz(a, b) {
   const g0 = a?.game, g1 = b?.game;
   if (!g1) return;
   if (!g0?.duel && g1.duel) navigator.vibrate?.([80, 60, 80]);
+  if (!g0?.monTour && g1.monTour) navigator.vibrate?.([300, 120, 300, 120, 500]);
   if (!g0?.block && g1.block) navigator.vibrate?.(400);
   if (g0?.random?.stage !== 'hint' && g1.random?.stage === 'hint') { navigator.vibrate?.(150); ui.aideConfirm = false; }
   if (g0?.random?.attente && g1.random?.stage === 'hint' && !g1.random.attente) navigator.vibrate?.(150);
@@ -392,9 +393,50 @@ function grandpari(g) {
   return h;
 }
 
+// ---------- jeu 4 : Les Mini-Jeux ----------
+const hm = ts => new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+function miniJeux() {
+  const g = V.game;
+  const title = `<header class="ph-head"><h1 class="ph-title">${esc(V.gameName)}</h1>${g?.nom ? `<span class="pill accent">${esc(g.nom)}</span>` : ''}</header>`;
+  if (!g) {
+    return title + `<div class="card"><p style="font-size:18px">La journée n'a pas encore commencé.</p><p class="muted">Garde cette page ouverte : dès l'ouverture, tu pourras choisir ton nom.</p></div>`;
+  }
+  if (g.claim) {
+    const q = (ui.mjQ || '').toLocaleLowerCase('fr');
+    const list = g.libres.filter(n => !q || n.toLocaleLowerCase('fr').includes(q));
+    return title + `<div class="card"><p style="font-size:18px">Qui es-tu ? Touche ton nom.</p><p class="muted" style="font-size:14px">Tu seras prévenu ici quand ce sera ton tour de jouer.</p></div>
+      ${g.libres.length > 12 ? `<input class="in" id="mj-q" placeholder="Cherche ton nom…" value="${esc(ui.mjQ || '')}" autocomplete="off" style="font-size:18px">` : ''}
+      <div class="mj-claim">${list.map(n => `<button type="button" data-mj-nom="${esc(n)}">${esc(n)}</button>`).join('') || '<p class="muted">Aucun nom libre. Demande à l\'organisateur.</p>'}</div>`;
+  }
+  let h = title + `<p class="muted" style="margin:0;font-size:14px">🏆 ${g.rang}<sup>e</sup> sur ${g.sur} · ${g.points} pts · ${g.joues} round${g.joues > 1 ? 's' : ''} joué${g.joues > 1 ? 's' : ''} sur ${g.attendu.min}${g.attendu.max !== g.attendu.min ? ` à ${g.attendu.max}` : ''} prévus</p>`;
+  if (g.finished) {
+    h += `<div class="card accent center"><span class="label">Journée terminée</span><div class="huge">${g.rang}<sup style="font-size:.4em">e</sup></div><p>${g.points} points</p></div>`;
+    if (g.podium) h += `<div class="card"><span class="label">Podium</span>${g.podium.map((r, i) => `<p>${['🥇', '🥈', '🥉'][i]} ${esc(r.nom)} · ${r.points} pts</p>`).join('')}</div>`;
+    return h;
+  }
+  const t = g.monTour;
+  if (t && t.status === 'annonce') {
+    h += `<div class="card turn center"><span class="label">Round ${t.n} · ${esc(t.nom)}</span><div class="huge">C'est ton tour !</div>
+      <p style="font-size:18px">Viens devant l'écran.</p><p>Début dans <strong class="mono" data-until="${t.startAt}"></strong></p>
+      <p class="muted">Avec ${t.joueurs.filter(p => p !== g.nom).map(esc).join(', ') || 'personne d\'autre'}</p></div>`;
+    if (t.regles) h += `<div class="card"><span class="label">Règles</span><p style="white-space:pre-wrap">${esc(t.regles)}</p></div>`;
+  } else if (t) {
+    h += `<div class="card turn center"><span class="label">Round ${t.n} · ${esc(t.nom)}</span><div class="huge" style="font-size:44px">À toi de jouer !</div><p class="muted">Suis les consignes de l'écran.</p></div>`;
+    if (t.regles) h += `<div class="card"><span class="label">Règles</span><p style="white-space:pre-wrap">${esc(t.regles)}</p></div>`;
+  } else {
+    if (g.actif) h += `<div class="card"><span class="label">Round ${g.actif.n} en cours · ${esc(g.actif.nom)}</span><p>${g.actif.joueurs.map(esc).join(', ')} ${g.actif.joueurs.length > 1 ? 'jouent' : 'joue'}. Regarde l'écran !</p></div>`;
+    if (g.prochain) h += `<div class="card"><span class="label">Prochain round</span><p style="font-size:20px"><strong class="mono">${hm(g.prochain.at)}</strong> · ${esc(g.prochain.nom)}</p>
+      <p class="muted">${g.prochain.taille} joueur${g.prochain.taille > 1 ? 's' : ''} tirés au sort ${Math.round(g.annonce / 60)} min avant. Garde cette page ouverte : ton téléphone vibrera si c'est toi.</p></div>`;
+  }
+  if (g.dernier && !t) h += `<div class="card"><span class="label">Ton dernier round</span><p>Round ${g.dernier.n} · ${esc(g.dernier.nom)} : ${g.dernier.place === 1 ? '🥇 ' : ''}${g.dernier.place}<sup>e</sup>, +${g.dernier.points} pts</p></div>`;
+  h += `<button class="btn sm" data-act="mjPasMoi" style="align-self:flex-start;margin-top:8px">Ce n'est pas moi</button>`;
+  return h;
+}
+
 // ---------- rendu ----------
 function draw() {
   if (!V) return;
+  if (V.gameId === 'minijeux') { app.className = 'phone'; SJ.render(app, miniJeux()); return; }
   if (!V.me) { app.className = 'phone'; if (!document.getElementById('join')) SJ.render(app, joinScreen()); return; }
   let html;
   if (V.game && !V.game.spectator) {
@@ -408,6 +450,16 @@ function draw() {
   }
   SJ.render(app, html);
 }
+
+// Mini-Jeux : le joueur touche son nom dans la liste.
+app.addEventListener('click', async e => {
+  const b = e.target.closest('[data-mj-nom]');
+  if (!b) return;
+  const r = await SJ.emit('reclamer', { nom: b.dataset.mjNom });
+  SJ.toast(r);
+  if (r.ok) { SJ.store('sj-token', r.token); ui.mjQ = ''; hello(); }
+});
+app.addEventListener('input', e => { if (e.target.id === 'mj-q') { ui.mjQ = e.target.value; draw(); } });
 
 app.addEventListener('submit', async e => {
   if (e.target.id !== 'join') return;
@@ -443,6 +495,7 @@ app.addEventListener('click', e => {
     return draw();
   }
   const a = t.dataset.act;
+  if (a === 'mjPasMoi') { if (confirm('Changer de nom ? Tu pourras choisir le bon dans la liste.')) act({ type: 'pasMoi' }); return; }
   if (a === 'inscrire') act({ type: 'inscription', on: true });
   if (a === 'desinscrire') { SJ.store('sj-inscrit', null); act({ type: 'inscription', on: false }); }
   if (a === 'aideAsk') { ui.aideConfirm = true; draw(); }
