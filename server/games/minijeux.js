@@ -27,7 +27,8 @@ export function defaultConfig() {
       actif: true, // utilisé par « remplir automatiquement »
       nom: `Mini-jeu ${i + 1}`,
       regles: '',
-      joueurs: 2, // par round ; 0 = tout le monde
+      format: '', // '' = chacun pour soi (avec « joueurs ») ; sinon équipes, ex. « 2v2 », « 3v1 », « 1v1v1v1 »
+      joueurs: 2, // chacun pour soi : joueurs par round ; 0 = tout le monde
       duree: 600, // indicatif : affiché comme temps de jeu
       points: '10, 6, 3, 1', // points par place
     }])),
@@ -62,7 +63,20 @@ export function program(cfg) {
 }
 
 export const pointsOf = (cfg, slot) => String(cfg.jeux[slot]?.points || '').split(/[,;\s]+/).map(Number).filter(Number.isFinite);
+// Format d'équipes : « 2v2 » -> [2, 2], « 3v1 » -> [3, 1], « 1v1v1v1 » -> [1, 1, 1, 1]. Vide ou invalide : chacun pour soi.
+export function parseFormat(f) {
+  const t = String(f || '').toLowerCase().replace(/\s+/g, '').replace(/vs|contre|x/g, 'v');
+  if (!/^\d{1,2}(v\d{1,2})+$/.test(t)) return null;
+  const sizes = t.split('v').map(Number);
+  if (sizes.some(n => n < 1 || n > 10) || sizes.length > 8) return null;
+  return sizes;
+}
+export const formatLabel = sizes => (!sizes ? 'Chacun pour soi' : sizes.every(n => n === 1) ? `Chacun pour soi (${sizes.length})` : sizes.join(' contre '));
+export const TEAM_NAMES = ['Rouges', 'Bleus', 'Verts', 'Jaunes', 'Violets', 'Orange', 'Roses', 'Gris'];
+
 const sizeOf = (cfg, slot, total) => {
+  const sizes = parseFormat(cfg.jeux[slot]?.format);
+  if (sizes) return Math.min(sizes.reduce((a, b) => a + b, 0), total);
   const j = Math.round(Number(cfg.jeux[slot]?.joueurs) || 0);
   return j > 0 ? Math.min(j, total) : total;
 };
@@ -75,13 +89,16 @@ export function tsAt(hhmm, decalage, now) {
 }
 
 // Heures des rounds : réparties à intervalles égaux entre le début et la fin de la journée.
-// Si l'heure de début est déjà passée, la journée part de maintenant (le temps d'annoncer le premier round).
+// Si l'heure de début est déjà passée (ou trop proche), la journée part de maintenant, en laissant 5 min aux joueurs
+// pour prendre leur nom avant l'annonce du premier round.
 export function schedule(cfg, now, count) {
   const lead = cfg.annonce * 1000;
   let debut = tsAt(cfg.debut, cfg.decalage, now);
   let fin = tsAt(cfg.fin, cfg.decalage, now);
   if (fin <= debut) fin += 24 * 3600e3;
-  const start = Math.max(debut, now + lead);
+  // Journée déjà finie aujourd'hui : c'est celle de demain (journée ouverte la veille au soir).
+  if (fin <= now) { debut += 24 * 3600e3; fin += 24 * 3600e3; }
+  const start = Math.max(debut, now + lead + 5 * 60e3);
   const spacing = fin - start >= count * 60e3 ? (fin - start) / count : 15 * 60e3;
   return { at: Array.from({ length: count }, (_, i) => Math.round(start + i * spacing)), spacing, late: start > debut };
 }
@@ -103,6 +120,8 @@ export function start(ctx) {
     rounds: prog.map((jeu, i) => ({ n: i + 1, jeu, at: at[i], status: 'prevu', joueurs: [], places: null, points: null, annonceAt: 0, debutAt: 0, finAt: 0 })),
     played: {}, // nom normalisé -> rounds joués
     pairs: {}, // « a|b » -> rounds joués ensemble
+    mates: {}, // « a|b » -> rounds joués dans la même équipe
+    solo: {}, // nom normalisé -> fois où il était seul face à une équipe (ex. le « 1 » d'un 3v1)
     scores: {}, // nom normalisé -> points
     finished: false,
   };
@@ -135,22 +154,57 @@ export function draw(g, names, n, prevKeys = new Set(), rand = Math.random) {
   return sel;
 }
 
+// Répartit les joueurs tirés dans les équipes du format. Le joueur seul d'un format inégal (3v1…) est celui qui l'a
+// été le moins souvent ; pour le reste, on évite de remettre ensemble les mêmes coéquipiers.
+export function teamsFor(g, players, sizes, rand = Math.random) {
+  if (!sizes) return players.map(p => [p]);
+  const pool = players.slice();
+  const out = sizes.map(() => []);
+  const unequal = new Set(sizes).size > 1;
+  // équipes d'une seule personne dans un format inégal : les moins souvent « seuls » d'abord
+  if (unequal) {
+    sizes.forEach((n, i) => {
+      if (n !== 1 || !pool.length) return;
+      pool.sort((a, b) => (g.solo[key(a)] || 0) - (g.solo[key(b)] || 0) || rand() - .5);
+      out[i].push(pool.shift());
+    });
+  }
+  const rest = sizes.map((n, i) => n - out[i].length);
+  let best = null, bestCost = Infinity;
+  for (let k = 0; k < 40; k++) {
+    const sh = pool.slice().sort(() => rand() - .5);
+    const teams = out.map(t => t.slice());
+    let idx = 0;
+    rest.forEach((n, i) => { for (let j = 0; j < n && idx < sh.length; j++) teams[i].push(sh[idx++]); });
+    while (idx < sh.length) teams[teams.length - 1].push(sh[idx++]);
+    let cost = 0;
+    for (const t of teams) for (let i = 0; i < t.length; i++) for (let j = i + 1; j < t.length; j++) cost += g.mates[pairKey(t[i], t[j])] || 0;
+    if (cost < bestCost) { best = teams; bestCost = cost; if (!cost) break; }
+  }
+  return best.filter(t => t.length);
+}
+
 function prevPlayers(g, r) {
   const before = g.rounds.filter(x => x.n < r.n && (x.status === 'fini' || x.status === 'jeu')).at(-1);
   return new Set((before?.joueurs || []).map(key));
 }
 
-function count(g, players, d) {
-  for (const p of players) g.played[key(p)] = Math.max(0, (g.played[key(p)] || 0) + d);
-  for (let i = 0; i < players.length; i++) for (let j = i + 1; j < players.length; j++) {
-    const k = pairKey(players[i], players[j]);
-    g.pairs[k] = Math.max(0, (g.pairs[k] || 0) + d);
-  }
+// Compteurs d'un round (d = +1 quand il commence, -1 si on l'annule) : rounds joués, joués ensemble, coéquipiers, seul.
+function count(g, r, d) {
+  const add = (obj, k) => { obj[k] = Math.max(0, (obj[k] || 0) + d); };
+  const players = r.joueurs;
+  for (const p of players) add(g.played, key(p));
+  for (let i = 0; i < players.length; i++) for (let j = i + 1; j < players.length; j++) add(g.pairs, pairKey(players[i], players[j]));
+  const teams = r.equipes || [];
+  for (const t of teams) for (let i = 0; i < t.length; i++) for (let j = i + 1; j < t.length; j++) add(g.mates, pairKey(t[i], t[j]));
+  if (new Set(teams.map(t => t.length)).size > 1) for (const t of teams) if (t.length === 1) add(g.solo, key(t[0]));
 }
 
 function announce(ctx, g, r) {
   const names = roster(ctx.cfg);
   r.joueurs = draw(g, names, sizeOf(ctx.cfg, r.jeu, names.length), prevPlayers(g, r));
+  r.format = parseFormat(ctx.cfg.jeux[r.jeu]?.format);
+  r.equipes = teamsFor(g, r.joueurs, r.format);
   r.status = 'annonce';
   r.annonceAt = ctx.now();
   ctx.sfx?.('annonce');
@@ -159,7 +213,7 @@ function announce(ctx, g, r) {
 function begin(ctx, g, r) {
   r.status = 'jeu';
   r.debutAt = ctx.now();
-  count(g, r.joueurs, 1);
+  count(g, r, 1);
 }
 
 // ---------- déroulement ----------
@@ -210,13 +264,14 @@ export function playerAction(ctx, g, pid, a) {
 }
 
 // ---------- admin ----------
+// places : { indexÉquipe: place }. Chaque membre d'une équipe reçoit les points de la place de son équipe.
 function placesPoints(cfg, r, places) {
   const pts = pointsOf(cfg, r.jeu);
   const out = {};
-  for (const p of r.joueurs) {
-    const place = Math.round(Number(places?.[p]));
-    if (!(place >= 1 && place <= r.joueurs.length)) return null;
-    out[p] = { place, points: pts[place - 1] ?? 0 };
+  for (const [i, team] of r.equipes.entries()) {
+    const place = Math.round(Number(places?.[i]));
+    if (!(place >= 1 && place <= r.equipes.length)) return null;
+    for (const p of team) out[p] = { place, points: pts[place - 1] ?? 0, equipe: i };
   }
   return out;
 }
@@ -224,6 +279,7 @@ function placesPoints(cfg, r, places) {
 export function adminAction(ctx, g, a) {
   const now = ctx.now(), cfg = ctx.cfg;
   const r = a.n != null ? g.rounds.find(x => x.n === Number(a.n)) : null;
+  if (r && !r.equipes) r.equipes = r.joueurs.map(p => [p]);
   switch (a.type) {
     case 'annoncer': { // tirer au sort et annoncer le prochain round tout de suite
       if (activeRound(g)) return err('Un round est déjà en cours.');
@@ -249,9 +305,14 @@ export function adminAction(ctx, g, a) {
       const neu = a.type === 'remplacer' ? roster(cfg).find(n => key(n) === key(a.nouveau)) : null;
       if (a.type === 'remplacer' && !neu) return err('Choisis un remplaçant.');
       if (neu && r.joueurs.some(p => key(p) === key(neu))) return err('Ce joueur est déjà dans le round.');
-      if (r.status === 'jeu') count(g, r.joueurs, -1);
-      if (neu) r.joueurs[i] = neu; else r.joueurs.splice(i, 1);
-      if (r.status === 'jeu') count(g, r.joueurs, 1);
+      if (r.status === 'jeu') count(g, r, -1);
+      const team = r.equipes.find(t => t.includes(a.ancien));
+      if (neu) { r.joueurs[i] = neu; team[team.indexOf(a.ancien)] = neu; } else {
+        r.joueurs.splice(i, 1);
+        team.splice(team.indexOf(a.ancien), 1);
+        r.equipes = r.equipes.filter(t => t.length);
+      }
+      if (r.status === 'jeu') count(g, r, 1);
       return ok(neu ? `${neu} remplace ${a.ancien}.` : `${a.ancien} retiré du round.`);
     }
     case 'ajouter': { // ajoute un joueur à un round annoncé ou en cours
@@ -259,15 +320,18 @@ export function adminAction(ctx, g, a) {
       const neu = roster(cfg).find(n => key(n) === key(a.nouveau));
       if (!neu) return err('Choisis un joueur.');
       if (r.joueurs.some(p => key(p) === key(neu))) return err('Ce joueur est déjà dans le round.');
-      if (r.status === 'jeu') count(g, r.joueurs, -1);
+      if (r.status === 'jeu') count(g, r, -1);
       r.joueurs.push(neu);
-      if (r.status === 'jeu') count(g, r.joueurs, 1);
+      const ti = Number.isInteger(Number(a.equipe)) && r.equipes[Number(a.equipe)] ? Number(a.equipe) : -1;
+      if (!r.format || !r.equipes.length) r.equipes.push([neu]); // chacun pour soi : une « équipe » de plus
+      else (r.equipes[ti] ?? r.equipes.reduce((m, t) => (t.length < m.length ? t : m))).push(neu);
+      if (r.status === 'jeu') count(g, r, 1);
       return ok(`${neu} ajouté au round.`);
     }
     case 'resultats': { // places des joueurs ; corrige aussi un round déjà terminé
       if (!r || (r.status !== 'jeu' && r.status !== 'fini')) return err('Ce round n\'est pas en cours.');
       const res = placesPoints(cfg, r, a.places);
-      if (!res) return err('Donne une place à chaque joueur.');
+      if (!res) return err(r.format && !r.format.every(n => n === 1) ? 'Donne une place à chaque équipe.' : 'Donne une place à chaque joueur.');
       if (r.points) for (const [p, v] of Object.entries(r.points)) g.scores[key(p)] = (g.scores[key(p)] || 0) - v.points;
       for (const [p, v] of Object.entries(res)) g.scores[key(p)] = (g.scores[key(p)] || 0) + v.points;
       r.points = res;
@@ -276,7 +340,7 @@ export function adminAction(ctx, g, a) {
     }
     case 'passer': {
       if (!r || r.status === 'fini' || r.status === 'saute') return err('Ce round ne peut pas être sauté.');
-      if (r.status === 'jeu') count(g, r.joueurs, -1);
+      if (r.status === 'jeu') count(g, r, -1);
       r.status = 'saute';
       r.finAt = now;
       return ok(`Round ${r.n} sauté.`);
@@ -293,7 +357,7 @@ export function adminAction(ctx, g, a) {
     case 'terminer': {
       for (const x of g.rounds) if (x.status === 'prevu' || x.status === 'annonce') x.status = 'saute';
       const act = activeRound(g);
-      if (act) { count(g, act.joueurs, -1); act.status = 'saute'; }
+      if (act) { if (act.status === 'jeu') count(g, act, -1); act.status = 'saute'; }
       g.finished = true;
       g.finishedAt = now;
       return ok('Journée terminée.');
@@ -322,6 +386,9 @@ function roundView(ctx, r, withRules = false) {
   const j = ctx.cfg.jeux[r.jeu] || {};
   const v = {
     n: r.n, jeu: r.jeu, nom: j.nom, at: r.at, status: r.status, joueurs: r.joueurs,
+    equipes: r.equipes || r.joueurs.map(p => [p]),
+    equipesNommees: !!(r.format || parseFormat(j.format)) && !(r.format || parseFormat(j.format)).every(n => n === 1),
+    format: formatLabel(r.status === 'prevu' ? parseFormat(j.format) : r.format),
     startAt: r.status === 'annonce' ? startAtOf(ctx.cfg, r) : r.debutAt || r.at,
     taille: sizeOf(ctx.cfg, r.jeu, roster(ctx.cfg).length), duree: j.duree, debutAt: r.debutAt, finAt: r.finAt,
     points: r.points,
@@ -366,6 +433,13 @@ export function adminView(ctx, g) {
   };
 }
 
+// Pour un joueur d'un round : son équipe, ses coéquipiers et ses adversaires.
+function teamInfo(r, mine) {
+  const i = r.equipes.findIndex(t => t.some(p => key(p) === mine));
+  if (i < 0) return {};
+  return { equipe: i, coequipiers: r.equipes[i].filter(p => key(p) !== mine), adversaires: r.equipes.filter((_, k) => k !== i) };
+}
+
 export function playerView(ctx, g, pid) {
   const names = roster(ctx.cfg);
   const mine = pid ? Object.entries(g.claims).find(([, p]) => p === pid)?.[0] : null;
@@ -383,7 +457,7 @@ export function playerView(ctx, g, pid) {
     sur: rows.length,
     joues: me.joues,
     attendu: expected(ctx.cfg, g),
-    monTour: inRound(c.actif) ? c.actif : null,
+    monTour: inRound(c.actif) ? { ...c.actif, ...teamInfo(c.actif, mine) } : null,
     actif: c.actif,
     prochain: c.prochain,
     dernier: dernier ? { n: dernier.n, nom: ctx.cfg.jeux[dernier.jeu]?.nom, place: dernier.points?.[dernier.joueurs.find(p => key(p) === mine)]?.place, points: dernier.points?.[dernier.joueurs.find(p => key(p) === mine)]?.points } : null,

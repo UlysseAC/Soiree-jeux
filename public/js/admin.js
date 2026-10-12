@@ -265,7 +265,20 @@ function mjProgram(c) {
   const fill = act.length ? act : MJ_SLOTS;
   return Array.from({ length: n }, (_, i) => chosen[i] ?? fill[i % fill.length]);
 }
-const mjSize = (c, s, total) => (Number(c.jeux[s]?.joueurs) > 0 ? Math.min(Number(c.jeux[s].joueurs), total) : total);
+// Format d'équipes (même règle que le serveur) : « 2v2 » -> [2, 2] ; vide = chacun pour soi.
+function mjFormat(f) {
+  const t = String(f || '').toLowerCase().replace(/\s+/g, '').replace(/vs|contre|x/g, 'v');
+  if (!/^\d{1,2}(v\d{1,2})+$/.test(t)) return null;
+  const sizes = t.split('v').map(Number);
+  return sizes.some(n => n < 1 || n > 10) || sizes.length > 8 ? null : sizes;
+}
+const mjFormatLabel = sizes => (!sizes ? 'Chacun pour soi' : sizes.every(n => n === 1) ? `Chacun pour soi (${sizes.length})` : sizes.join(' contre '));
+const MJ_TEAMS = ['Rouges', 'Bleus', 'Verts', 'Jaunes', 'Violets', 'Orange', 'Roses', 'Gris'];
+const mjSize = (c, s, total) => {
+  const f = mjFormat(c.jeux[s]?.format);
+  if (f) return Math.min(f.reduce((a, b) => a + b, 0), total);
+  return Number(c.jeux[s]?.joueurs) > 0 ? Math.min(Number(c.jeux[s].joueurs), total) : total;
+};
 const mjMinutes = t => { const [h, m] = String(t || '0:0').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
 
 function reglagesMiniJeux(c) {
@@ -279,10 +292,12 @@ function reglagesMiniJeux(c) {
   const timeInput = (path, label) => `<label class="field"><span class="label">${label}</span><input class="in" type="time" id="c-jeu-${path}" data-cfg="${path}" data-kind="text" data-scope="jeu" value="${esc(c[path])}"></label>`;
   const rows = prog.map((s, i) => `<tr><td class="mono">${i + 1}</td><td class="mono">${at(i)}</td>
     <td><select class="in" data-mj-prog="${i}" style="width:auto;min-width:200px">${MJ_SLOTS.map(x => `<option value="${x}" ${x === s ? 'selected' : ''}>${esc(c.jeux[x].nom)}${c.jeux[x].actif ? '' : ' (non utilisé)'}</option>`).join('')}</select></td>
-    <td>${Number(c.jeux[s].joueurs) > 0 ? `${mjSize(c, s, names.length)} joueur${mjSize(c, s, names.length) > 1 ? 's' : ''}` : 'Tout le monde'}</td></tr>`).join('');
+    <td>${mjFormat(c.jeux[s].format) ? mjFormatLabel(mjFormat(c.jeux[s].format)) : Number(c.jeux[s].joueurs) > 0 ? `${mjSize(c, s, names.length)} joueur${mjSize(c, s, names.length) > 1 ? 's' : ''}` : 'Tout le monde'}</td></tr>`).join('');
   const jeux = MJ_SLOTS.map((s, i) => `<div class="box" style="background:var(--ink)">
       <div class="spread"><h3 style="margin:0">Mini-jeu ${i + 1}</h3><label class="row" style="gap:8px">${cfgInput(`jeux.${s}.actif`, c.jeux[s].actif, 'bool')}<span>Utilisé pour « remplir automatiquement »</span></label></div>
-      <div class="grid-auto">${cfgInput(`jeux.${s}.nom`, c.jeux[s].nom, 'text', { label: 'Nom' })}${cfgInput(`jeux.${s}.joueurs`, c.jeux[s].joueurs, 'num', { label: 'Joueurs par round (0 = tout le monde)' })}
+      <div class="grid-auto">${cfgInput(`jeux.${s}.nom`, c.jeux[s].nom, 'text', { label: 'Nom' })}
+        <label class="field"><span class="label">Format</span><input class="in" list="mj-formats" id="c-jeu-jeux-${s}-format" data-cfg="jeux.${s}.format" data-kind="text" data-scope="jeu" value="${esc(c.jeux[s].format)}" placeholder="vide = chacun pour soi"><span class="muted" style="font-size:13px">${c.jeux[s].format && !mjFormat(c.jeux[s].format) ? '<span style="color:var(--danger)">Format non reconnu : écris par exemple 2v2, 3v1 ou 1v1v1v1.</span>' : mjFormatLabel(mjFormat(c.jeux[s].format))}</span></label>
+        ${mjFormat(c.jeux[s].format) ? '' : cfgInput(`jeux.${s}.joueurs`, c.jeux[s].joueurs, 'num', { label: 'Joueurs par round (0 = tout le monde)' })}
         ${cfgInput(`jeux.${s}.duree`, c.jeux[s].duree, 'dur', { label: 'Durée indicative (min:s)' })}${cfgInput(`jeux.${s}.points`, c.jeux[s].points, 'text', { label: 'Points par place (1er, 2e, 3e…)', ph: '10, 6, 3, 1' })}</div>
       ${cfgInput(`jeux.${s}.regles`, c.jeux[s].regles, 'area', { label: "Règles affichées sur l'écran", ph: 'Explique le mini-jeu en quelques phrases…' })}
     </div>`).join('');
@@ -299,7 +314,10 @@ function reglagesMiniJeux(c) {
     <div class="box"><div class="spread"><h2>Programme des rounds</h2><button class="btn sm" data-mj="auto" data-confirm="Remplacer le programme par les mini-jeux utilisés, en boucle ?">Remplir automatiquement</button></div>
       <div class="scroll"><table><thead><tr><th>Round</th><th>Heure prévue</th><th>Mini-jeu</th><th>Joueurs</th></tr></thead><tbody>${rows}</tbody></table></div>
     </div>
-    <h2 style="margin-top:8px">Les 6 mini-jeux</h2>${jeux}`;
+    <h2 style="margin-top:8px">Les 6 mini-jeux</h2>
+    <p class="muted" style="margin:0;font-size:14px">Format : laisse vide pour « chacun pour soi » (avec le nombre de joueurs), ou écris des équipes : <strong>1v1v1v1</strong> (4 joueurs, chacun pour soi), <strong>2v2</strong>, <strong>3v1</strong>, 2v2v2… Les points se donnent par place d'équipe : chaque membre reçoit les points de son équipe.</p>
+    <datalist id="mj-formats"><option value="1v1"><option value="1v1v1"><option value="1v1v1v1"><option value="2v2"><option value="3v1"><option value="2v1"><option value="3v3"><option value="2v2v2"><option value="4v4"></datalist>
+    ${jeux}`;
 }
 
 function partieMiniJeux(g) {
@@ -313,23 +331,28 @@ function partieMiniJeux(g) {
   }
   const opts = (list, exclude) => list.filter(p => !exclude.includes(p.nom)).map(p => `<option value="${esc(p.nom)}">${esc(p.nom)} · ${p.joues} round${p.joues > 1 ? 's' : ''}${p.connecte ? '' : ' · sans téléphone'}</option>`).join('');
   const byPlays = [...g.joueurs].sort((a, b) => a.joues - b.joues || a.nom.localeCompare(b.nom, 'fr'));
-  const placesFor = r => { ui.places ??= {}; ui.places[r.n] ??= Object.fromEntries(r.joueurs.map((p, i) => [p, r.points?.[p]?.place ?? i + 1])); return ui.places[r.n]; };
-  const playersEditor = r => r.joueurs.map((p, i) => `<div class="row" style="flex-wrap:wrap">
+  // Places par équipe (une équipe = un joueur en « chacun pour soi »).
+  const placesFor = r => { ui.places ??= {}; ui.places[r.n] ??= Object.fromEntries(r.equipes.map((t, i) => [i, r.points?.[t[0]]?.place ?? i + 1])); return ui.places[r.n]; };
+  const teamLabel = (r, i) => (r.equipesNommees ? MJ_TEAMS[i] ?? `Équipe ${i + 1}` : '');
+  const placeSelect = (r, i) => `<label class="row" style="gap:6px">Place <select class="in" style="width:auto" data-mj-place="${r.n}" data-equipe="${i}">${r.equipes.map((_, k) => `<option value="${k + 1}" ${placesFor(r)[i] === k + 1 ? 'selected' : ''}>${k + 1}</option>`).join('')}</select></label>`;
+  const playerRow = (r, p) => { const i = r.joueurs.indexOf(p); return `<div class="row" style="flex-wrap:wrap">
       <strong style="min-width:120px">${esc(p)}</strong>
-      ${r.status === 'jeu' ? `<label class="row" style="gap:6px">Place <select class="in" style="width:auto" data-mj-place="${r.n}" data-joueur="${esc(p)}">${r.joueurs.map((_, k) => `<option value="${k + 1}" ${placesFor(r)[p] === k + 1 ? 'selected' : ''}>${k + 1}</option>`).join('')}</select></label>` : ''}
       <select class="in" style="width:auto;max-width:260px" id="mj-rempl-${r.n}-${i}"><option value="">Remplacer par…</option>${opts(byPlays, r.joueurs)}</select>
       <button class="btn sm" data-mj="remplacer" data-n="${r.n}" data-i="${i}">Remplacer</button>
-      <button class="btn sm danger" data-mj="retirer" data-n="${r.n}" data-joueur="${esc(p)}" data-confirm="Retirer ${esc(p)} de ce round sans le remplacer ?">Retirer</button></div>`).join('');
+      <button class="btn sm danger" data-mj="retirer" data-n="${r.n}" data-joueur="${esc(p)}" data-confirm="Retirer ${esc(p)} de ce round sans le remplacer ?">Retirer</button></div>`; };
+  const playersEditor = r => r.equipesNommees
+    ? r.equipes.map((t, i) => `<div class="box" style="background:var(--ink);gap:8px"><div class="spread"><strong>${esc(teamLabel(r, i))}</strong>${r.status === 'jeu' ? placeSelect(r, i) : ''}</div>${t.map(p => playerRow(r, p)).join('')}</div>`).join('')
+    : r.equipes.map((t, i) => `<div class="row" style="flex-wrap:wrap;gap:12px">${r.status === 'jeu' ? placeSelect(r, i) : ''}${playerRow(r, t[0])}</div>`).join('');
   let now = '';
   const a = g.actif;
   if (a) {
     now = `<div class="box" style="border-color:var(--accent)">
-      <div class="spread"><h2>Round ${a.n} · ${esc(a.nom)}</h2><span class="pill accent">${a.status === 'annonce' ? `Commence dans <span class="mono" data-until="${a.startAt}"></span>` : `En cours depuis <span class="mono" data-since="${a.debutAt}"></span>`}</span></div>
+      <div class="spread"><h2>Round ${a.n} · ${esc(a.nom)} <span class="muted" style="font-weight:400">· ${esc(a.format)}</span></h2><span class="pill accent">${a.status === 'annonce' ? `Commence dans <span class="mono" data-until="${a.startAt}"></span>` : `En cours depuis <span class="mono" data-since="${a.debutAt}"></span>`}</span></div>
       ${playersEditor(a)}
       <div class="row" style="flex-wrap:wrap"><select class="in" style="width:auto" id="mj-ajout-${a.n}"><option value="">Ajouter un joueur…</option>${opts(byPlays, a.joueurs)}</select><button class="btn sm" data-mj="ajouter" data-n="${a.n}">Ajouter</button></div>
       <div class="row" style="flex-wrap:wrap">${a.status === 'annonce' ? '<button class="btn primary" data-mj="commencer">Commencer maintenant</button>' : `<button class="btn primary" data-mj="resultats" data-n="${a.n}">Valider les résultats</button>`}
         <button class="btn sm danger" data-mj="passer" data-n="${a.n}" data-confirm="Sauter ce round ? Personne ne marque de points.">Sauter ce round</button></div>
-      ${a.status === 'jeu' ? '<p class="muted" style="margin:0;font-size:14px">Donne une place à chaque joueur (ex æquo possibles), puis valide : les points sont ajoutés et le round suivant sera annoncé à son heure.</p>' : ''}
+      ${a.status === 'jeu' ? `<p class="muted" style="margin:0;font-size:14px">Donne une place à chaque ${a.equipesNommees ? 'équipe' : 'joueur'} (ex æquo possibles), puis valide : les points sont ajoutés et le round suivant sera annoncé à son heure.</p>` : ''}
     </div>`;
   } else if (g.prochain) {
     const p = g.prochain;
@@ -340,8 +363,9 @@ function partieMiniJeux(g) {
   const etat = { prevu: '', annonce: '<span class="pill accent">annoncé</span>', jeu: '<span class="pill accent">en cours</span>', fini: '<span class="pill ok">✓</span>', saute: '<span class="pill">sauté</span>' };
   const rounds = g.rounds.map(r => {
     const edit = ui.mjEdit === r.n && r.status === 'fini';
-    const res = r.points ? r.joueurs.map(p => `${esc(p)} ${r.points[p] ? `(${r.points[p].place}<sup>e</sup>, ${r.points[p].points} pts)` : ''}`).join(' · ') : r.joueurs.map(esc).join(' · ');
-    return `<tr><td class="mono">${r.n}</td><td class="mono">${hhmm(r.at)}</td><td>${esc(r.nom)}</td><td>${edit ? r.joueurs.map(p => `<label class="row" style="gap:6px">${esc(p)} <select class="in" style="width:auto" data-mj-place="${r.n}" data-joueur="${esc(p)}">${r.joueurs.map((_, k) => `<option value="${k + 1}" ${placesFor(r)[p] === k + 1 ? 'selected' : ''}>${k + 1}</option>`).join('')}</select></label>`).join('') + `<button class="btn sm primary" data-mj="resultats" data-n="${r.n}">Enregistrer</button>` : res || '<span class="muted">—</span>'}</td>
+    const team = (t, i) => `${r.equipesNommees ? `<strong>${esc(teamLabel(r, i))}</strong> ` : ''}${t.map(esc).join(' + ')}`;
+    const res = r.equipes.map((t, i) => `${team(t, i)}${r.points?.[t[0]] ? ` (${r.points[t[0]].place}<sup>e</sup>, ${r.points[t[0]].points} pts)` : ''}`).join(r.equipesNommees ? ' <span class="muted">vs</span> ' : ' · ');
+    return `<tr><td class="mono">${r.n}</td><td class="mono">${hhmm(r.at)}</td><td>${esc(r.nom)}<br><span class="muted" style="font-size:13px">${esc(r.format)}</span></td><td>${edit ? r.equipes.map((t, i) => `<div class="row" style="gap:8px">${team(t, i)} ${placeSelect(r, i)}</div>`).join('') + `<button class="btn sm primary" data-mj="resultats" data-n="${r.n}">Enregistrer</button>` : r.joueurs.length ? res : '<span class="muted">—</span>'}</td>
       <td>${etat[r.status]}${r.status === 'fini' && !edit ? ` <button class="btn sm" data-mj="corriger" data-n="${r.n}">Corriger</button>` : ''}${r.status === 'prevu' ? ` <button class="btn sm" data-mj="passer" data-n="${r.n}" data-confirm="Sauter le round ${r.n} ?">Sauter</button>` : ''}</td></tr>`;
   }).join('');
   const joueurs = g.joueurs.map(p => `<tr><td class="mono">${p.rang}</td><td>${esc(p.nom)}</td><td>${p.connecte ? `<span class="pill ok">📱 connecté</span> <button class="btn sm" data-mj="liberer" data-nom="${esc(p.nom)}" data-confirm="Libérer le nom de ${esc(p.nom)} ? Il pourra le reprendre sur un autre téléphone.">Libérer</button>` : '<span class="pill">pas encore</span>'}</td><td class="mono">${p.joues}</td><td class="mono">${p.points}</td></tr>`).join('');
@@ -390,7 +414,7 @@ app.addEventListener('click', async e => {
 });
 app.addEventListener('change', e => {
   const t = e.target;
-  if (t.dataset.mjPlace) { ui.places ??= {}; (ui.places[t.dataset.mjPlace] ??= {})[t.dataset.joueur] = Number(t.value); return; }
+  if (t.dataset.mjPlace) { ui.places ??= {}; (ui.places[t.dataset.mjPlace] ??= {})[t.dataset.equipe] = Number(t.value); return; }
   if (t.dataset.mjProg != null) {
     const prog = mjProgram(V.gameConfig);
     prog[Number(t.dataset.mjProg)] = t.value;

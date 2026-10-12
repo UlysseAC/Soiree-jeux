@@ -72,6 +72,13 @@ function waiting() {
 
 // ---------- jeu 4 : Les Mini-Jeux ----------
 const hm = ts => new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+const MJ_TEAMS = [['Rouges', '#e7584f'], ['Bleus', '#5b9bf5'], ['Verts', '#43b8a6'], ['Jaunes', '#e5c13b'], ['Violets', '#a58cff'], ['Orange', '#f08a3c'], ['Roses', '#ec6fb5'], ['Gris', '#9aa1ae']];
+// Joueurs d'un round : en équipes (« Rouges : Léa + Hugo  VS  Bleus : … ») ou en noms (chacun pour soi).
+function mjPlayers(r) {
+  if (!r.equipesNommees) return `<div class="mj-names">${r.joueurs.map(p => `<span>${esc(p)}</span>`).join('')}</div>`;
+  return `<div class="mj-teams">${r.equipes.map((t, i) => { const [nom, c] = MJ_TEAMS[i] ?? [`Équipe ${i + 1}`, 'var(--accent)'];
+    return `${i ? '<div class="mj-vs">VS</div>' : ''}<div class="mj-team" style="--t:${c}"><div class="mj-team-n">${esc(nom)}</div><div class="mj-names">${t.map(p => `<span>${esc(p)}</span>`).join('')}</div></div>`; }).join('')}</div>`;
+}
 function mjSide(g, title = 'Classement de la journée') {
   const rows = g.classement.filter(r => r.points || g.faits).slice(0, 12);
   return `<aside class="mj-side"><div class="label" style="font-size:clamp(13px,1.1vw,18px)">${esc(title)}</div>
@@ -93,25 +100,26 @@ function minijeux(g) {
   const a = g.actif;
   if (a && a.status === 'annonce') {
     main = `<div class="mj-kicker">Round ${a.n} · prochain mini-jeu</div><div class="mj-round">${esc(a.nom)}</div>
-      <div class="sc-sub">Venez devant l'écran ! Début dans <strong class="mono" data-until="${a.startAt}"></strong></div>
-      <div class="mj-names">${a.joueurs.map(p => `<span>${esc(p)}</span>`).join('')}</div>
+      <div class="sc-sub">${esc(a.format)} · venez devant l'écran ! Début dans <strong class="mono" data-until="${a.startAt}"></strong></div>
+      ${mjPlayers(a)}
       ${a.regles ? `<div class="mj-rules">${esc(a.regles)}</div>` : ''}`;
   } else if (a) {
-    main = `<div class="mj-kicker">Round ${a.n} en cours · <span class="mono" data-since="${a.debutAt}"></span></div><div class="mj-round">${esc(a.nom)}</div>
-      <div class="mj-names">${a.joueurs.map(p => `<span>${esc(p)}</span>`).join('')}</div>
+    main = `<div class="mj-kicker">Round ${a.n} en cours · ${esc(a.format)} · <span class="mono" data-since="${a.debutAt}"></span></div><div class="mj-round">${esc(a.nom)}</div>
+      ${mjPlayers(a)}
       ${a.regles ? `<div class="mj-rules">${esc(a.regles)}</div>` : ''}`;
   } else if (g.recent) {
     const r = g.recent;
-    const list = r.joueurs.map(p => ({ p, ...(r.points?.[p] || {}) })).sort((x, y) => (x.place ?? 99) - (y.place ?? 99));
+    const list = r.equipes.map((t, i) => ({ t, i, ...(r.points?.[t[0]] || {}) })).sort((x, y) => (x.place ?? 99) - (y.place ?? 99));
+    const who = x => r.equipesNommees ? `<span style="color:${MJ_TEAMS[x.i]?.[1] ?? 'var(--accent)'}">${esc(MJ_TEAMS[x.i]?.[0] ?? `Équipe ${x.i + 1}`)}</span> · ${x.t.map(esc).join(' + ')}` : esc(x.t[0]);
     main = `<div class="mj-kicker">Résultats du round ${r.n}</div><div class="mj-round">${esc(r.nom)}</div>
-      <ol class="mj-results">${list.map(x => `<li><span>${x.place === 1 ? '🥇' : x.place === 2 ? '🥈' : x.place === 3 ? '🥉' : `${x.place}<sup>e</sup>`}</span><span>${esc(x.p)}</span><span class="p">+${x.points ?? 0}</span></li>`).join('')}</ol>`;
+      <ol class="mj-results">${list.map(x => `<li><span>${x.place === 1 ? '🥇' : x.place === 2 ? '🥈' : x.place === 3 ? '🥉' : `${x.place}<sup>e</sup>`}</span><span>${who(x)}</span><span class="p">+${x.points ?? 0}</span></li>`).join('')}</ol>`;
   } else if (g.prochain) {
     const p = g.prochain;
     const first = g.faits === 0 && g.rounds.every(r => r.status === 'prevu' || r.status === 'saute');
     const upcoming = g.rounds.filter(r => r.status === 'prevu').slice(first ? 0 : 1, (first ? 0 : 1) + 4);
     main = `<div class="mj-kicker">${first ? 'La journée commence bientôt' : 'Prochain round'} · round ${p.n}</div>
       <div class="mj-round">${esc(p.nom)}</div>
-      <div class="sc-sub">à <strong class="mono">${hm(p.at)}</strong> · dans <strong class="mono" data-until="${p.at}"></strong> · ${p.taille} joueur${p.taille > 1 ? 's' : ''} tirés au sort</div>
+      <div class="sc-sub">à <strong class="mono">${hm(p.at)}</strong> · dans <strong class="mono" data-until="${p.at}"></strong> · ${p.equipesNommees ? esc(p.format) : `${p.taille} joueur${p.taille > 1 ? 's' : ''}`} tirés au sort</div>
       ${first ? `<div class="grid-auto" style="grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:3vw">
           <div class="stack" style="gap:1.4vh"><p class="sc-sub" style="margin:0">Scanne le QR code et touche ton nom pour être prévenu quand c'est ton tour.</p>
           <div class="mj-people">${g.participants.map(x => `<span class="${x.connecte ? 'on' : ''}">${esc(x.nom)}</span>`).join('')}</div></div>${qrBlock(true)}</div>`

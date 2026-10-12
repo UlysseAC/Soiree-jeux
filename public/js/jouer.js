@@ -395,6 +395,15 @@ function grandpari(g) {
 
 // ---------- jeu 4 : Les Mini-Jeux ----------
 const hm = ts => new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+const MJ_TEAMS = ['Rouges', 'Bleus', 'Verts', 'Jaunes', 'Violets', 'Orange', 'Roses', 'Gris'];
+const liste = arr => arr.length <= 1 ? (arr[0] || '') : `${arr.slice(0, -1).join(', ')} et ${arr.at(-1)}`;
+// « Tu joues avec Hugo contre Tom et Inès » ; « Tu joues seul contre… » ; « Avec Tom, Inès » (chacun pour soi).
+function mjAvecQui(t) {
+  if (!t.equipesNommees) return `Avec ${esc(liste(t.joueurs.filter(p => p !== V.game.nom))) || 'personne d\'autre'}`;
+  const adv = (t.adversaires || []).map(e => liste(e)).join(', puis ');
+  const team = `<strong>${esc(MJ_TEAMS[t.equipe] ?? `Équipe ${t.equipe + 1}`)}</strong>`;
+  return t.coequipiers?.length ? `Équipe ${team} : tu joues avec ${esc(liste(t.coequipiers))} contre ${esc(adv)}` : `Équipe ${team} : tu joues seul contre ${esc(adv)}`;
+}
 function miniJeux() {
   const g = V.game;
   const title = `<header class="ph-head"><h1 class="ph-title">${esc(V.gameName)}</h1>${g?.nom ? `<span class="pill accent">${esc(g.nom)}</span>` : ''}</header>`;
@@ -418,10 +427,10 @@ function miniJeux() {
   if (t && t.status === 'annonce') {
     h += `<div class="card turn center"><span class="label">Round ${t.n} · ${esc(t.nom)}</span><div class="huge">C'est ton tour !</div>
       <p style="font-size:18px">Viens devant l'écran.</p><p>Début dans <strong class="mono" data-until="${t.startAt}"></strong></p>
-      <p class="muted">Avec ${t.joueurs.filter(p => p !== g.nom).map(esc).join(', ') || 'personne d\'autre'}</p></div>`;
+      <p class="muted">${esc(t.format)}</p><p>${mjAvecQui(t)}</p></div>`;
     if (t.regles) h += `<div class="card"><span class="label">Règles</span><p style="white-space:pre-wrap">${esc(t.regles)}</p></div>`;
   } else if (t) {
-    h += `<div class="card turn center"><span class="label">Round ${t.n} · ${esc(t.nom)}</span><div class="huge" style="font-size:44px">À toi de jouer !</div><p class="muted">Suis les consignes de l'écran.</p></div>`;
+    h += `<div class="card turn center"><span class="label">Round ${t.n} · ${esc(t.nom)}</span><div class="huge" style="font-size:44px">À toi de jouer !</div><p>${mjAvecQui(t)}</p><p class="muted">Suis les consignes de l'écran.</p></div>`;
     if (t.regles) h += `<div class="card"><span class="label">Règles</span><p style="white-space:pre-wrap">${esc(t.regles)}</p></div>`;
   } else {
     if (g.actif) h += `<div class="card"><span class="label">Round ${g.actif.n} en cours · ${esc(g.actif.nom)}</span><p>${g.actif.joueurs.map(esc).join(', ')} ${g.actif.joueurs.length > 1 ? 'jouent' : 'joue'}. Regarde l'écran !</p></div>`;

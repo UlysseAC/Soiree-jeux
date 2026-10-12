@@ -39,7 +39,7 @@ test('rounds répartis à intervalles égaux entre début et fin', () => {
 test('journée lancée en retard : elle part de maintenant', () => {
   const { g } = setup(c => c, clock(12));
   assert.equal(g.late, true);
-  assert.equal(g.rounds[0].at, clock(12) + 300e3);
+  assert.equal(g.rounds[0].at, clock(12) + 600e3, 'annonce dans 5 min, début dans 10 min');
   assert.ok(g.rounds[11].at < clock(18));
 });
 
@@ -72,7 +72,7 @@ test('tout le monde joue autant (à un près), jamais deux rounds de suite quand
     assert.equal(r.status, 'jeu');
     back2back += r.joueurs.filter(p => prev.includes(p)).length;
     prev = r.joueurs;
-    mj.adminAction(ctx, g, { type: 'resultats', n: r.n, places: Object.fromEntries(r.joueurs.map((p, i) => [p, i + 1])) });
+    mj.adminAction(ctx, g, { type: 'resultats', n: r.n, places: Object.fromEntries(r.equipes.map((_, i) => [i, i + 1])) });
     at(ctx.now() + 60e3);
   }
   const counts = NAMES.map(n => g.played[n.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()] ?? Object.entries(g.played).find(([k]) => k.startsWith(n.slice(0, 2).toLowerCase()))?.[1]);
@@ -108,12 +108,12 @@ test('résultats : points par place, ex æquo, correction après coup', () => {
   jouer(ctx, at, g.rounds[0]);
   const r = g.rounds[0];
   const [a, b, c] = r.joueurs;
-  assert.equal(mj.adminAction(ctx, g, { type: 'resultats', n: 1, places: { [a]: 1, [b]: 2 } }).ok, false, 'tout le monde doit avoir une place');
-  assert.equal(mj.adminAction(ctx, g, { type: 'resultats', n: 1, places: { [a]: 1, [b]: 1, [c]: 3 } }).ok, true);
+  assert.equal(mj.adminAction(ctx, g, { type: 'resultats', n: 1, places: { 0: 1, 1: 2 } }).ok, false, 'tout le monde doit avoir une place');
+  assert.equal(mj.adminAction(ctx, g, { type: 'resultats', n: 1, places: { 0: 1, 1: 1, 2: 3 } }).ok, true);
   assert.equal(r.status, 'fini');
   const pts = n => mj.screenView(ctx, g).classement.find(x => x.nom === n).points;
   assert.deepEqual([pts(a), pts(b), pts(c)], [10, 10, 3]);
-  mj.adminAction(ctx, g, { type: 'resultats', n: 1, places: { [a]: 3, [b]: 2, [c]: 1 } });
+  mj.adminAction(ctx, g, { type: 'resultats', n: 1, places: { 0: 3, 1: 2, 2: 1 } });
   assert.deepEqual([pts(a), pts(b), pts(c)], [3, 6, 10]);
 });
 
@@ -157,7 +157,7 @@ test('fin de journée après le dernier round, puis podium', () => {
   const { g, ctx, at } = setup(c => ({ ...c, rounds: 2 }));
   for (const r of g.rounds) {
     jouer(ctx, at, r);
-    mj.adminAction(ctx, g, { type: 'resultats', n: r.n, places: Object.fromEntries(r.joueurs.map((p, i) => [p, i + 1])) });
+    mj.adminAction(ctx, g, { type: 'resultats', n: r.n, places: Object.fromEntries(r.equipes.map((_, i) => [i, i + 1])) });
   }
   at(ctx.now() + 10e3);
   assert.equal(g.finished, false, 'on laisse les derniers résultats à l\'écran');
@@ -181,4 +181,83 @@ test('annoncer à la main : le round commence 2 min plus tard, pas à son heure 
   at(clock(9) + 120e3);
   assert.equal(g.rounds[0].status, 'jeu');
   assert.equal(g.rounds[1].at, clock(10) + 40 * 60e3, 'les rounds suivants gardent leur heure');
+});
+
+test('formats : lecture de « 2v2 », « 3v1 », « 1v1v1v1 »', () => {
+  assert.deepEqual(mj.parseFormat('2v2'), [2, 2]);
+  assert.deepEqual(mj.parseFormat('3 v 1'), [3, 1]);
+  assert.deepEqual(mj.parseFormat('1v1v1v1'), [1, 1, 1, 1]);
+  assert.deepEqual(mj.parseFormat('2 contre 2 contre 2'), [2, 2, 2]);
+  assert.equal(mj.parseFormat(''), null);
+  assert.equal(mj.parseFormat('n\'importe quoi'), null);
+  assert.equal(mj.parseFormat('0v3'), null);
+  assert.equal(mj.formatLabel([3, 1]), '3 contre 1');
+  assert.equal(mj.formatLabel([1, 1, 1, 1]), 'Chacun pour soi (4)');
+  assert.equal(mj.formatLabel(null), 'Chacun pour soi');
+});
+
+test('2v2 : 4 joueurs en deux équipes de 2, points pour toute l\'équipe', () => {
+  const { g, ctx, at } = setup(c => { c.jeux.mj1.format = '2v2'; c.jeux.mj1.points = '10, 4'; return c; });
+  jouer(ctx, at, g.rounds[0]);
+  const r = g.rounds[0];
+  assert.equal(r.joueurs.length, 4);
+  assert.deepEqual(r.equipes.map(t => t.length), [2, 2]);
+  assert.equal(mj.adminAction(ctx, g, { type: 'resultats', n: 1, places: { 0: 2, 1: 1 } }).ok, true);
+  const pts = n => mj.screenView(ctx, g).classement.find(x => x.nom === n).points;
+  assert.deepEqual(r.equipes[1].map(pts), [10, 10]);
+  assert.deepEqual(r.equipes[0].map(pts), [4, 4]);
+});
+
+test('3v1 : le joueur seul change d\'un round à l\'autre', () => {
+  const g = { played: {}, pairs: {}, mates: {}, solo: {}, claims: {} };
+  const four = ['Léa', 'Hugo', 'Inès', 'Malik'];
+  const seuls = new Set();
+  for (let k = 0; k < 4; k++) {
+    const teams = mj.teamsFor(g, four, [3, 1]);
+    assert.deepEqual(teams.map(t => t.length), [3, 1]);
+    seuls.add(teams[1][0]);
+    g.solo[teams[1][0].toLocaleLowerCase('fr')] = (g.solo[teams[1][0].toLocaleLowerCase('fr')] || 0) + 1;
+  }
+  assert.equal(seuls.size, 4, 'chacun a été seul une fois');
+});
+
+test('2v2 : on évite de remettre les mêmes coéquipiers', () => {
+  const g = { played: {}, pairs: {}, mates: { 'hugo|léa': 3, 'inès|malik': 3 }, solo: {}, claims: {} };
+  const teams = mj.teamsFor(g, ['Léa', 'Hugo', 'Inès', 'Malik'], [2, 2]);
+  const together = (a, b) => teams.some(t => t.includes(a) && t.includes(b));
+  assert.ok(!together('Léa', 'Hugo') && !together('Inès', 'Malik'));
+});
+
+test('2v2 : remplacer garde l\'équipe, ajouter va dans la plus petite équipe', () => {
+  const { g, ctx, at } = setup(c => { c.jeux.mj1.format = '2v2'; return c; });
+  jouer(ctx, at, g.rounds[0]);
+  const r = g.rounds[0];
+  const [x] = r.equipes[0];
+  const libre = NAMES.find(n => !r.joueurs.includes(n));
+  mj.adminAction(ctx, g, { type: 'remplacer', n: 1, ancien: x, nouveau: libre });
+  assert.ok(r.equipes[0].includes(libre) && !r.joueurs.includes(x));
+  mj.adminAction(ctx, g, { type: 'retirer', n: 1, ancien: r.equipes[1][0] });
+  assert.deepEqual(r.equipes.map(t => t.length), [2, 1]);
+  const autre = NAMES.find(n => !r.joueurs.includes(n));
+  mj.adminAction(ctx, g, { type: 'ajouter', n: 1, nouveau: autre });
+  assert.deepEqual(r.equipes.map(t => t.length), [2, 2]);
+  assert.ok(r.equipes[1].includes(autre));
+});
+
+test('le téléphone connaît ses coéquipiers et ses adversaires', () => {
+  const { g, ctx, at } = setup(c => { c.jeux.mj1.format = '3v1'; return c; });
+  at(clock(10) - 200e3);
+  const r = g.rounds[0];
+  const seul = r.equipes[1][0];
+  mj.claim(ctx, g, 'moi', seul);
+  const v = mj.playerView(ctx, g, 'moi').monTour;
+  assert.equal(v.coequipiers.length, 0);
+  assert.equal(v.adversaires[0].length, 3);
+  assert.equal(v.format, '3 contre 1');
+});
+
+test('journée ouverte la veille au soir : elle a lieu le lendemain', () => {
+  const { g } = setup(c => c, clock(23));
+  assert.equal(g.late, false);
+  assert.equal(g.rounds[0].at, clock(10) + 24 * 3600e3);
 });
