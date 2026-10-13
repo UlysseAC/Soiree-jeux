@@ -3,6 +3,12 @@
 // en priorité ceux qui ont le moins joué, pour que tout le monde joue autant (à un round près).
 // Les participants sont une liste de noms saisie par l'admin ; chacun « prend » son nom sur son téléphone.
 import { normName } from '../util.js';
+import * as definition from './minijeux/definition.js';
+
+// Types de mini-jeux : « manuel » (l'organisateur saisit les places) ou un mini-jeu programmé.
+export const TYPES = { definition };
+export const TYPE_LABELS = { manuel: 'Manuel (tu saisis les places)', definition: definition.label };
+const typeOf = (cfg, slot) => TYPES[cfg.jeux[slot]?.type] || null;
 
 export const id = 'minijeux';
 export const name = 'Les Mini-Jeux';
@@ -25,12 +31,14 @@ export function defaultConfig() {
     programme: [...SLOTS, ...SLOTS].join(','), // mini-jeu de chaque round, dans l'ordre
     jeux: Object.fromEntries(SLOTS.map((s, i) => [s, {
       actif: true, // utilisé par « remplir automatiquement »
+      type: 'manuel', // manuel | definition
       nom: `Mini-jeu ${i + 1}`,
       regles: '',
       format: '', // '' = chacun pour soi (avec « joueurs ») ; sinon équipes, ex. « 2v2 », « 3v1 », « 1v1v1v1 »
       joueurs: 2, // chacun pour soi : joueurs par round ; 0 = tout le monde
       duree: 600, // indicatif : affiché comme temps de jeu
       points: '10, 6, 3, 1', // points par place
+      ...definition.defaults, // La Définition : mots inventés, manches, temps
     }])),
   };
 }
@@ -203,8 +211,10 @@ function count(g, r, d) {
 function announce(ctx, g, r) {
   const names = roster(ctx.cfg);
   r.joueurs = draw(g, names, sizeOf(ctx.cfg, r.jeu, names.length), prevPlayers(g, r));
-  r.format = parseFormat(ctx.cfg.jeux[r.jeu]?.format);
+  r.type = ctx.cfg.jeux[r.jeu]?.type || 'manuel';
+  r.format = TYPES[r.type] ? null : parseFormat(ctx.cfg.jeux[r.jeu]?.format); // La Définition : chacun pour soi
   r.equipes = teamsFor(g, r.joueurs, r.format);
+  r.compris = [];
   r.status = 'annonce';
   r.annonceAt = ctx.now();
   ctx.sfx?.('annonce');
@@ -214,6 +224,23 @@ function begin(ctx, g, r) {
   r.status = 'jeu';
   r.debutAt = ctx.now();
   count(g, r, 1);
+  TYPES[r.type]?.start(ctx, g, r, ctx.cfg.jeux[r.jeu]);
+}
+
+// Ceux qui ne jouent pas ce round et ont un téléphone connecté (ils devinent, votent…).
+export function spectateurs(ctx, g, r) {
+  return roster(ctx.cfg).filter(n => g.claims[key(n)] && !r.joueurs.some(p => key(p) === key(n)));
+}
+
+// Places (par équipe) -> points de chaque joueur, ajoutés au classement. Sert aussi à corriger un round terminé.
+function applyResults(ctx, g, r, places) {
+  const res = placesPoints(ctx.cfg, r, places);
+  if (!res) return false;
+  if (r.points) for (const [p, v] of Object.entries(r.points)) g.scores[key(p)] = (g.scores[key(p)] || 0) - v.points;
+  for (const [p, v] of Object.entries(res)) g.scores[key(p)] = (g.scores[key(p)] || 0) + v.points;
+  r.points = res;
+  if (r.status === 'jeu') { r.status = 'fini'; r.finAt = ctx.now(); }
+  return true;
 }
 
 // ---------- déroulement ----------
@@ -222,7 +249,12 @@ export function tick(ctx, g) {
   const now = ctx.now(), cfg = ctx.cfg;
   const active = activeRound(g);
   if (active) {
-    if (active.status === 'annonce' && now >= startAtOf(cfg, active)) { begin(ctx, g, active); return true; }
+    const T = TYPES[active.type];
+    if (active.status === 'jeu' && T) {
+      const res = T.tick(ctx, g, active, cfg.jeux[active.jeu], spectateurs(ctx, g, active));
+      if (res.places) applyResults(ctx, g, active, res.places);
+      return res.changed;
+    }
     return false;
   }
   // On laisse les résultats du round précédent à l'écran avant d'annoncer le suivant.
@@ -260,6 +292,19 @@ export function playerAction(ctx, g, pid, a) {
     for (const [k, p] of Object.entries(g.claims)) if (p === pid) delete g.claims[k];
     return ok('Choisis ton nom dans la liste.');
   }
+  const mine = Object.entries(g.claims).find(([, p]) => p === pid)?.[0];
+  const nom = mine ? roster(ctx.cfg).find(n => key(n) === mine) : null;
+  if (!nom) return err('Choisis d\'abord ton nom.');
+  const act = activeRound(g);
+  if (a.type === 'compris') {
+    if (!act || act.status !== 'annonce' || !act.joueurs.includes(nom)) return err("Ce n'est pas ton tour.");
+    act.compris ??= [];
+    if (!act.compris.includes(nom)) act.compris.push(nom);
+    if (act.joueurs.every(p => act.compris.includes(p))) { begin(ctx, g, act); return ok("Tout le monde a compris : c'est parti !"); }
+    return ok(`Compris ! On attend les autres (${act.compris.length} / ${act.joueurs.length}).`);
+  }
+  const T = act && TYPES[act.type];
+  if (T && act.status === 'jeu') return T.playerAction(ctx, g, act, nom, a, ctx.cfg.jeux[act.jeu], spectateurs(ctx, g, act));
   return err('Action inconnue.');
 }
 
@@ -280,6 +325,14 @@ export function adminAction(ctx, g, a) {
   const now = ctx.now(), cfg = ctx.cfg;
   const r = a.n != null ? g.rounds.find(x => x.n === Number(a.n)) : null;
   if (r && !r.equipes) r.equipes = r.joueurs.map(p => [p]);
+  if (a.type === 'suivant') {
+    const act = activeRound(g);
+    const T = act && TYPES[act.type];
+    if (!T || act.status !== 'jeu') return err('Aucun mini-jeu programmé en cours.');
+    const res = T.adminAction(ctx, g, act, a);
+    tick(ctx, g);
+    return res;
+  }
   switch (a.type) {
     case 'annoncer': { // tirer au sort et annoncer le prochain round tout de suite
       if (activeRound(g)) return err('Un round est déjà en cours.');
@@ -305,7 +358,10 @@ export function adminAction(ctx, g, a) {
       const neu = a.type === 'remplacer' ? roster(cfg).find(n => key(n) === key(a.nouveau)) : null;
       if (a.type === 'remplacer' && !neu) return err('Choisis un remplaçant.');
       if (neu && r.joueurs.some(p => key(p) === key(neu))) return err('Ce joueur est déjà dans le round.');
+      if (r.status === 'jeu' && TYPES[r.type] && !neu) return err('Pendant ce mini-jeu, remplace le joueur au lieu de le retirer.');
       if (r.status === 'jeu') count(g, r, -1);
+      if (neu && r.status === 'jeu') TYPES[r.type]?.renommer?.(r, a.ancien, neu);
+      if (r.compris) r.compris = r.compris.filter(p => p !== a.ancien);
       const team = r.equipes.find(t => t.includes(a.ancien));
       if (neu) { r.joueurs[i] = neu; team[team.indexOf(a.ancien)] = neu; } else {
         r.joueurs.splice(i, 1);
@@ -320,6 +376,7 @@ export function adminAction(ctx, g, a) {
       const neu = roster(cfg).find(n => key(n) === key(a.nouveau));
       if (!neu) return err('Choisis un joueur.');
       if (r.joueurs.some(p => key(p) === key(neu))) return err('Ce joueur est déjà dans le round.');
+      if (r.status === 'jeu' && TYPES[r.type]) return err('Ce mini-jeu a commencé : on ne peut plus ajouter de joueur.');
       if (r.status === 'jeu') count(g, r, -1);
       r.joueurs.push(neu);
       const ti = Number.isInteger(Number(a.equipe)) && r.equipes[Number(a.equipe)] ? Number(a.equipe) : -1;
@@ -330,12 +387,7 @@ export function adminAction(ctx, g, a) {
     }
     case 'resultats': { // places des joueurs ; corrige aussi un round déjà terminé
       if (!r || (r.status !== 'jeu' && r.status !== 'fini')) return err('Ce round n\'est pas en cours.');
-      const res = placesPoints(cfg, r, a.places);
-      if (!res) return err(r.format && !r.format.every(n => n === 1) ? 'Donne une place à chaque équipe.' : 'Donne une place à chaque joueur.');
-      if (r.points) for (const [p, v] of Object.entries(r.points)) g.scores[key(p)] = (g.scores[key(p)] || 0) - v.points;
-      for (const [p, v] of Object.entries(res)) g.scores[key(p)] = (g.scores[key(p)] || 0) + v.points;
-      r.points = res;
-      if (r.status === 'jeu') { r.status = 'fini'; r.finAt = now; }
+      if (!applyResults(ctx, g, r, a.places)) return err(r.format && !r.format.every(n => n === 1) ? 'Donne une place à chaque équipe.' : 'Donne une place à chaque joueur.');
       return ok(`Résultats du round ${r.n} enregistrés.`);
     }
     case 'passer': {
@@ -391,6 +443,7 @@ function roundView(ctx, r, withRules = false) {
     format: formatLabel(r.status === 'prevu' ? parseFormat(j.format) : r.format),
     startAt: r.status === 'annonce' ? startAtOf(ctx.cfg, r) : r.debutAt || r.at,
     taille: sizeOf(ctx.cfg, r.jeu, roster(ctx.cfg).length), duree: j.duree, debutAt: r.debutAt, finAt: r.finAt,
+    type: r.type || j.type || 'manuel', compris: r.compris || [],
     points: r.points,
   };
   if (withRules) v.regles = j.regles;
@@ -412,10 +465,19 @@ function common(ctx, g) {
   };
 }
 
+// État du mini-jeu programmé en cours, selon qui regarde (ecran | admin | joueur | spectateur).
+function etat(ctx, g, as, nom) {
+  const act = activeRound(g);
+  const T = act && TYPES[act.type];
+  if (!T || act.status !== 'jeu') return null;
+  return T.view(ctx, g, act, as, nom, spectateurs(ctx, g, act));
+}
+
 export function screenView(ctx, g) {
   const names = roster(ctx.cfg);
   return {
     ...common(ctx, g),
+    etat: etat(ctx, g, 'ecran'),
     rounds: g.rounds.map(r => roundView(ctx, r)),
     classement: ranking(ctx, g),
     inscrits: names.filter(n => g.claims[key(n)]).length,
@@ -427,6 +489,7 @@ export function adminView(ctx, g) {
   const names = roster(ctx.cfg);
   return {
     ...screenView(ctx, g),
+    etat: etat(ctx, g, 'admin'),
     attendu: expected(ctx.cfg, g),
     joueurs: ranking(ctx, g).map(r => ({ ...r, connecte: !!g.claims[key(r.nom)] })),
     sansTelephone: names.filter(n => !g.claims[key(n)]),
@@ -464,6 +527,7 @@ export function playerView(ctx, g, pid) {
     finished: g.finished,
     podium: g.finished ? rows.slice(0, 3) : null,
     annonce: ctx.cfg.annonce,
+    etat: c.actif?.status === 'jeu' ? etat(ctx, g, inRound(c.actif) ? 'joueur' : 'spectateur', nom) : null,
   };
 }
 

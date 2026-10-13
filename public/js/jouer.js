@@ -404,6 +404,44 @@ function mjAvecQui(t) {
   const team = `<strong>${esc(MJ_TEAMS[t.equipe] ?? `Équipe ${t.equipe + 1}`)}</strong>`;
   return t.coequipiers?.length ? `Équipe ${team} : tu joues avec ${esc(liste(t.coequipiers))} contre ${esc(adv)}` : `Équipe ${team} : tu joues seul contre ${esc(adv)}`;
 }
+// « La Définition » sur le téléphone : le joueur écrit, les autres relient les mots aux joueurs.
+function mjDefinition(e, t) {
+  const k = `${(t || V.game.actif)?.n}:${e.manche}`;
+  if (ui.mjK !== k) { ui.mjK = k; ui.mjDraft = null; ui.mjLiens = {}; }
+  const timer = e.phase !== 'revelation' ? ` · <strong class="mono" data-until="${e.fin}"></strong>` : '';
+  let h = `<span class="label" style="text-align:center">Manche ${e.manche} / ${e.total}${timer}</span>`;
+  if (e.monMot !== undefined) { // je joue
+    if (e.phase === 'ecriture') {
+      h += `<div class="card turn center"><span class="label">Ton mot</span><div class="huge" style="font-size:40px;word-break:break-word">${esc(e.monMot)}</div><p class="muted">Ce mot n'existe pas : invente sa définition !</p></div>
+        <label class="field"><span class="label">Ta définition</span><textarea class="in" id="mj-def" rows="4" maxlength="300" style="font-size:18px">${esc(ui.mjDraft ?? e.maDef)}</textarea></label>
+        <button class="btn primary big" data-act="mjEcrire">${e.maDef ? 'Modifier ma définition' : 'Envoyer ma définition'}</button>
+        ${e.maDef ? '<p class="muted center" style="margin:0">✓ Envoyée. Tu peux encore la modifier.</p>' : ''}`;
+    } else if (e.phase === 'vote') {
+      h += `<div class="card center"><p style="font-size:18px">Les autres essaient de deviner qui avait quel mot…</p><p class="muted">Ton mot : <strong>${esc(e.monMot)}</strong></p></div>`;
+    } else {
+      const moi = e.cartes?.find(c => c.mot === e.monMot);
+      h += `<div class="card accent center"><p style="font-size:18px"><strong>${moi?.trouves ?? 0}</strong> personne${(moi?.trouves ?? 0) > 1 ? 's ont' : ' a'} relié ton mot à toi</p><p class="muted">Total : ${e.totaux?.[V.game.nom] ?? 0}</p></div>`;
+    }
+    return h;
+  }
+  // je ne joue pas : je devine
+  if (e.phase === 'ecriture') {
+    return h + `<div class="card"><p style="font-size:18px">${e.joueurs.map(esc).join(', ')} écrivent leur définition.</p><p class="muted">Prépare-toi : tu vas deviner qui avait quel mot !</p></div>`;
+  }
+  if (e.phase === 'vote') {
+    const pris = Object.values({ ...(e.mesLiens || {}), ...ui.mjLiens }).filter(Boolean);
+    h += `<div class="card"><p style="font-size:18px">Relie chaque mot au joueur qui l'avait.</p></div><div class="mj-vote">${e.cartes.map(c => {
+      const v = ui.mjLiens[c.mot] ?? e.mesLiens?.[c.mot] ?? '';
+      return `<div class="card"><strong style="font-size:20px;color:var(--accent)">${esc(c.mot)}</strong><p>${esc(c.def)}</p>
+        <select class="in" data-mj-lien="${esc(c.mot)}"><option value="">Qui avait ce mot ?</option>${e.joueurs.map(p => `<option value="${esc(p)}" ${v === p ? 'selected' : ''} ${v !== p && pris.includes(p) ? 'disabled' : ''}>${esc(p)}</option>`).join('')}</select></div>`;
+    }).join('')}</div>
+      <button class="btn primary big" data-act="mjVoter">${e.mesLiens ? 'Modifier mes réponses' : 'Envoyer mes réponses'}</button>
+      ${e.mesLiens ? '<p class="muted center" style="margin:0">✓ Envoyées. Tu peux encore les modifier.</p>' : ''}`;
+    return h;
+  }
+  return h + (e.bons != null ? `<div class="card accent center"><p style="font-size:20px">Tu as trouvé <strong>${e.bons}</strong> / ${e.cartes.length}</p></div>` : '<div class="card"><p>Regarde les réponses sur l\'écran !</p></div>');
+}
+
 function miniJeux() {
   const g = V.game;
   const title = `<header class="ph-head"><h1 class="ph-title">${esc(V.gameName)}</h1>${g?.nom ? `<span class="pill accent">${esc(g.nom)}</span>` : ''}</header>`;
@@ -425,10 +463,16 @@ function miniJeux() {
   }
   const t = g.monTour;
   if (t && t.status === 'annonce') {
+    const ok = t.compris.includes(g.nom);
     h += `<div class="card turn center"><span class="label">Round ${t.n} · ${esc(t.nom)}</span><div class="huge">C'est ton tour !</div>
-      <p style="font-size:18px">Viens devant l'écran.</p><p>Début dans <strong class="mono" data-until="${t.startAt}"></strong></p>
-      <p class="muted">${esc(t.format)}</p><p>${mjAvecQui(t)}</p></div>`;
+      <p style="font-size:18px">Viens devant l'écran et lis les règles.</p><p class="muted">${esc(t.format)}</p><p>${mjAvecQui(t)}</p></div>`;
     if (t.regles) h += `<div class="card"><span class="label">Règles</span><p style="white-space:pre-wrap">${esc(t.regles)}</p></div>`;
+    h += ok ? `<div class="card center"><p style="font-size:18px">✓ Compris !</p><p class="muted">On attend les autres : ${t.compris.length} / ${t.joueurs.length}</p></div>`
+      : `<button class="btn primary big" data-act="mjCompris">J'ai compris</button><p class="muted center" style="margin:0">Le jeu commence quand tous les joueurs ont appuyé.</p>`;
+  } else if (t && g.etat?.type === 'definition') {
+    h += mjDefinition(g.etat, t);
+  } else if (g.etat?.type === 'definition') {
+    h += mjDefinition(g.etat);
   } else if (t) {
     h += `<div class="card turn center"><span class="label">Round ${t.n} · ${esc(t.nom)}</span><div class="huge" style="font-size:44px">À toi de jouer !</div><p>${mjAvecQui(t)}</p><p class="muted">Suis les consignes de l'écran.</p></div>`;
     if (t.regles) h += `<div class="card"><span class="label">Règles</span><p style="white-space:pre-wrap">${esc(t.regles)}</p></div>`;
@@ -468,7 +512,11 @@ app.addEventListener('click', async e => {
   SJ.toast(r);
   if (r.ok) { SJ.store('sj-token', r.token); ui.mjQ = ''; hello(); }
 });
-app.addEventListener('input', e => { if (e.target.id === 'mj-q') { ui.mjQ = e.target.value; draw(); } });
+app.addEventListener('input', e => {
+  if (e.target.id === 'mj-q') { ui.mjQ = e.target.value; draw(); }
+  if (e.target.id === 'mj-def') ui.mjDraft = e.target.value;
+});
+app.addEventListener('change', e => { const m = e.target.dataset.mjLien; if (m != null) { ui.mjLiens[m] = e.target.value; draw(); } });
 
 app.addEventListener('submit', async e => {
   if (e.target.id !== 'join') return;
@@ -504,6 +552,13 @@ app.addEventListener('click', e => {
     return draw();
   }
   const a = t.dataset.act;
+  if (a === 'mjCompris') { act({ type: 'compris' }); return; }
+  if (a === 'mjEcrire') { const v = document.getElementById('mj-def')?.value || ''; act({ type: 'ecrire', texte: v }).then(r => { if (r.ok) ui.mjDraft = null; }); return; }
+  if (a === 'mjVoter') {
+    const liens = { ...(V.game.etat?.mesLiens || {}), ...ui.mjLiens };
+    act({ type: 'voter', liens }).then(r => { if (r.ok) ui.mjLiens = {}; });
+    return;
+  }
   if (a === 'mjPasMoi') { if (confirm('Changer de nom ? Tu pourras choisir le bon dans la liste.')) act({ type: 'pasMoi' }); return; }
   if (a === 'inscrire') act({ type: 'inscription', on: true });
   if (a === 'desinscrire') { SJ.store('sj-inscrit', null); act({ type: 'inscription', on: false }); }

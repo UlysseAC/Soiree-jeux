@@ -262,3 +262,15 @@ td.nowrap { white-space: nowrap; }
 .mj-claim button:active { border-color: var(--accent); background: var(--accent-soft); }
 .card.turn { border: 2px solid var(--accent); background: var(--accent-soft); }
 .card.turn .huge { color: var(--accent); }
+
+.mj-rules-page { max-height: 38vh; font-size: clamp(18px, 1.8vw, 30px); line-height: 1.45; }
+.mj-compris { display: flex; flex-wrap: wrap; gap: .8vh 1.4vw; font-size: clamp(18px, 1.8vw, 30px); color: var(--muted); }
+.mj-compris span.on { color: var(--ok); font-weight: 600; }
+.mj-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 22vw), 1fr)); gap: 1.4vh 1.2vw; }
+.mj-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 1.6vh 1.2vw; display: flex; flex-direction: column; gap: .8vh; }
+.mj-mot { font: 800 clamp(24px, 2.6vw, 46px)/1 var(--display); text-transform: uppercase; color: var(--accent); }
+.mj-def { font-size: clamp(16px, 1.5vw, 26px); }
+.mj-auteur { font-weight: 700; font-size: clamp(16px, 1.5vw, 26px); }
+.mj-auteur .p { color: var(--accent); font-weight: 400; }
+.mj-vote { display: flex; flex-direction: column; gap: 10px; }
+.mj-vote .card select { font-size: 17px; }

@@ -79,6 +79,26 @@ function mjPlayers(r) {
   return `<div class="mj-teams">${r.equipes.map((t, i) => { const [nom, c] = MJ_TEAMS[i] ?? [`Équipe ${i + 1}`, 'var(--accent)'];
     return `${i ? '<div class="mj-vs">VS</div>' : ''}<div class="mj-team" style="--t:${c}"><div class="mj-team-n">${esc(nom)}</div><div class="mj-names">${t.map(p => `<span>${esc(p)}</span>`).join('')}</div></div>`; }).join('')}</div>`;
 }
+// Joueurs du round avec leur « J'ai compris ».
+function mjCompris(a) {
+  return `<div class="mj-compris">${a.joueurs.map(p => `<span class="${a.compris.includes(p) ? 'on' : ''}">${a.compris.includes(p) ? '✓' : '…'} ${esc(p)}</span>`).join('')}</div>`;
+}
+// « La Définition » : écriture, vote, révélation.
+function mjDefinition(a, e) {
+  const head = `<div class="mj-kicker">Round ${a.n} · ${esc(a.nom)} · manche ${e.manche} / ${e.total}</div>`;
+  if (e.phase === 'ecriture') {
+    return `${head}<div class="mj-round">Inventez une définition !</div>
+      <div class="sc-sub">Chaque joueur a reçu un mot qui n'existe pas. Encore <strong class="mono" data-until="${e.fin}"></strong></div>
+      <div class="mj-compris">${e.joueurs.map(p => `<span class="${e.ecrit.includes(p) ? 'on' : ''}">${e.ecrit.includes(p) ? '✓' : '✎'} ${esc(p)}</span>`).join('')}</div>
+      <p class="sc-sub muted">Les autres : préparez-vous à deviner qui avait quel mot !</p>`;
+  }
+  const cards = `<div class="mj-cards">${e.cartes.map(c => `<div class="mj-card"><div class="mj-mot">${esc(c.mot)}</div><div class="mj-def">${esc(c.def)}</div>
+    ${c.auteur ? `<div class="mj-auteur">${esc(c.auteur)} · <span class="p">${c.trouves} ${c.trouves > 1 ? 'ont trouvé' : 'a trouvé'}</span></div>` : ''}</div>`).join('')}</div>`;
+  if (e.phase === 'vote') {
+    return `${head}<div class="sc-sub">À vos téléphones : reliez chaque mot à ${e.joueurs.map(esc).join(', ')} · <strong class="mono" data-until="${e.fin}"></strong> · ${e.votants} / ${e.spectateurs} ont répondu</div>${cards}`;
+  }
+  return `${head}<div class="sc-sub">Les réponses !</div>${cards}`;
+}
 function mjSide(g, title = 'Classement de la journée') {
   const rows = g.classement.filter(r => r.points || g.faits).slice(0, 12);
   return `<aside class="mj-side"><div class="label" style="font-size:clamp(13px,1.1vw,18px)">${esc(title)}</div>
@@ -99,10 +119,13 @@ function minijeux(g) {
   let main;
   const a = g.actif;
   if (a && a.status === 'annonce') {
-    main = `<div class="mj-kicker">Round ${a.n} · prochain mini-jeu</div><div class="mj-round">${esc(a.nom)}</div>
-      <div class="sc-sub">${esc(a.format)} · venez devant l'écran ! Début dans <strong class="mono" data-until="${a.startAt}"></strong></div>
+    main = `<div class="mj-kicker">Round ${a.n} · ${esc(a.format)} · venez devant l'écran !</div><div class="mj-round">${esc(a.nom)}</div>
       ${mjPlayers(a)}
-      ${a.regles ? `<div class="mj-rules">${esc(a.regles)}</div>` : ''}`;
+      ${a.regles ? `<div class="mj-rules mj-rules-page">${esc(a.regles)}</div>` : ''}
+      <div class="sc-sub">Le jeu commence quand chaque joueur a appuyé sur <strong>« J'ai compris »</strong> : ${a.compris.length} / ${a.joueurs.length}</div>
+      ${mjCompris(a)}`;
+  } else if (a && a.status === 'jeu' && g.etat?.type === 'definition') {
+    main = mjDefinition(a, g.etat);
   } else if (a) {
     main = `<div class="mj-kicker">Round ${a.n} en cours · ${esc(a.format)} · <span class="mono" data-since="${a.debutAt}"></span></div><div class="mj-round">${esc(a.nom)}</div>
       ${mjPlayers(a)}

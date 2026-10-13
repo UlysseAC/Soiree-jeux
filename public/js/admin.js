@@ -299,7 +299,10 @@ function reglagesMiniJeux(c) {
         <label class="field"><span class="label">Format</span><input class="in" list="mj-formats" id="c-jeu-jeux-${s}-format" data-cfg="jeux.${s}.format" data-kind="text" data-scope="jeu" value="${esc(c.jeux[s].format)}" placeholder="vide = chacun pour soi"><span class="muted" style="font-size:13px">${c.jeux[s].format && !mjFormat(c.jeux[s].format) ? '<span style="color:var(--danger)">Format non reconnu : écris par exemple 2v2, 3v1 ou 1v1v1v1.</span>' : mjFormatLabel(mjFormat(c.jeux[s].format))}</span></label>
         ${mjFormat(c.jeux[s].format) ? '' : cfgInput(`jeux.${s}.joueurs`, c.jeux[s].joueurs, 'num', { label: 'Joueurs par round (0 = tout le monde)' })}
         ${cfgInput(`jeux.${s}.duree`, c.jeux[s].duree, 'dur', { label: 'Durée indicative (min:s)' })}${cfgInput(`jeux.${s}.points`, c.jeux[s].points, 'text', { label: 'Points par place (1er, 2e, 3e…)', ph: '10, 6, 3, 1' })}</div>
-      ${cfgInput(`jeux.${s}.regles`, c.jeux[s].regles, 'area', { label: "Règles affichées sur l'écran", ph: 'Explique le mini-jeu en quelques phrases…' })}
+      <div class="grid-auto"><label class="field"><span class="label">Type de mini-jeu</span><select class="in" id="c-jeu-jeux-${s}-type" data-cfg="jeux.${s}.type" data-kind="text" data-scope="jeu">${[['manuel', 'Manuel (tu saisis les places)'], ['definition', 'La Définition']].map(([v, l]) => `<option value="${v}" ${c.jeux[s].type === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
+      ${c.jeux[s].type === 'definition' ? mjDefinitionReglages(c, s) : ''}
+      <label class="field"><span class="label">Page de règles affichée sur l'écran avant le jeu</span>
+        <textarea class="in" rows="6" id="c-jeu-jeux-${s}-regles" data-cfg="jeux.${s}.regles" data-kind="area" data-scope="jeu" placeholder="Explique le mini-jeu : ce que font les joueurs, comment on gagne… Les joueurs appuient sur « J'ai compris » pour lancer le jeu.">${esc(c.jeux[s].regles)}</textarea></label>
     </div>`).join('');
   return `<p class="muted" style="margin:0;font-size:14px">Les participants, les noms, les règles et les points s'appliquent tout de suite. Les horaires, le nombre de rounds et le programme sont fixés à l'ouverture de la journée.</p>
     <div class="box"><h2>Participants (${names.length})</h2>
@@ -320,6 +323,32 @@ function reglagesMiniJeux(c) {
     ${jeux}`;
 }
 
+// Réglages propres à « La Définition » : les mots inventés et les temps.
+function mjDefinitionReglages(c, s) {
+  const j = c.jeux[s];
+  const mots = String(j.mots || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+  const besoin = (mjFormat(j.format) ? mjSize(c, s, 99) : Number(j.joueurs) || 4) * (Number(j.manches) || 3);
+  return `<div class="box" style="gap:10px">
+    <p class="muted" style="margin:0;font-size:14px">Chaque joueur reçoit un de ces mots sur son téléphone et invente sa définition. Ensuite, ceux qui ne jouent pas relient chaque mot à son joueur. Celui qu'on a relié le plus souvent à son mot gagne. Format : chacun pour soi, avec le nombre de joueurs choisi.</p>
+    <label class="field"><span class="label">Mots inventés (un par ligne) · ${mots.length} mot${mots.length > 1 ? 's' : ''}</span>
+      <textarea class="in" rows="8" id="c-jeu-jeux-${s}-mots" data-cfg="jeux.${s}.mots" data-kind="area" data-scope="jeu" placeholder="Florpidoux&#10;Gramouille&#10;Zétrabule…">${esc(j.mots)}</textarea>
+      ${mots.length < besoin ? `<span style="color:var(--danger);font-size:13px">Il faut au moins ${besoin} mots pour une partie (joueurs × manches) sans répéter de mot.</span>` : '<span class="muted" style="font-size:13px">Les mots déjà sortis dans la journée ne reviennent qu\'une fois tous les autres utilisés.</span>'}</label>
+    <div class="grid-auto">${cfgInput(`jeux.${s}.joueurs`, j.joueurs, 'num', { label: 'Joueurs' })}${cfgInput(`jeux.${s}.manches`, j.manches, 'num', { label: 'Manches' })}
+      ${cfgInput(`jeux.${s}.tempsEcriture`, j.tempsEcriture, 'dur', { label: "Temps pour écrire" })}${cfgInput(`jeux.${s}.tempsVote`, j.tempsVote, 'dur', { label: 'Temps pour deviner' })}${cfgInput(`jeux.${s}.tempsRevelation`, j.tempsRevelation, 'dur', { label: 'Affichage des réponses' })}</div>
+  </div>`;
+}
+
+// Panneau d'un round « La Définition » en cours : tout est visible pour l'organisateur.
+function mjDefinitionPartie(e) {
+  const phase = { ecriture: 'Les joueurs écrivent leur définition', vote: 'Les spectateurs relient les mots', revelation: 'Réponses affichées', fini: 'Terminé' }[e.phase];
+  const rows = e.joueurs.map(p => `<tr><td><strong>${esc(p)}</strong></td><td class="mono">${esc(e.admin.mots[p] || '')}</td><td>${e.admin.defs[p] ? esc(e.admin.defs[p]) : '<span class="muted">pas encore</span>'}</td>
+    <td class="mono">${e.cartes?.find(c => c.auteur === p)?.trouves ?? ''}</td><td class="mono">${e.totaux?.[p] ?? ''}</td></tr>`).join('');
+  return `<div class="box" style="background:var(--ink)"><div class="spread"><strong>Manche ${e.manche} / ${e.total} · ${phase}</strong>${e.phase !== 'fini' ? `<span class="pill accent"><span class="mono" data-until="${e.fin}"></span></span>` : ''}</div>
+    <p class="muted" style="margin:0;font-size:14px">${e.ecrit.length} / ${e.joueurs.length} définitions · ${e.votants} / ${e.spectateurs} spectateurs ont voté</p>
+    <div class="scroll"><table><thead><tr><th>Joueur</th><th>Mot</th><th>Définition</th><th>Trouvé (manche)</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table></div>
+    ${e.phase !== 'fini' ? '<div><button class="btn sm" data-mj="suivant">Passer à l\'étape suivante</button></div>' : ''}</div>`;
+}
+
 function partieMiniJeux(g) {
   if (!g) {
     const c = V.gameConfig, names = mjRoster(c);
@@ -335,24 +364,30 @@ function partieMiniJeux(g) {
   const placesFor = r => { ui.places ??= {}; ui.places[r.n] ??= Object.fromEntries(r.equipes.map((t, i) => [i, r.points?.[t[0]]?.place ?? i + 1])); return ui.places[r.n]; };
   const teamLabel = (r, i) => (r.equipesNommees ? MJ_TEAMS[i] ?? `Équipe ${i + 1}` : '');
   const placeSelect = (r, i) => `<label class="row" style="gap:6px">Place <select class="in" style="width:auto" data-mj-place="${r.n}" data-equipe="${i}">${r.equipes.map((_, k) => `<option value="${k + 1}" ${placesFor(r)[i] === k + 1 ? 'selected' : ''}>${k + 1}</option>`).join('')}</select></label>`;
+  // Pendant un mini-jeu automatique en cours, on peut seulement remplacer un joueur (il reprend son mot).
+  const lock = r => r.status === 'jeu' && r.type !== 'manuel';
   const playerRow = (r, p) => { const i = r.joueurs.indexOf(p); return `<div class="row" style="flex-wrap:wrap">
       <strong style="min-width:120px">${esc(p)}</strong>
       <select class="in" style="width:auto;max-width:260px" id="mj-rempl-${r.n}-${i}"><option value="">Remplacer par…</option>${opts(byPlays, r.joueurs)}</select>
       <button class="btn sm" data-mj="remplacer" data-n="${r.n}" data-i="${i}">Remplacer</button>
-      <button class="btn sm danger" data-mj="retirer" data-n="${r.n}" data-joueur="${esc(p)}" data-confirm="Retirer ${esc(p)} de ce round sans le remplacer ?">Retirer</button></div>`; };
+      ${lock(r) ? '' : `<button class="btn sm danger" data-mj="retirer" data-n="${r.n}" data-joueur="${esc(p)}" data-confirm="Retirer ${esc(p)} de ce round sans le remplacer ?">Retirer</button>`}
+      ${r.status === 'annonce' ? (r.compris.includes(p) ? '<span class="pill ok">✓ compris</span>' : '<span class="pill">pas encore compris</span>') : ''}</div>`; };
+  const places = r => r.status === 'jeu' && r.type === 'manuel';
   const playersEditor = r => r.equipesNommees
-    ? r.equipes.map((t, i) => `<div class="box" style="background:var(--ink);gap:8px"><div class="spread"><strong>${esc(teamLabel(r, i))}</strong>${r.status === 'jeu' ? placeSelect(r, i) : ''}</div>${t.map(p => playerRow(r, p)).join('')}</div>`).join('')
-    : r.equipes.map((t, i) => `<div class="row" style="flex-wrap:wrap;gap:12px">${r.status === 'jeu' ? placeSelect(r, i) : ''}${playerRow(r, t[0])}</div>`).join('');
+    ? r.equipes.map((t, i) => `<div class="box" style="background:var(--ink);gap:8px"><div class="spread"><strong>${esc(teamLabel(r, i))}</strong>${places(r) ? placeSelect(r, i) : ''}</div>${t.map(p => playerRow(r, p)).join('')}</div>`).join('')
+    : r.equipes.map((t, i) => `<div class="row" style="flex-wrap:wrap;gap:12px">${places(r) ? placeSelect(r, i) : ''}${playerRow(r, t[0])}</div>`).join('');
   let now = '';
   const a = g.actif;
   if (a) {
     now = `<div class="box" style="border-color:var(--accent)">
       <div class="spread"><h2>Round ${a.n} · ${esc(a.nom)} <span class="muted" style="font-weight:400">· ${esc(a.format)}</span></h2><span class="pill accent">${a.status === 'annonce' ? `Commence dans <span class="mono" data-until="${a.startAt}"></span>` : `En cours depuis <span class="mono" data-since="${a.debutAt}"></span>`}</span></div>
+      ${a.status === 'annonce' ? `<p style="margin:0">Le jeu commence quand tous les joueurs ont appuyé sur « J'ai compris » : <strong>${a.compris.length} / ${a.joueurs.length}</strong>${a.joueurs.filter(p => !a.compris.includes(p)).length ? ` · en attente : ${a.joueurs.filter(p => !a.compris.includes(p)).map(esc).join(', ')}` : ''}</p>` : ''}
+      ${a.status === 'jeu' && g.etat?.type === 'definition' ? mjDefinitionPartie(g.etat) : ''}
       ${playersEditor(a)}
-      <div class="row" style="flex-wrap:wrap"><select class="in" style="width:auto" id="mj-ajout-${a.n}"><option value="">Ajouter un joueur…</option>${opts(byPlays, a.joueurs)}</select><button class="btn sm" data-mj="ajouter" data-n="${a.n}">Ajouter</button></div>
-      <div class="row" style="flex-wrap:wrap">${a.status === 'annonce' ? '<button class="btn primary" data-mj="commencer">Commencer maintenant</button>' : `<button class="btn primary" data-mj="resultats" data-n="${a.n}">Valider les résultats</button>`}
+      ${lock(a) ? '' : `<div class="row" style="flex-wrap:wrap"><select class="in" style="width:auto" id="mj-ajout-${a.n}"><option value="">Ajouter un joueur…</option>${opts(byPlays, a.joueurs)}</select><button class="btn sm" data-mj="ajouter" data-n="${a.n}">Ajouter</button></div>`}
+      <div class="row" style="flex-wrap:wrap">${a.status === 'annonce' ? '<button class="btn primary" data-mj="commencer" data-confirm="Commencer sans attendre que tout le monde ait compris ?">Commencer maintenant</button>' : a.type === 'manuel' ? `<button class="btn primary" data-mj="resultats" data-n="${a.n}">Valider les résultats</button>` : ''}
         <button class="btn sm danger" data-mj="passer" data-n="${a.n}" data-confirm="Sauter ce round ? Personne ne marque de points.">Sauter ce round</button></div>
-      ${a.status === 'jeu' ? `<p class="muted" style="margin:0;font-size:14px">Donne une place à chaque ${a.equipesNommees ? 'équipe' : 'joueur'} (ex æquo possibles), puis valide : les points sont ajoutés et le round suivant sera annoncé à son heure.</p>` : ''}
+      ${a.status === 'jeu' && a.type === 'manuel' ? `<p class="muted" style="margin:0;font-size:14px">Donne une place à chaque ${a.equipesNommees ? 'équipe' : 'joueur'} (ex æquo possibles), puis valide : les points sont ajoutés et le round suivant sera annoncé à son heure.</p>` : ''}
     </div>`;
   } else if (g.prochain) {
     const p = g.prochain;
@@ -410,6 +445,7 @@ app.addEventListener('click', async e => {
   }
   if (a === 'liberer') return jeu({ type: 'liberer', nom: t.dataset.nom });
   if (a === 'decaler') return jeu({ type: 'decaler', sec: Number(t.dataset.sec) });
+  if (a === 'suivant') return jeu({ type: 'suivant' });
   return jeu({ type: a, n });
 });
 app.addEventListener('change', e => {

@@ -12,10 +12,10 @@ function setup(tweak = c => c, startAt = Date.UTC(2026, 9, 12, 7, 0)) { // 7 h U
   return { g, ctx, cfg, at: ms => { t = ms; mj.tick(ctx, g); }, now: () => t };
 }
 const clock = h => Date.UTC(2026, 9, 12, h - 2, 0); // heure de Genève -> UTC
-// Fait avancer l'horloge jusqu'au début du round (en passant par son annonce, comme en vrai).
-function jouer(ctx, at, r) {
+// Fait avancer l'horloge jusqu'à l'annonce du round, puis le lance (comme si tous avaient appuyé sur « Compris »).
+function jouer(ctx, at, r, g) {
   at(Math.max(ctx.now(), r.at - 299e3));
-  at(Math.max(ctx.now() + 1, r.at, r.annonceAt + 120e3));
+  mj.adminAction(ctx, g ?? ctx.g, { type: 'commencer' });
 }
 
 test('liste des participants : un nom par ligne, sans doublon ni ligne vide', () => {
@@ -50,14 +50,22 @@ test('programme : celui choisi, complété en boucle avec les mini-jeux utilisé
   assert.deepEqual(mj.program(cfg), ['mj3', 'mj1', 'mj4', 'mj5', 'mj6']); // rounds non choisis : mj2 (désactivé) n'est pas utilisé
 });
 
-test('annonce 5 min avant, début à l\'heure, puis attente des résultats', () => {
-  const { g, at } = setup();
+test('annonce 5 min avant ; le round commence quand tous les joueurs ont compris', () => {
+  const { g, ctx, at } = setup();
   at(clock(10) - 301e3);
   assert.equal(g.rounds[0].status, 'prevu');
   at(clock(10) - 299e3);
   assert.equal(g.rounds[0].status, 'annonce');
   assert.equal(g.rounds[0].joueurs.length, 2);
-  at(clock(10));
+  at(clock(10) + 60e3);
+  assert.equal(g.rounds[0].status, 'annonce', 'pas de départ automatique à l\'heure');
+  const [a, b] = g.rounds[0].joueurs;
+  mj.claim(ctx, g, 'pa', a); mj.claim(ctx, g, 'pb', b); mj.claim(ctx, g, 'px', NAMES.find(n => n !== a && n !== b));
+  assert.equal(mj.playerAction(ctx, g, 'px', { type: 'compris' }).ok, false, 'un spectateur ne compte pas');
+  assert.equal(mj.playerAction(ctx, g, 'pa', { type: 'compris' }).ok, true);
+  assert.equal(g.rounds[0].status, 'annonce');
+  assert.deepEqual(mj.screenView(ctx, g).actif.compris, [a]);
+  mj.playerAction(ctx, g, 'pb', { type: 'compris' });
   assert.equal(g.rounds[0].status, 'jeu');
   at(clock(12));
   assert.equal(g.rounds[0].status, 'jeu', 'le round attend les résultats');
@@ -68,7 +76,7 @@ test('tout le monde joue autant (à un près), jamais deux rounds de suite quand
   const { g, ctx, at } = setup(c => ({ ...c, rounds: 24, programme: '' }));
   let back2back = 0, prev = [];
   for (const r of g.rounds) {
-    jouer(ctx, at, r);
+    jouer(ctx, at, r, g);
     assert.equal(r.status, 'jeu');
     back2back += r.joueurs.filter(p => prev.includes(p)).length;
     prev = r.joueurs;
@@ -90,7 +98,7 @@ test('les joueurs connectés passent avant ceux sans téléphone, à nombre de r
 
 test('remplacement manuel : les compteurs suivent', () => {
   const { g, ctx, at } = setup();
-  jouer(ctx, at, g.rounds[0]);
+  jouer(ctx, at, g.rounds[0], g);
   const r = g.rounds[0];
   assert.equal(r.status, 'jeu');
   const [absent] = r.joueurs;
@@ -105,7 +113,7 @@ test('remplacement manuel : les compteurs suivent', () => {
 
 test('résultats : points par place, ex æquo, correction après coup', () => {
   const { g, ctx, at } = setup(c => { c.jeux.mj1.joueurs = 3; c.jeux.mj1.points = '10, 6, 3'; return c; });
-  jouer(ctx, at, g.rounds[0]);
+  jouer(ctx, at, g.rounds[0], g);
   const r = g.rounds[0];
   const [a, b, c] = r.joueurs;
   assert.equal(mj.adminAction(ctx, g, { type: 'resultats', n: 1, places: { 0: 1, 1: 2 } }).ok, false, 'tout le monde doit avoir une place');
@@ -119,7 +127,7 @@ test('résultats : points par place, ex æquo, correction après coup', () => {
 
 test('passer un round en cours annule sa participation ; décaler le planning', () => {
   const { g, ctx, at } = setup();
-  jouer(ctx, at, g.rounds[0]);
+  jouer(ctx, at, g.rounds[0], g);
   assert.equal(Object.values(g.played).reduce((a, b) => a + b, 0), 2);
   mj.adminAction(ctx, g, { type: 'passer', n: 1 });
   assert.equal(g.rounds[0].status, 'saute');
@@ -156,7 +164,7 @@ test('le téléphone sait quand c\'est son tour', () => {
 test('fin de journée après le dernier round, puis podium', () => {
   const { g, ctx, at } = setup(c => ({ ...c, rounds: 2 }));
   for (const r of g.rounds) {
-    jouer(ctx, at, r);
+    jouer(ctx, at, r, g);
     mj.adminAction(ctx, g, { type: 'resultats', n: r.n, places: Object.fromEntries(r.equipes.map((_, i) => [i, i + 1])) });
   }
   at(ctx.now() + 10e3);
@@ -170,15 +178,12 @@ test('nombre de rounds attendu par personne', () => {
   assert.deepEqual(mj.expected(cfg, g), { min: 2, max: 2 }); // 11 rounds × 2 joueurs / 11 personnes
 });
 
-test('annoncer à la main : le round commence 2 min plus tard, pas à son heure prévue', () => {
+test('annoncer à la main, puis commencer sans attendre les « Compris »', () => {
   const { g, ctx, at } = setup();
   at(clock(9)); // une heure avant le premier round
-  const r = mj.adminAction(ctx, g, { type: 'annoncer' });
-  assert.equal(r.ok, true);
+  assert.equal(mj.adminAction(ctx, g, { type: 'annoncer' }).ok, true);
   assert.equal(g.rounds[0].status, 'annonce');
-  at(clock(9) + 119e3);
-  assert.equal(g.rounds[0].status, 'annonce');
-  at(clock(9) + 120e3);
+  assert.equal(mj.adminAction(ctx, g, { type: 'commencer' }).ok, true);
   assert.equal(g.rounds[0].status, 'jeu');
   assert.equal(g.rounds[1].at, clock(10) + 40 * 60e3, 'les rounds suivants gardent leur heure');
 });
@@ -198,7 +203,7 @@ test('formats : lecture de « 2v2 », « 3v1 », « 1v1v1v1 »', () => {
 
 test('2v2 : 4 joueurs en deux équipes de 2, points pour toute l\'équipe', () => {
   const { g, ctx, at } = setup(c => { c.jeux.mj1.format = '2v2'; c.jeux.mj1.points = '10, 4'; return c; });
-  jouer(ctx, at, g.rounds[0]);
+  jouer(ctx, at, g.rounds[0], g);
   const r = g.rounds[0];
   assert.equal(r.joueurs.length, 4);
   assert.deepEqual(r.equipes.map(t => t.length), [2, 2]);
@@ -230,7 +235,7 @@ test('2v2 : on évite de remettre les mêmes coéquipiers', () => {
 
 test('2v2 : remplacer garde l\'équipe, ajouter va dans la plus petite équipe', () => {
   const { g, ctx, at } = setup(c => { c.jeux.mj1.format = '2v2'; return c; });
-  jouer(ctx, at, g.rounds[0]);
+  jouer(ctx, at, g.rounds[0], g);
   const r = g.rounds[0];
   const [x] = r.equipes[0];
   const libre = NAMES.find(n => !r.joueurs.includes(n));
