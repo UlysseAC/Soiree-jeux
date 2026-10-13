@@ -3,12 +3,13 @@
 // Ensuite, ceux qui ne jouent pas ce round relient, sur leur téléphone, chaque mot au joueur qui l'avait.
 // Un joueur marque un point chaque fois que quelqu'un relie son mot à lui. Celui qui en a le plus gagne.
 // Plusieurs manches (3 par défaut), un nouveau mot par joueur à chaque manche.
+// Les spectateurs sont classés selon leurs bonnes réponses : le premier tiers gagne un bonus (1 point par défaut).
 import { shuffle } from '../../util.js';
 
 export const id = 'definition';
 export const label = 'La Définition';
 
-export const defaults = { mots: '', manches: 3, tempsEcriture: 120, tempsVote: 90, tempsRevelation: 25 };
+export const defaults = { mots: '', manches: 3, tempsEcriture: 120, tempsVote: 90, tempsRevelation: 25, pointsDevineurs: 1 };
 
 const clip = (s, n) => String(s ?? '').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').trim().slice(0, n);
 
@@ -68,6 +69,25 @@ function totals(r) {
   return t;
 }
 
+// Classement des spectateurs : bonnes réponses sur toutes les manches (un lien juste = 1).
+export function devineurs(r) {
+  const t = {};
+  for (const m of r.def?.passees || []) for (const [nom, v] of Object.entries(m.votes)) {
+    t[nom] ??= 0;
+    t[nom] += Object.entries(v).filter(([mot, p]) => m.mots[p] === mot).length;
+  }
+  const rows = Object.entries(t).map(([nom, bons]) => ({ nom, bons })).sort((a, b) => b.bons - a.bons || a.nom.localeCompare(b.nom, 'fr'));
+  rows.forEach((x, i) => { x.rang = i && rows[i - 1].bons === x.bons ? rows[i - 1].rang : i + 1; });
+  return rows;
+}
+
+// Le premier tiers des spectateurs (arrondi au-dessus) gagne le bonus ; les ex æquo avec le dernier qualifié aussi. Il faut au moins une bonne réponse.
+export function gagnantsDevineurs(rows) {
+  if (!rows.length) return [];
+  const seuil = rows[Math.ceil(rows.length / 3) - 1].bons;
+  return rows.filter(x => x.bons >= seuil && x.bons > 0).map(x => x.nom);
+}
+
 // Appelé régulièrement. Renvoie { changed, places? } ; places = { indexÉquipe: place } quand le mini-jeu est fini.
 export function tick(ctx, g, r, sc, spectateurs) {
   const d = r.def, now = ctx.now();
@@ -93,7 +113,10 @@ export function tick(ctx, g, r, sc, spectateurs) {
       const score = team.reduce((s, p) => s + (t[p] || 0), 0);
       places[i] = 1 + r.equipes.filter(o => o.reduce((s, p) => s + (t[p] || 0), 0) > score).length;
     });
-    return { changed: true, places };
+    d.devineurs = devineurs(r);
+    const pts = Math.max(0, Math.round(Number(sc.pointsDevineurs) || 0));
+    const bonus = pts ? Object.fromEntries(gagnantsDevineurs(d.devineurs).map(n => [n, pts])) : {};
+    return { changed: true, places, bonus };
   }
   return { changed: false };
 }
@@ -150,12 +173,14 @@ export function view(ctx, g, r, as, nom, spectateurs) {
   if (reveled) {
     base.cartes = cards.map(c => { const p = authorOf(cur, c.mot); return { ...c, auteur: p, trouves: cur.trouves?.[p] ?? 0 }; });
     base.totaux = totals(r);
+    base.devineurs = devineurs(r).slice(0, 5);
   }
   if (as === 'admin') base.admin = { mots: cur.mots, defs: cur.defs };
   if (as === 'joueur') { base.monMot = cur.mots[nom]; base.maDef = cur.defs[nom] || ''; }
   if (as === 'spectateur') {
     base.mesLiens = cur.votes[nom] || null;
     if (reveled && cur.votes[nom]) base.bons = cur.ordre.filter(m => cur.votes[nom][m] === authorOf(cur, m)).length;
+    if (reveled) base.mesBons = devineurs(r).find(x => x.nom === nom)?.bons ?? 0;
   }
   return base;
 }

@@ -252,7 +252,12 @@ export function tick(ctx, g) {
     const T = TYPES[active.type];
     if (active.status === 'jeu' && T) {
       const res = T.tick(ctx, g, active, cfg.jeux[active.jeu], spectateurs(ctx, g, active));
-      if (res.places) applyResults(ctx, g, active, res.places);
+      if (res.places) {
+        // Bonus des meilleurs devineurs : donné une seule fois, une correction des places ne le change pas.
+        active.bonus = res.bonus || {};
+        for (const [p, v] of Object.entries(active.bonus)) g.scores[key(p)] = (g.scores[key(p)] || 0) + v;
+        applyResults(ctx, g, active, res.places);
+      }
       return res.changed;
     }
     return false;
@@ -419,6 +424,13 @@ export function adminAction(ctx, g, a) {
 }
 
 // ---------- vues ----------
+// Résultat de spectateur du dernier round terminé (La Définition) : bonnes réponses, rang, bonus.
+function devine(g, nom) {
+  const r = g.rounds.filter(x => x.status === 'fini').sort((a, b) => b.finAt - a.finAt)[0];
+  const me = r?.def?.devineurs?.find(x => key(x.nom) === key(nom));
+  if (!me) return null;
+  return { n: r.n, ...me, sur: r.def.devineurs.length, bonus: r.bonus?.[me.nom] || 0 };
+}
 function ranking(ctx, g) {
   const rows = roster(ctx.cfg).map(n => ({ nom: n, points: g.scores[key(n)] || 0, joues: g.played[key(n)] || 0 }));
   rows.sort((a, b) => b.points - a.points || a.nom.localeCompare(b.nom, 'fr'));
@@ -445,6 +457,8 @@ function roundView(ctx, r, withRules = false) {
     taille: sizeOf(ctx.cfg, r.jeu, roster(ctx.cfg).length), duree: j.duree, debutAt: r.debutAt, finAt: r.finAt,
     type: r.type || j.type || 'manuel', compris: r.compris || [],
     points: r.points,
+    bonus: r.bonus || null,
+    devineurs: r.def?.devineurs || null,
   };
   if (withRules) v.regles = j.regles;
   return v;
@@ -524,6 +538,7 @@ export function playerView(ctx, g, pid) {
     actif: c.actif,
     prochain: c.prochain,
     dernier: dernier ? { n: dernier.n, nom: ctx.cfg.jeux[dernier.jeu]?.nom, place: dernier.points?.[dernier.joueurs.find(p => key(p) === mine)]?.place, points: dernier.points?.[dernier.joueurs.find(p => key(p) === mine)]?.points } : null,
+    devine: devine(g, nom),
     finished: g.finished,
     podium: g.finished ? rows.slice(0, 3) : null,
     annonce: ctx.cfg.annonce,

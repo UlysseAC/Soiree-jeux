@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as mj from '../server/games/minijeux.js';
-import { wordsOf } from '../server/games/minijeux/definition.js';
+import { wordsOf, gagnantsDevineurs } from '../server/games/minijeux/definition.js';
 
 const NAMES = ['Léa', 'Hugo', 'Inès', 'Malik', 'Chloé', 'Tom', 'Sarah', 'Nico'];
 const MOTS = ['Florpidoux', 'Gramouille', 'Zétrabule', 'Pinchaflor', 'Brouscaille', 'Tirlipote', 'Mazabouc', 'Quenouflet'];
@@ -77,6 +77,24 @@ test('une manche complète : écriture, vote des spectateurs, révélation, poin
   assert.equal(r.points[a].place, 2);
   assert.equal(r.points[b].place, 2);
   assert.equal(mj.screenView(ctx, g).classement.find(x => x.nom === c).points, 10);
+  // Spectateurs : 3 ont tout trouvé (3), 2 en ont trouvé 1. Le premier tiers (2 sur 5), ex æquo compris, gagne 1 point.
+  assert.deepEqual(r.bonus, Object.fromEntries(spect.slice(0, 3).map(s => [s, 1])));
+  assert.equal(mj.screenView(ctx, g).classement.find(x => x.nom === spect[0]).points, 1);
+  assert.equal(mj.screenView(ctx, g).classement.find(x => x.nom === spect[4]).points, 0);
+  assert.deepEqual(mj.playerView(ctx, g, pid(spect[0])).devine, { n: 1, nom: spect[0], bons: 3, rang: 1, sur: 5, bonus: 1 });
+  assert.equal(mj.playerView(ctx, g, pid(spect[4])).devine.bonus, 0);
+  // Corriger les places du round ne redonne pas le bonus.
+  mj.adminAction(ctx, g, { type: 'resultats', n: 1, places: { 0: 1, 1: 2, 2: 3 } });
+  assert.equal(mj.screenView(ctx, g).classement.find(x => x.nom === spect[0]).points, 1);
+});
+
+test('bonus des devineurs : le premier tiers, arrondi au-dessus, ex æquo compris, au moins une bonne réponse', () => {
+  const rows = l => l.map((bons, i) => ({ nom: `s${i}`, bons }));
+  assert.deepEqual(gagnantsDevineurs(rows([5, 4, 3, 2, 1, 0])), ['s0', 's1']);
+  assert.deepEqual(gagnantsDevineurs(rows([5, 4, 4, 2, 1, 0])), ['s0', 's1', 's2']);
+  assert.deepEqual(gagnantsDevineurs(rows([3, 1])), ['s0']);
+  assert.deepEqual(gagnantsDevineurs(rows([0, 0, 0])), []);
+  assert.deepEqual(gagnantsDevineurs([]), []);
 });
 
 test('plusieurs manches : un nouveau mot par joueur, jamais déjà utilisé quand la liste suffit', () => {

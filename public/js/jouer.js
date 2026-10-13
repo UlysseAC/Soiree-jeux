@@ -439,7 +439,7 @@ function mjDefinition(e, t) {
       ${e.mesLiens ? '<p class="muted center" style="margin:0">✓ Envoyées. Tu peux encore les modifier.</p>' : ''}`;
     return h;
   }
-  return h + (e.bons != null ? `<div class="card accent center"><p style="font-size:20px">Tu as trouvé <strong>${e.bons}</strong> / ${e.cartes.length}</p></div>` : '<div class="card"><p>Regarde les réponses sur l\'écran !</p></div>');
+  return h + (e.bons != null ? `<div class="card accent center"><p style="font-size:20px">Tu as trouvé <strong>${e.bons}</strong> / ${e.cartes.length}</p><p class="muted">Total : ${e.mesBons} bonne${e.mesBons > 1 ? 's' : ''} réponse${e.mesBons > 1 ? 's' : ''}. Les meilleurs devineurs gagnent un bonus !</p></div>` : '<div class="card"><p>Regarde les réponses sur l\'écran !</p></div>');
 }
 
 function miniJeux() {
@@ -481,6 +481,7 @@ function miniJeux() {
     if (g.prochain) h += `<div class="card"><span class="label">Prochain round</span><p style="font-size:20px"><strong class="mono">${hm(g.prochain.at)}</strong> · ${esc(g.prochain.nom)}</p>
       <p class="muted">${g.prochain.taille} joueur${g.prochain.taille > 1 ? 's' : ''} tirés au sort ${Math.round(g.annonce / 60)} min avant. Garde cette page ouverte : ton téléphone vibrera si c'est toi.</p></div>`;
   }
+  if (g.devine && !t) h += `<div class="card${g.devine.bonus ? ' accent' : ''}"><span class="label">Round ${g.devine.n} · tu devinais</span><p>${g.devine.bons} bonne${g.devine.bons > 1 ? 's' : ''} réponse${g.devine.bons > 1 ? 's' : ''} · ${g.devine.rang}<sup>${g.devine.rang === 1 ? 'er' : 'e'}</sup> sur ${g.devine.sur}${g.devine.bonus ? `, <strong>+${g.devine.bonus} pt${g.devine.bonus > 1 ? 's' : ''}</strong> 🎉` : ''}</p></div>`;
   if (g.dernier && !t) h += `<div class="card"><span class="label">Ton dernier round</span><p>Round ${g.dernier.n} · ${esc(g.dernier.nom)} : ${g.dernier.place === 1 ? '🥇 ' : ''}${g.dernier.place}<sup>e</sup>, +${g.dernier.points} pts</p></div>`;
   h += `<button class="btn sm" data-act="mjPasMoi" style="align-self:flex-start;margin-top:8px">Ce n'est pas moi</button>`;
   return h;

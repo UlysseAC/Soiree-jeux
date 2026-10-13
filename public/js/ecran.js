@@ -135,7 +135,9 @@ function minijeux(g) {
     const list = r.equipes.map((t, i) => ({ t, i, ...(r.points?.[t[0]] || {}) })).sort((x, y) => (x.place ?? 99) - (y.place ?? 99));
     const who = x => r.equipesNommees ? `<span style="color:${MJ_TEAMS[x.i]?.[1] ?? 'var(--accent)'}">${esc(MJ_TEAMS[x.i]?.[0] ?? `Équipe ${x.i + 1}`)}</span> · ${x.t.map(esc).join(' + ')}` : esc(x.t[0]);
     main = `<div class="mj-kicker">Résultats du round ${r.n}</div><div class="mj-round">${esc(r.nom)}</div>
-      <ol class="mj-results">${list.map(x => `<li><span>${x.place === 1 ? '🥇' : x.place === 2 ? '🥈' : x.place === 3 ? '🥉' : `${x.place}<sup>e</sup>`}</span><span>${who(x)}</span><span class="p">+${x.points ?? 0}</span></li>`).join('')}</ol>`;
+      <ol class="mj-results">${list.map(x => `<li><span>${x.place === 1 ? '🥇' : x.place === 2 ? '🥈' : x.place === 3 ? '🥉' : `${x.place}<sup>e</sup>`}</span><span>${who(x)}</span><span class="p">+${x.points ?? 0}</span></li>`).join('')}</ol>
+      ${r.devineurs?.length ? `<div class="label" style="font-size:clamp(13px,1.1vw,18px);margin-top:2vh">Meilleurs devineurs</div>
+        <ol class="mj-results mj-devineurs">${r.devineurs.slice(0, 5).map(x => `<li><span>${x.rang}<sup>${x.rang === 1 ? 'er' : 'e'}</sup></span><span>${esc(x.nom)} · ${x.bons} bonne${x.bons > 1 ? 's' : ''} réponse${x.bons > 1 ? 's' : ''}</span><span class="p">${r.bonus?.[x.nom] ? `+${r.bonus[x.nom]}` : ''}</span></li>`).join('')}</ol>` : ''}`;
   } else if (g.prochain) {
     const p = g.prochain;
     const first = g.faits === 0 && g.rounds.every(r => r.status === 'prevu' || r.status === 'saute');

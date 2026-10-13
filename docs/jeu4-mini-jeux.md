@@ -35,11 +35,12 @@ Une journée de rounds à heures régulières. À chaque round, un mini-jeu et d
 
 ## La Définition
 
-- **Réglages** : la liste des **mots inventés** (un par ligne, écrite par l'organisateur), le nombre de joueurs, le nombre de manches (3 par défaut), le temps d'écriture, de vote et d'affichage des réponses.
+- **Réglages** : la liste des **mots inventés** (un par ligne, écrite par l'organisateur), le nombre de joueurs, le nombre de manches (3 par défaut), le temps d'écriture, de vote et d'affichage des réponses, le bonus des meilleurs devineurs (1 point par défaut).
 - **Chaque manche** : chaque joueur reçoit sur son téléphone un mot tiré au hasard dans la liste (les mots déjà sortis dans la journée ne reviennent qu'après les autres) et écrit sa définition.
 - **Vote** : quand tout le monde a écrit (ou à la fin du temps), l'écran affiche les mots et leurs définitions, sans dire qui avait quel mot. Les **spectateurs** (participants connectés qui ne jouent pas ce round) relient chaque mot à un joueur sur leur téléphone.
 - **Réponses** : l'écran montre à qui était chaque mot et combien de personnes l'ont trouvé. Puis manche suivante, avec un nouveau mot pour chacun.
 - **Gagnant** : le joueur dont le mot a été relié à lui le plus de fois, sur toutes les manches (ex æquo possibles). Les points du mini-jeu sont donnés selon cette place.
+- **Meilleurs devineurs** : les spectateurs sont classés selon leurs bonnes réponses sur toutes les manches. Le premier tiers (arrondi au-dessus : 1 sur 2 ou 3, 2 sur 4 à 6…), ex æquo compris, gagne le bonus, à condition d'avoir au moins une bonne réponse. Ce classement s'affiche sur l'écran avec les résultats et sur le téléphone de chaque spectateur.
 - **Admin** : voit qui a quel mot et les définitions en direct, peut « Passer à l'étape suivante ». Un joueur absent peut être remplacé (le remplaçant reprend son mot) ; retirer ou ajouter un joueur n'est pas possible une fois le jeu lancé.
 - Sans spectateur connecté, le vote est sauté.
 
@@ -50,5 +51,4 @@ Classement de la journée, séparé du classement de la soirée des 3 autres jeu
 ## À définir avec les 6 mini-jeux
 
 - Les 5 autres mini-jeux (quiz…).
-- Points pour les spectateurs qui devinent juste à La Définition ?
 - Départage des ex æquo au classement final.
