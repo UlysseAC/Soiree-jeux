@@ -60,6 +60,7 @@ function buzz(a, b) {
   if (!g0?.duel && g1.duel) navigator.vibrate?.([80, 60, 80]);
   if (!g0?.monTour && g1.monTour) navigator.vibrate?.([300, 120, 300, 120, 500]);
   if (!g0?.block && g1.block) navigator.vibrate?.(400);
+  if (g0?.etat?.type === 'temple' && g0.etat.phase === 'choix' && g1.etat?.phase === 'resultat' && g1.etat.joueurs.find(p => p.nom === g1.nom)?.perdu) navigator.vibrate?.([500, 100, 500]); // piège !
   if (g0?.random?.stage !== 'hint' && g1.random?.stage === 'hint') { navigator.vibrate?.(150); ui.aideConfirm = false; }
   if (g0?.random?.attente && g1.random?.stage === 'hint' && !g1.random.attente) navigator.vibrate?.(150);
 }
@@ -405,6 +406,32 @@ function mjAvecQui(t) {
   return t.coequipiers?.length ? `Équipe ${team} : tu joues avec ${esc(liste(t.coequipiers))} contre ${esc(adv)}` : `Équipe ${team} : tu joues seul contre ${esc(adv)}`;
 }
 // « La Définition » sur le téléphone : le joueur écrit, les autres relient les mots aux joueurs.
+// Le Temple aztèque, sur le téléphone : je choisis un passage, ou je regarde si je ne joue pas.
+function mjTemple(e) {
+  const coeurs = (v, max) => '❤️'.repeat(Math.max(0, v)) + '🖤'.repeat(Math.max(0, max - Math.max(0, v)));
+  let h = `<span class="label" style="text-align:center">Étape ${e.etape} / ${e.total}${e.phase === 'choix' ? ` · <strong class="mono" data-until="${e.fin}"></strong>` : ''}</span>`;
+  if (e.phase === 'arrivee' || e.phase === 'fini') {
+    if (e.mesVies === undefined) return h + '<div class="card"><p>Regarde l\'écran : qui arrive au temple ?</p></div>';
+    return h + (e.mesVies > 0
+      ? `<div class="card accent center"><div class="huge" style="font-size:40px">🏛️ 💰</div><p style="font-size:20px">Tu arrives au temple avec ${coeurs(e.mesVies, e.viesMax)}</p></div>`
+      : `<div class="card center"><div class="huge" style="font-size:40px">☠️</div><p style="font-size:18px">Éliminé à l'étape ${e.monMort}.</p></div>`);
+  }
+  if (e.mesVies === undefined) { // je ne joue pas
+    return h + `<div class="card"><p style="font-size:18px">${e.phase === 'choix' ? `${esc(e.gauche)} ou ${esc(e.droite)} ? Les joueurs choisissent…` : `Le piège : ${esc(e[e.piege])} ! ${esc(e.message)}`}</p><p class="muted">Regarde l'écran !</p></div>`;
+  }
+  h += `<div class="card center"><span class="label">Tes vies</span><div style="font-size:32px;letter-spacing:4px">${coeurs(e.mesVies, e.viesMax)}</div></div>`;
+  const moi = e.joueurs.find(p => p.nom === V.game.nom);
+  if (e.mesVies <= 0 && !moi?.perdu) return h + `<div class="card center"><p style="font-size:18px">☠️ Éliminé à l'étape ${e.monMort}.</p><p class="muted">Regarde la suite sur l'écran.</p></div>`;
+  if (e.phase === 'choix') {
+    return h + `<div class="card"><p style="font-size:18px;margin:0">Quel passage prends-tu ?</p></div>
+      <div class="tp-choix">${['gauche', 'droite'].map(c => `<button class="btn ${e.monChoix === c ? 'primary choisi' : ''}" data-act="tpChoisir" data-cote="${c}"><span style="font-size:26px">${c === 'gauche' ? '⬅' : '➡'}</span>${esc(e[c])}</button>`).join('')}</div>
+      <p class="muted center" style="margin:0">${e.monChoix ? `✓ Tu passes par : <strong>${esc(e[e.monChoix])}</strong>. Tu peux encore changer.` : 'Sans choix à la fin du temps, le hasard choisit pour toi.'}</p>`;
+  }
+  return h + (moi?.perdu
+    ? `<div class="card center" style="border-color:var(--danger)"><div class="huge" style="font-size:40px">☠️</div><p style="font-size:20px;color:var(--danger)"><strong>${esc(e.message)}</strong></p><p>${e.mesVies > 0 ? 'Tu perds une vie !' : 'Tu as perdu ta dernière vie…'}</p></div>`
+    : `<div class="card accent center"><p style="font-size:20px">✓ ${esc(e[moi?.choix] || '')} : passage sûr !</p><p class="muted">Le piège était : ${esc(e[e.piege])}</p></div>`);
+}
+
 function mjDefinition(e, t) {
   const k = `${(t || V.game.actif)?.n}:${e.manche}`;
   if (ui.mjK !== k) { ui.mjK = k; ui.mjDraft = null; ui.mjLiens = {}; }
@@ -473,6 +500,8 @@ function miniJeux() {
     h += mjDefinition(g.etat, t);
   } else if (g.etat?.type === 'definition') {
     h += mjDefinition(g.etat);
+  } else if (g.etat?.type === 'temple') {
+    h += mjTemple(g.etat);
   } else if (t) {
     h += `<div class="card turn center"><span class="label">Round ${t.n} · ${esc(t.nom)}</span><div class="huge" style="font-size:44px">À toi de jouer !</div><p>${mjAvecQui(t)}</p><p class="muted">Suis les consignes de l'écran.</p></div>`;
     if (t.regles) h += `<div class="card"><span class="label">Règles</span><p style="white-space:pre-wrap">${esc(t.regles)}</p></div>`;
@@ -554,6 +583,7 @@ app.addEventListener('click', e => {
   }
   const a = t.dataset.act;
   if (a === 'mjCompris') { act({ type: 'compris' }); return; }
+  if (a === 'tpChoisir') { act({ type: 'choisir', cote: t.dataset.cote }); return; }
   if (a === 'mjEcrire') { const v = document.getElementById('mj-def')?.value || ''; act({ type: 'ecrire', texte: v }).then(r => { if (r.ok) ui.mjDraft = null; }); return; }
   if (a === 'mjVoter') {
     const liens = { ...(V.game.etat?.mesLiens || {}), ...ui.mjLiens };

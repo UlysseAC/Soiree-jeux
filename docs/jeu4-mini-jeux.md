@@ -1,13 +1,13 @@
 # Jeu 4 — Les Mini-Jeux (structure)
 
-Une journée de rounds à heures régulières. À chaque round, un mini-jeu et des joueurs tirés au sort. Chaque mini-jeu a un nom, une page de règles écrite par l'organisateur, un format et des points par place. Un mini-jeu est soit **manuel** (l'organisateur saisit les places à la fin), soit un jeu automatique joué sur les téléphones : pour l'instant **La Définition**.
+Une journée de rounds à heures régulières. À chaque round, un mini-jeu et des joueurs tirés au sort. Chaque mini-jeu a un nom, une page de règles écrite par l'organisateur, un format et des points par place. Un mini-jeu est soit **manuel** (l'organisateur saisit les places à la fin), soit un jeu automatique joué sur les téléphones : pour l'instant **La Définition** et **Le Temple aztèque**.
 
 ## Avant la journée (onglet « Réglages du jeu »)
 
 - **Participants** : un nom par ligne.
 - **Journée** : heure de début, heure de fin, nombre de rounds. Les rounds sont répartis à intervalles égaux (8 h et 12 rounds = un round toutes les 40 min). L'admin voit combien de rounds chacun jouera.
 - **Programme** : le mini-jeu de chaque round, dans l'ordre (un mini-jeu peut revenir). « Remplir automatiquement » enchaîne en boucle les mini-jeux cochés « utilisés ».
-- **Les 6 mini-jeux** : nom (libre), **type** (manuel ou La Définition), page de règles (affichée en grand sur l'écran et sur les téléphones avant le jeu), **format**, durée indicative, points par place (ex. « 10, 6, 3, 1 »).
+- **Les 6 mini-jeux** : nom (libre), **type** (manuel, La Définition ou Le Temple aztèque), page de règles (affichée en grand sur l'écran et sur les téléphones avant le jeu), **format**, durée indicative, points par place (ex. « 10, 6, 3, 1 »).
 - **Format** : vide = chacun pour soi, avec un nombre de joueurs par round (0 = tout le monde) ; ou des équipes : `1v1v1v1` (4 joueurs, chacun pour soi), `2v2`, `3v1`, `2v1`, `2v2v2`, `3v3`… (8 équipes et 10 joueurs par équipe au plus). Les équipes s'appellent Rouges, Bleus, Verts, Jaunes… Les places se donnent par équipe et chaque membre reçoit les points de la place de son équipe.
 - Réglages pris en compte tout de suite : participants, noms, règles, points. Horaires, nombre de rounds et programme : fixés à l'ouverture de la journée.
 
@@ -43,6 +43,15 @@ Une journée de rounds à heures régulières. À chaque round, un mini-jeu et d
 - **Meilleurs devineurs** : les spectateurs sont classés selon leurs bonnes réponses sur toutes les manches. Le premier tiers (arrondi au-dessus : 1 sur 2 ou 3, 2 sur 4 à 6…), ex æquo compris, gagne le bonus, à condition d'avoir au moins une bonne réponse. Ce classement s'affiche sur l'écran avec les résultats et sur le téléphone de chaque spectateur.
 - **Admin** : voit qui a quel mot et les définitions en direct, peut « Passer à l'étape suivante ». Un joueur absent peut être remplacé (le remplaçant reprend son mot) ; retirer ou ajouter un joueur n'est pas possible une fois le jeu lancé.
 - Sans spectateur connecté, le vote est sauté.
+
+## Le Temple aztèque
+
+- Jeu de chance, chacun pour soi. **Réglages** : la liste des **obstacles** (un par ligne ; après « | », ce qui arrive si c'est le piège, ex. « Pont de lianes | Le pont s'effondre ! »), une liste de **pièges** de secours (pour les obstacles sans phrase), le nombre d'**étapes** (5 par défaut), de **vies** (3), le temps pour choisir et le temps d'affichage du piège. Une liste d'exemples est déjà remplie : modifie-la comme tu veux.
+- **Chaque étape** : deux obstacles tirés de la liste, affichés sur l'écran et sur les téléphones. Chaque joueur encore en vie choisit un passage (il peut changer d'avis jusqu'à la fin du temps ; sans choix, le hasard choisit pour lui). Personne ne voit le choix des autres avant la révélation.
+- **Révélation** : l'un des deux obstacles, tiré au sort, est le piège, le même pour tout le monde. L'écran montre le piège (« Le plafond s'écroule ! »), qui est passé où, et ceux qui perdent une vie ; leur téléphone vibre. À 0 vie, on est éliminé.
+- **Arrivée** : après la dernière étape (ou quand tout le monde est éliminé), l'écran montre ceux qui arrivent au temple et récupèrent le trésor.
+- **Classement** : ceux qui arrivent au temple, du plus de vies au moins de vies, puis les éliminés, du plus loin au moins loin. Ex æquo possibles.
+- **Admin** : voit les vies et les choix en direct, peut « Passer à l'étape suivante » et remplacer un joueur (le remplaçant reprend ses vies).
 
 ## Classement
 

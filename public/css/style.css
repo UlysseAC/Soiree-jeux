@@ -274,3 +274,34 @@ td.nowrap { white-space: nowrap; }
 .mj-auteur .p { color: var(--accent); font-weight: 400; }
 .mj-vote { display: flex; flex-direction: column; gap: 10px; }
 .mj-vote .card select { font-size: 17px; }
+
+/* Le Temple aztèque */
+.tp-chemin { display: flex; align-items: center; gap: .6vw; }
+.tp-chemin span { flex: 1; height: 1vh; min-height: 6px; border-radius: 99px; background: var(--line); }
+.tp-chemin span.fait { background: var(--accent); }
+.tp-chemin span.ici { background: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); }
+.tp-chemin b { font-size: clamp(22px, 2.6vw, 44px); }
+.tp-duel { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 1.2vw; align-items: stretch; }
+.tp-ou { align-self: center; color: var(--muted); font-size: clamp(16px, 1.6vw, 28px); }
+.tp-obs { background: var(--panel); border: 2px solid var(--line); border-radius: 16px; padding: 2vh 1.4vw; display: flex; flex-direction: column; gap: 1vh; align-items: center; text-align: center; transition: border-color .3s, background .3s; }
+.tp-obs .tp-fl { font-size: clamp(20px, 2.2vw, 40px); color: var(--muted); }
+.tp-obs .tp-nom { font-size: clamp(24px, 3vw, 56px); font-weight: 800; line-height: 1.05; }
+.tp-obs .tp-msg { font-size: clamp(16px, 1.5vw, 28px); font-weight: 700; }
+.tp-obs.piege { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 16%, var(--panel)); animation: tp-secousse .5s 2; }
+.tp-obs.piege .tp-msg { color: var(--danger); }
+.tp-obs.sur { border-color: var(--ok); }
+.tp-obs.sur .tp-msg { color: var(--ok); }
+.tp-qui { display: flex; flex-wrap: wrap; gap: .6vw; justify-content: center; }
+.tp-qui span { background: var(--ink); border-radius: 99px; padding: .4vh .8vw; font-size: clamp(14px, 1.3vw, 24px); }
+.tp-joueurs { display: flex; flex-wrap: wrap; gap: .8vh .8vw; }
+.tp-j { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: .8vh 1vw; display: flex; gap: .7vw; align-items: center; font-size: clamp(14px, 1.3vw, 24px); }
+.tp-j.on { border-color: var(--accent); }
+.tp-j.mort { opacity: .45; }
+.tp-j.perdu { border-color: var(--danger); }
+.tp-j em { font-style: normal; color: var(--accent); }
+.tp-vide { color: var(--line); }
+@keyframes tp-secousse { 0%, 100% { transform: none; } 25% { transform: translateX(-6px) rotate(-1deg); } 75% { transform: translateX(6px) rotate(1deg); } }
+@media (prefers-reduced-motion: reduce) { .tp-obs.piege { animation: none; } }
+.tp-choix { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.tp-choix .btn { display: flex; align-items: center; justify-content: center; gap: 6px; min-height: 120px; flex-direction: column; white-space: normal; font-size: 19px; line-height: 1.15; }
+.tp-choix .btn.choisi { outline: 3px solid var(--accent); outline-offset: 2px; }

@@ -4,10 +4,11 @@
 // Les participants sont une liste de noms saisie par l'admin ; chacun « prend » son nom sur son téléphone.
 import { normName } from '../util.js';
 import * as definition from './minijeux/definition.js';
+import * as temple from './minijeux/temple.js';
 
 // Types de mini-jeux : « manuel » (l'organisateur saisit les places) ou un mini-jeu programmé.
-export const TYPES = { definition };
-export const TYPE_LABELS = { manuel: 'Manuel (tu saisis les places)', definition: definition.label };
+export const TYPES = { definition, temple };
+export const TYPE_LABELS = { manuel: 'Manuel (tu saisis les places)', definition: definition.label, temple: temple.label };
 const typeOf = (cfg, slot) => TYPES[cfg.jeux[slot]?.type] || null;
 
 export const id = 'minijeux';
@@ -31,7 +32,7 @@ export function defaultConfig() {
     programme: [...SLOTS, ...SLOTS].join(','), // mini-jeu de chaque round, dans l'ordre
     jeux: Object.fromEntries(SLOTS.map((s, i) => [s, {
       actif: true, // utilisé par « remplir automatiquement »
-      type: 'manuel', // manuel | definition
+      type: 'manuel', // manuel | definition | temple
       nom: `Mini-jeu ${i + 1}`,
       regles: '',
       format: '', // '' = chacun pour soi (avec « joueurs ») ; sinon équipes, ex. « 2v2 », « 3v1 », « 1v1v1v1 »
@@ -39,6 +40,7 @@ export function defaultConfig() {
       duree: 600, // indicatif : affiché comme temps de jeu
       points: '10, 6, 3, 1', // points par place
       ...definition.defaults, // La Définition : mots inventés, manches, temps
+      ...temple.defaults, // Le Temple aztèque : obstacles, pièges, étapes, vies, temps
     }])),
   };
 }
@@ -83,7 +85,7 @@ export const formatLabel = sizes => (!sizes ? 'Chacun pour soi' : sizes.every(n 
 export const TEAM_NAMES = ['Rouges', 'Bleus', 'Verts', 'Jaunes', 'Violets', 'Orange', 'Roses', 'Gris'];
 
 const sizeOf = (cfg, slot, total) => {
-  const sizes = parseFormat(cfg.jeux[slot]?.format);
+  const sizes = !typeOf(cfg, slot) && parseFormat(cfg.jeux[slot]?.format); // mini-jeux automatiques : chacun pour soi
   if (sizes) return Math.min(sizes.reduce((a, b) => a + b, 0), total);
   const j = Math.round(Number(cfg.jeux[slot]?.joueurs) || 0);
   return j > 0 ? Math.min(j, total) : total;
@@ -212,7 +214,7 @@ function announce(ctx, g, r) {
   const names = roster(ctx.cfg);
   r.joueurs = draw(g, names, sizeOf(ctx.cfg, r.jeu, names.length), prevPlayers(g, r));
   r.type = ctx.cfg.jeux[r.jeu]?.type || 'manuel';
-  r.format = TYPES[r.type] ? null : parseFormat(ctx.cfg.jeux[r.jeu]?.format); // La Définition : chacun pour soi
+  r.format = TYPES[r.type] ? null : parseFormat(ctx.cfg.jeux[r.jeu]?.format); // mini-jeux automatiques : chacun pour soi
   r.equipes = teamsFor(g, r.joueurs, r.format);
   r.compris = [];
   r.status = 'annonce';

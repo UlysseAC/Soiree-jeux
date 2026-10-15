@@ -84,6 +84,33 @@ function mjCompris(a) {
   return `<div class="mj-compris">${a.joueurs.map(p => `<span class="${a.compris.includes(p) ? 'on' : ''}">${a.compris.includes(p) ? '✓' : '…'} ${esc(p)}</span>`).join('')}</div>`;
 }
 // « La Définition » : écriture, vote, révélation.
+// Le Temple aztèque : deux obstacles, puis le piège révélé, puis l'arrivée au temple.
+function mjTemple(a, e) {
+  const head = `<div class="mj-kicker">Round ${a.n} · ${esc(a.nom)} · étape ${e.etape} / ${e.total}</div>`;
+  const coeurs = p => p.vies > 0 ? '❤️'.repeat(p.vies) + '<span class="tp-vide">' + '♥'.repeat(Math.max(0, e.viesMax - p.vies)) + '</span>' : '☠️';
+  const chemin = `<div class="tp-chemin">${Array.from({ length: e.total }, (_, i) => `<span class="${i < e.etape - (e.phase === 'choix' ? 1 : 0) ? 'fait' : i === e.etape - 1 ? 'ici' : ''}"></span>`).join('')}<b>🏛️</b></div>`;
+  if (e.phase === 'arrivee' || e.phase === 'fini') {
+    const arrives = e.joueurs.filter(p => p.vies > 0).sort((x, y) => y.vies - x.vies);
+    const morts = e.joueurs.filter(p => !(p.vies > 0)).sort((x, y) => y.mort - x.mort);
+    return `${head}<div class="mj-round">🏛️ Le temple !</div>
+      <div class="sc-sub">${arrives.length ? `${arrives.length > 1 ? 'Ils arrivent' : 'Arrivée'} au temple et récupère${arrives.length > 1 ? 'nt' : ''} le trésor 💰` : 'Personne n\'a survécu au chemin…'}</div>
+      <div class="tp-joueurs">${arrives.map(p => `<div class="tp-j on"><strong>${esc(p.nom)}</strong><span>${coeurs(p)}</span></div>`).join('')}
+        ${morts.map(p => `<div class="tp-j mort"><strong>${esc(p.nom)}</strong><span>☠️ étape ${p.mort}</span></div>`).join('')}</div>`;
+  }
+  const side = c => {
+    const qui = e.phase === 'resultat' ? e.joueurs.filter(p => p.choix === c) : [];
+    const piege = e.phase === 'resultat' && e.piege === c;
+    return `<div class="tp-obs ${e.phase === 'resultat' ? (piege ? 'piege' : 'sur') : ''}"><div class="tp-fl">${c === 'gauche' ? '⬅' : '➡'}</div><div class="tp-nom">${esc(e[c])}</div>
+      ${e.phase === 'resultat' ? `<div class="tp-msg">${piege ? `☠️ ${esc(e.message)}` : '✓ Passage sûr'}</div><div class="tp-qui">${qui.map(p => `<span>${esc(p.nom)}</span>`).join('') || '<span class="muted">personne</span>'}</div>` : ''}</div>`;
+  };
+  const sub = e.phase === 'choix'
+    ? `À vos téléphones : quel passage ? · <strong class="mono" data-until="${e.fin}"></strong> · ${e.joueurs.filter(p => p.vies > 0 && p.choisi).length} / ${e.joueurs.filter(p => p.vies > 0).length} ont choisi`
+    : e.joueurs.some(p => p.perdu) ? `${e.joueurs.filter(p => p.perdu).map(p => esc(p.nom)).join(', ')} ${e.joueurs.filter(p => p.perdu).length > 1 ? 'perdent' : 'perd'} une vie !` : 'Personne n\'est tombé dans le piège !';
+  return `${head}${chemin}<div class="sc-sub">${sub}</div>
+    <div class="tp-duel">${side('gauche')}<div class="tp-ou">ou</div>${side('droite')}</div>
+    <div class="tp-joueurs">${e.joueurs.map(p => `<div class="tp-j ${p.vies > 0 ? '' : 'mort'} ${p.perdu ? 'perdu' : ''}"><strong>${esc(p.nom)}</strong><span>${coeurs(p)}</span>${e.phase === 'choix' && p.vies > 0 ? `<em>${p.choisi ? '✓' : '…'}</em>` : ''}</div>`).join('')}</div>`;
+}
+
 function mjDefinition(a, e) {
   const head = `<div class="mj-kicker">Round ${a.n} · ${esc(a.nom)} · manche ${e.manche} / ${e.total}</div>`;
   if (e.phase === 'ecriture') {
@@ -126,6 +153,8 @@ function minijeux(g) {
       ${mjCompris(a)}`;
   } else if (a && a.status === 'jeu' && g.etat?.type === 'definition') {
     main = mjDefinition(a, g.etat);
+  } else if (a && a.status === 'jeu' && g.etat?.type === 'temple') {
+    main = mjTemple(a, g.etat);
   } else if (a) {
     main = `<div class="mj-kicker">Round ${a.n} en cours · ${esc(a.format)} · <span class="mono" data-since="${a.debutAt}"></span></div><div class="mj-round">${esc(a.nom)}</div>
       ${mjPlayers(a)}
