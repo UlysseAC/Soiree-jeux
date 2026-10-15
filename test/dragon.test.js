@@ -29,13 +29,13 @@ test('format : 4 joueurs chacun pour soi, ou 2 contre 2', () => {
   assert.equal(b.r.equipes.length, 2);
 });
 
-test('à l\'abri, on ne voit rien et on ne peut pas être touché ; à découvert, si', () => {
+test('à l\'abri, on ne peut pas être touché ; à découvert, si ; l\'écran montre qui est à découvert', () => {
   const { g, ctx, r, pid, at, now, act } = setup();
   const [a, b] = r.joueurs;
-  assert.equal(mj.playerView(ctx, g, pid(a)).etat.vue, undefined, 'à l\'abri : pas de vue du jeu');
-  assert.ok(!JSON.stringify(mj.screenView(ctx, g).etat).includes('"action"'), 'l\'écran ne montre pas qui est à découvert');
   assert.equal(act(a, { type: 'viser', cible: b }).ok, true);
-  assert.ok(mj.playerView(ctx, g, pid(a)).etat.vue, 'en visant, on est à découvert et on voit le jeu');
+  const st = mj.screenView(ctx, g).etat.etats;
+  assert.deepEqual(st.find(x => x.nom === a), { nom: a, action: 'vise', cible: b, munitions: 3 }, 'l\'écran montre qui vise qui');
+  assert.equal(st.find(x => x.nom === b).action, 'cache');
   at(now() + 1000);
   assert.equal(r.dr.j[b].vies, 2, 'cible à l\'abri : raté');
   assert.equal(r.dr.j[a].munitions, 2, 'le tir coûte une munition');

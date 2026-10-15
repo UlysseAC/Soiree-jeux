@@ -28,20 +28,6 @@ SJ.sock.on('etat', v => {
   buzz(before, v);
 });
 
-// Chasse au dragon : on observe tant que le bouton est maintenu ; dès qu'on le relâche, on retourne à l'abri.
-let drObserve = false;
-document.addEventListener('pointerdown', e => {
-  const b = e.target.closest('[data-hold="observer"]');
-  if (!b || b.disabled) return;
-  e.preventDefault();
-  drObserve = true;
-  SJ.emit('joueur', { type: 'observer', on: true });
-});
-const drRelache = () => { if (drObserve) { drObserve = false; SJ.emit('joueur', { type: 'observer', on: false }); } };
-for (const ev of ['pointerup', 'pointercancel', 'blur']) window.addEventListener(ev, drRelache);
-document.addEventListener('visibilitychange', () => { if (document.hidden) drRelache(); });
-document.addEventListener('contextmenu', e => { if (e.target.closest('[data-hold]')) e.preventDefault(); });
-
 // Le Mime : envoyer un essai (bouton ou touche Entrée), puis vider le champ en gardant le clavier ouvert.
 function mmDeviner() {
   const el = document.getElementById('mm-essai');
@@ -434,7 +420,7 @@ function mjAvecQui(t) {
   return t.coequipiers?.length ? `Équipe ${team} : tu joues avec ${esc(liste(t.coequipiers))} contre ${esc(adv)}` : `Équipe ${team} : tu joues seul contre ${esc(adv)}`;
 }
 // « La Définition » sur le téléphone : le joueur écrit, les autres relient les mots aux joueurs.
-// La Chasse au dragon, sur le téléphone : à l'abri par défaut (on ne voit rien) ; observer, viser ou chercher met à découvert.
+// La Chasse au dragon, sur le téléphone : seulement les boutons (le jeu se suit sur l'écran). À l'abri par défaut ; viser ou chercher met à découvert.
 const DR_ACT = { cache: '🪵 à l\'abri', observe: '👀 observe', vise: '🎯 vise', cherche: '📦 cherche des munitions', horsjeu: '😵 hors jeu' };
 function mjDragon(e) {
   const m = e.moi;
@@ -445,18 +431,11 @@ function mjDragon(e) {
   let h = `<div class="card dr-moi ${decouvert ? 'decouvert' : ''}"><div class="spread"><span style="font-size:24px">${'❤️'.repeat(m.vies)}</span><span class="dr-mun">${'🔸'.repeat(m.munitions) || '<span class="muted">0 munition</span>'}</span></div>
     <strong style="font-size:18px">${decouvert ? '⚠️ À découvert !' : '🪵 À l\'abri : rien ne peut te toucher'}</strong>
     ${occupe ? `<div>${m.action === 'vise' ? `🎯 Tu vises ${m.cible === 'dragon' ? 'le dragon' : esc(m.cible)}…` : '📦 Tu cherches des munitions…'}</div><div class="dr-prog"><div id="dr-prog-${m.finAction}" style="animation-duration:${Math.max(0, m.finAction - SJ.now())}ms"></div></div>` : ''}</div>`;
-  if (e.vue) { // à découvert : on voit le jeu
-    h += `<div class="card dr-vue"><span class="label">Ce que tu vois</span>
-      <div class="spread"><span>🐉 ${e.dragon.pv} / ${e.dragon.max}</span><span class="${e.attaqueDans < 3000 ? 'dr-danger' : 'muted'}">attaque dans <strong class="mono">${Math.ceil(e.attaqueDans / 1000)} s</strong></span></div>
-      ${e.dragon.prepare ? '<div class="dr-danger"><strong>⚠️ Le dragon prend son souffle ! Cache-toi !</strong></div>' : ''}
-      ${e.vue.map(x => `<div class="spread"><strong>${esc(x.nom)}</strong><span class="${x.action === 'cache' || x.action === 'horsjeu' ? 'muted' : 'dr-danger'}">${DR_ACT[x.action]}${x.cible ? ` ${x.cible === 'dragon' ? 'le dragon' : esc(x.cible)}` : ''}</span><span class="muted">${x.action === 'horsjeu' ? '' : `${x.munitions} 🔸`}</span></div>`).join('')}</div>`;
-  }
-  h += `<button class="btn big dr-observer ${m.action === 'observe' ? 'primary' : ''}" data-hold="observer" ${occupe ? 'disabled' : ''}>👀 ${m.action === 'observe' ? 'Tu observes… (relâche pour te cacher)' : 'Maintenir pour observer'}</button>`;
   const off = occupe || m.munitions <= 0 ? 'disabled' : '';
   h += `<div class="dr-tirs"><button class="btn big primary" data-act="drViser" data-cible="dragon" ${off || (e.dragon.pv <= 0 ? 'disabled' : '')}>🎯 Viser le dragon</button>
     ${e.cibles.map(c => `<button class="btn" data-act="drViser" data-cible="${esc(c)}" ${off}>🎯 Viser ${esc(c)}</button>`).join('')}</div>
     <button class="btn" data-act="drChercher" ${occupe ? 'disabled' : ''}>📦 Chercher des munitions</button>
-    <p class="muted center" style="margin:0;font-size:13px">Viser prend 1 s ; observer, viser et chercher te mettent à découvert.</p>`;
+    <p class="muted center" style="margin:0;font-size:13px">Viser prend 1 s ; viser et chercher te mettent à découvert. Regarde l'écran pour voir qui est à découvert !</p>`;
   return h;
 }
 
@@ -496,7 +475,7 @@ function mjTemple(e) {
       : `<div class="card center"><div class="huge" style="font-size:40px">☠️</div><p style="font-size:18px">Éliminé à l'étape ${e.monMort}.</p></div>`);
   }
   if (e.mesVies === undefined) { // je ne joue pas
-    return h + `<div class="card"><p style="font-size:18px">${e.phase === 'choix' ? `${esc(e.gauche)} ou ${esc(e.droite)} ? Les joueurs choisissent…` : `Le piège : ${esc(e[e.piege])} ! ${esc(e.message)}`}</p><p class="muted">Regarde l'écran !</p></div>`;
+    return h + `<div class="card"><p style="font-size:18px">${e.phase === 'choix' ? `${e.chemins.map(c => esc(c.nom)).join(', ')} ? Les joueurs choisissent…` : `Piégé : ${e.pieges.map(i => esc(e.chemins[i].nom)).join(', ')} !`}</p><p class="muted">Regarde l'écran !</p></div>`;
   }
   const moi = e.joueurs.find(p => p.nom === V.game.nom);
   // Le cœur perdu ne se brise qu'après le suspense de la révélation.
@@ -505,18 +484,19 @@ function mjTemple(e) {
     : coeurs(e.mesVies, e.viesMax);
   const ji = e.joueurs.findIndex(p => p.nom === V.game.nom), tshirt = TempleCarte.COULEURS[ji % TempleCarte.COULEURS.length];
   h += `<div class="card center"><span class="label">Tes vies</span><div style="font-size:32px;letter-spacing:4px">${vies}</div>
-    <p class="muted tp-moi" style="margin:0;justify-content:center">Sur l'écran, ton explorateur a le t-shirt <i class="tp-tshirt" style="--tshirt:${tshirt};font-size:20px"></i> <strong>${TempleCarte.NOMS_COULEURS[ji % TempleCarte.NOMS_COULEURS.length]}</strong></p></div>`;
+    ${e.affichage === 'carte' ? `<p class="muted tp-moi" style="margin:0;justify-content:center">Sur l'écran, ton explorateur a le t-shirt <i class="tp-tshirt" style="--tshirt:${tshirt};font-size:20px"></i> <strong>${TempleCarte.NOMS_COULEURS[ji % TempleCarte.NOMS_COULEURS.length]}</strong></p>` : ''}</div>`;
   if (e.mesVies <= 0 && !moi?.perdu) return h + `<div class="card center"><p style="font-size:18px">☠️ Éliminé à l'étape ${e.monMort}.</p><p class="muted">Regarde la suite sur l'écran.</p></div>`;
   if (e.phase === 'choix') {
     return h + `<div class="card"><p style="font-size:18px;margin:0">Quel passage prends-tu ?</p></div>
-      <div class="tp-choix">${['gauche', 'droite'].map(c => `<button class="btn ${e.monChoix === c ? 'primary choisi' : ''}" data-act="tpChoisir" data-cote="${c}"><span style="font-size:26px">${c === 'gauche' ? '⬅' : '➡'}</span>${esc(e[c])}</button>`).join('')}</div>
-      <p class="muted center" style="margin:0">${e.monChoix ? `✓ Tu passes par : <strong>${esc(e[e.monChoix])}</strong>. Tu peux encore changer.` : 'Sans choix à la fin du temps, le hasard choisit pour toi.'}</p>`;
+      <div class="tp-choix">${e.chemins.map((c, i) => `<button class="btn ${e.monChoix === i ? 'primary choisi' : ''}" data-act="tpChoisir" data-chemin="${i}"><span style="font-size:22px">${i + 1}</span>${esc(c.nom)}</button>`).join('')}</div>
+      <p class="muted center" style="margin:0">${e.monChoix != null ? `✓ Tu passes par : <strong>${esc(e.chemins[e.monChoix]?.nom)}</strong>. Tu peux encore changer.` : 'Sans choix à la fin du temps, le hasard choisit pour toi.'}</p>`;
   }
   // Suspense : le passage tremble pendant 2,4 s, puis on découvre si c'était le piège.
+  const monChemin = e.chemins[moi?.choix]?.nom || '', pieges = e.pieges.map(i => e.chemins[i].nom);
   const res = moi?.perdu
-    ? `<div class="card center tp-apres piege" style="border-color:var(--danger)"><div class="huge" style="font-size:40px">☠️</div><p style="font-size:20px;color:var(--danger)"><strong>${esc(e.message)}</strong></p><p>${e.mesVies > 0 ? 'Tu perds une vie !' : 'Tu as perdu ta dernière vie…'}</p></div>`
-    : `<div class="card accent center tp-apres"><div class="huge" style="font-size:40px">😮‍💨</div><p style="font-size:20px">✓ ${esc(e[moi?.choix] || '')} : passage sûr !</p><p class="muted">Le piège était : ${esc(e[e.piege])}</p></div>`;
-  return h + `<div class="tp-tel-swap"><div class="card center tp-avant"><div class="huge" style="font-size:44px">🥁</div><p style="font-size:18px">${esc(e[moi?.choix] || '')}… le passage tremble…</p></div>${res}</div>`;
+    ? `<div class="card center tp-apres piege" style="border-color:var(--danger)"><div class="huge" style="font-size:40px">☠️</div><p style="font-size:20px;color:var(--danger)"><strong>${esc(e.messages[moi.choix] || '')}</strong></p><p>${e.mesVies > 0 ? 'Tu perds une vie !' : 'Tu as perdu ta dernière vie…'}</p></div>`
+    : `<div class="card accent center tp-apres"><div class="huge" style="font-size:40px">😮‍💨</div><p style="font-size:20px">✓ ${esc(monChemin)} : passage sûr !</p><p class="muted">${pieges.length > 1 ? 'Les pièges étaient' : 'Le piège était'} : ${pieges.map(esc).join(', ')}</p></div>`;
+  return h + `<div class="tp-tel-swap"><div class="card center tp-avant"><div class="huge" style="font-size:44px">🥁</div><p style="font-size:18px">${esc(monChemin)}… le passage tremble…</p></div>${res}</div>`;
 }
 
 function mjDefinition(e, t) {
@@ -680,7 +660,7 @@ app.addEventListener('click', e => {
   if (a === 'mmPret') { act({ type: 'pret' }); return; }
   if (a === 'mmPasser') { act({ type: 'passer' }); return; }
   if (a === 'mmDeviner') { mmDeviner(); return; }
-  if (a === 'tpChoisir') { act({ type: 'choisir', cote: t.dataset.cote }); return; }
+  if (a === 'tpChoisir') { act({ type: 'choisir', chemin: Number(t.dataset.chemin) }); return; }
   if (a === 'mjEcrire') { const v = document.getElementById('mj-def')?.value || ''; act({ type: 'ecrire', texte: v }).then(r => { if (r.ok) ui.mjDraft = null; }); return; }
   if (a === 'mjVoter') {
     const liens = { ...(V.game.etat?.mesLiens || {}), ...ui.mjLiens };

@@ -1,5 +1,5 @@
 // Le Temple aztèque : la carte vue du dessus, sur l'écran d'affichage.
-// À chaque étape, deux chemins (haut = gauche, bas = droite) relient deux plateformes ; le décor de chaque chemin dépend de l'obstacle.
+// À chaque étape, 2 à 4 chemins (du haut vers le bas, dans l'ordre des obstacles) relient deux plateformes ; le décor de chaque chemin dépend de l'obstacle.
 // Les explorateurs (t-shirt de couleur) marchent sur le chemin choisi ; le piège se déclenche après le suspense,
 // ceux qui tombent réapparaissent à la plateforme suivante en clignotant (ou restent ☠️ s'ils n'ont plus de vie).
 const TempleCarte = (() => {
@@ -15,8 +15,10 @@ const TempleCarte = (() => {
 
   // ---------- géométrie ----------
   const nodeX = i => X0 + i * SEG;
-  function pt(i, c, t) { // c : -1 = chemin du haut (gauche), +1 = chemin du bas (droite)
-    const x0 = nodeX(i), x3 = nodeX(i + 1), dy = c * 190, u = 1 - t;
+  // Écart vertical de chaque chemin, et taille des décors, selon le nombre de chemins
+  const ECARTS = { 2: [-190, 190], 3: [-232, 0, 232], 4: [-258, -86, 86, 258] }, TAILLE = { 2: 1, 3: .74, 4: .6 };
+  function pt(i, dy, t) { // dy : écart vertical du chemin au milieu de l'étape
+    const x0 = nodeX(i), x3 = nodeX(i + 1), u = 1 - t;
     const p = [[x0, Y0], [x0 + 150, Y0 + dy], [x3 - 150, Y0 + dy], [x3, Y0]];
     return [u*u*u*p[0][0] + 3*u*u*t*p[1][0] + 3*u*t*t*p[2][0] + t*t*t*p[3][0],
             u*u*u*p[0][1] + 3*u*u*t*p[1][1] + 3*u*t*t*p[2][1] + t*t*t*p[3][1]];
@@ -31,15 +33,18 @@ const TempleCarte = (() => {
   // temps écoulé dans la phase, en secondes (horloge du serveur via SJ.now)
   const depuisDebut = () => E?.debut ? (SJ.now() - E.debut) / 1000 : (performance.now() - recu) / 1000;
 
-  function segment(i) { // ce qu'on sait du chemin i (0 = première étape)
-    if (i < E.passees.length) return { ...E.passees[i], declenche: 9 };
-    if (i === E.etape - 1) {
+  function segment(i) { // ce qu'on sait de l'étape i (0 = première étape)
+    let s = null;
+    if (i < E.passees.length) s = { ...E.passees[i], declenche: 9 };
+    else if (i === E.etape - 1) {
       const tt = depuisDebut();
-      return { gauche: E.gauche, droite: E.droite, decorG: E.decorG, decorD: E.decorD, piege: E.piege,
-        declenche: E.phase === 'resultat' && tt >= PIEGE ? tt - PIEGE : E.phase === 'arrivee' || E.phase === 'fini' ? 9 : -1 };
+      s = { chemins: E.chemins, pieges: E.pieges || [], declenche: E.phase === 'resultat' && tt >= PIEGE ? tt - PIEGE : E.phase === 'arrivee' || E.phase === 'fini' ? 9 : -1 };
     }
-    return null; // pas encore découvert
+    if (!s) return null; // pas encore découverte
+    const n = s.chemins.length;
+    return { ...s, ecarts: ECARTS[n] || ECARTS[2], taille: TAILLE[n] || 1 };
   }
+  const ecartsDe = i => segment(i)?.ecarts || ECARTS[2];
 
   // ---------- dessin ----------
   function frame() {
@@ -62,16 +67,15 @@ const TempleCarte = (() => {
     ctx.clearRect(0, 0, W, H);
     ctx.translate(-camX + (Math.random() - .5) * secousse, (Math.random() - .5) * secousse);
     sol(camX);
-    for (let i = 0; i < E.total; i++) for (const c of [-1, 1]) chemin(i, c, !segment(i));
-    for (let i = 0; i < E.total; i++) { const s = segment(i); if (s) for (const c of [-1, 1]) decor(i, c, s, false); }
+    for (let i = 0; i < E.total; i++) for (const dy of ecartsDe(i)) chemin(i, dy, !segment(i));
+    for (let i = 0; i < E.total; i++) { const s = segment(i); if (s) s.chemins.forEach((_, j) => decor(i, j, s, false)); }
     for (let i = 0; i <= E.total; i++) plateforme(i);
     temple(nodeX(E.total) + 150, Y0);
     persos(tt, k);
-    for (let i = 0; i < E.total; i++) { const s = segment(i); if (s) for (const c of [-1, 1]) decor(i, c, s, true); }
-    for (let i = k + 1; i < E.total; i++) for (const c of [-1, 1]) inconnu(i, c);
+    for (let i = 0; i < E.total; i++) { const s = segment(i); if (s) s.chemins.forEach((_, j) => decor(i, j, s, true)); }
+    for (let i = k + 1; i < E.total; i++) for (const dy of ECARTS[2]) inconnu(i, dy);
     if (E.phase === 'choix' || E.phase === 'resultat') panneaux(k);
     ctx.restore();
-    if (E.phase === 'resultat' && tt >= PIEGE) bandeau(E.message || '');
   }
 
   function sol(camX) {
@@ -84,16 +88,16 @@ const TempleCarte = (() => {
     ctx.fillStyle = '#2d6b3a'; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();
     ctx.fillStyle = '#3b8247'; ctx.beginPath(); ctx.arc(x - r * .25, y - r * .25, r * .6, 0, 7); ctx.fill();
   }
-  function trace(i, c) { ctx.beginPath(); for (let n = 0; n <= 40; n++) { const [x, y] = pt(i, c, n / 40); n ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } }
-  function chemin(i, c, flou) {
+  function trace(i, dy) { ctx.beginPath(); for (let n = 0; n <= 40; n++) { const [x, y] = pt(i, dy, n / 40); n ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } }
+  function chemin(i, dy, flou) {
     ctx.save(); ctx.globalAlpha = flou ? .45 : 1; ctx.lineCap = 'round';
-    trace(i, c); ctx.strokeStyle = '#6e5634'; ctx.lineWidth = 50; ctx.stroke();
-    trace(i, c); ctx.strokeStyle = '#b89a63'; ctx.lineWidth = 40; ctx.stroke();
-    ctx.setLineDash([2, 14]); trace(i, c); ctx.strokeStyle = 'rgba(80,60,30,.5)'; ctx.lineWidth = 30; ctx.stroke(); ctx.setLineDash([]);
+    trace(i, dy); ctx.strokeStyle = '#6e5634'; ctx.lineWidth = 50; ctx.stroke();
+    trace(i, dy); ctx.strokeStyle = '#b89a63'; ctx.lineWidth = 40; ctx.stroke();
+    ctx.setLineDash([2, 14]); trace(i, dy); ctx.strokeStyle = 'rgba(80,60,30,.5)'; ctx.lineWidth = 30; ctx.stroke(); ctx.setLineDash([]);
     ctx.restore();
   }
-  function inconnu(i, c) { // étape pas encore découverte : un buisson et un point d'interrogation
-    const [x, y] = pt(i, c, .5);
+  function inconnu(i, dy) { // étape pas encore découverte : un buisson et un point d'interrogation
+    const [x, y] = pt(i, dy, .5);
     ctx.fillStyle = 'rgba(20,40,26,.85)'; ctx.beginPath(); ctx.arc(x, y, 40, 0, 7); ctx.fill();
     ctx.fillStyle = 'rgba(241,231,207,.55)'; ctx.font = '34px Rye, Georgia, serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('?', x, y + 2);
   }
@@ -110,22 +114,18 @@ const TempleCarte = (() => {
     for (let n = 0; n < 6; n++) { ctx.fillStyle = n % 2 ? '#6b5a33' : '#a88c4a'; ctx.fillRect(x - 135 + n * 10, y - 14, 5, 28); }
     ctx.font = '22px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('💰', x, y);
   }
+  // Panneau de chaque chemin : au-dessus de son décor pour les chemins du haut, en dessous pour les autres
   function panneaux(k) {
-    for (const [c, txt] of [[-1, E.gauche], [1, E.droite]]) {
-      const [x, y] = pt(k, c, .5), py = y + c * 132;
-      ctx.font = '22px Rye, Georgia, serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const s = segment(k);
+    for (const [j, c] of s.chemins.entries()) {
+      const dy = s.ecarts[j], [x, y] = pt(k, dy, .5), txt = c.nom;
+      const py = y + (dy < 0 ? -1 : 1) * (s.taille * 96 + 34);
+      ctx.font = `${s.chemins.length > 2 ? 19 : 22}px Rye, Georgia, serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       const w = ctx.measureText(txt).width + 28;
       ctx.fillStyle = 'rgba(30,22,12,.88)'; ctx.fillRect(x - w / 2, py - 18, w, 36);
       ctx.strokeStyle = '#e3b341'; ctx.lineWidth = 2; ctx.strokeRect(x - w / 2, py - 18, w, 36);
       ctx.fillStyle = '#f1e7cf'; ctx.fillText(txt, x, py + 1);
     }
-  }
-  function bandeau(msg) {
-    ctx.font = '34px Rye, Georgia, serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const w = Math.min(SEG - 150, ctx.measureText(msg).width + 56);
-    // au centre, dans l'herbe entre les deux chemins (les panneaux sont en haut et en bas)
-    ctx.fillStyle = 'rgba(10,8,5,.82)'; ctx.fillRect(W / 2 - w / 2, Y0 - 28, w, 56);
-    ctx.fillStyle = '#ff8a7e'; ctx.fillText(msg, W / 2, Y0 + 1, SEG - 190);
   }
 
   // Ravin : une faille sombre qui coupe le chemin (sert aussi pour la liane)
@@ -140,14 +140,15 @@ const TempleCarte = (() => {
   }
   function poussiere(d, r = 60) { if (d < 1.6) { ctx.fillStyle = `rgba(180,160,120,${.45 * (1 - d / 1.6)})`; ctx.beginPath(); ctx.arc(0, 0, r * .5 + d * r, 0, 7); ctx.fill(); } }
   // Point où la liane est accrochée (une grosse branche côté extérieur du chemin)
-  const ancre = (i, c) => { const [x, y] = pt(i, c, .5); return [x, y + c * 78]; };
+  const cote = dy => (dy > 0 ? 1 : -1); // côté extérieur du chemin (le chemin du milieu prend le haut)
+  const ancre = (i, j) => { const s = segment(i), dy = s.ecarts[j], [x, y] = pt(i, dy, .5); return [x, y + cote(dy) * 78 * s.taille]; };
 
-  function decor(i, c, s, dessus) {
-    const cote = c < 0 ? 'gauche' : 'droite', style = c < 0 ? s.decorG : s.decorD;
-    const depuis = s.piege === cote && s.declenche >= 0 ? s.declenche : -1, casse = depuis >= 0;
+  function decor(i, j, s, dessus) {
+    const style = s.chemins[j].decor, dy = s.ecarts[j], c = cote(dy);
+    const depuis = s.pieges?.includes(j) && s.declenche >= 0 ? s.declenche : -1, casse = depuis >= 0;
     const now = performance.now() / 1000;
-    const [mx, my] = pt(i, c, .5);
-    ctx.save(); ctx.translate(mx, my);
+    const [mx, my] = pt(i, dy, .5);
+    ctx.save(); ctx.translate(mx, my); ctx.scale(s.taille, s.taille);
     if (style === 'eau' && !dessus) { // plan d'eau et pont de bois
       ctx.fillStyle = '#1f5d7a'; ctx.beginPath(); ctx.ellipse(0, 0, 70, 95, 0, 0, 7); ctx.fill();
       ctx.fillStyle = '#2f7da0'; ctx.beginPath(); ctx.ellipse(-8, -6, 52, 76, 0, 0, 7); ctx.fill();
@@ -302,9 +303,11 @@ const TempleCarte = (() => {
     const cols = n > 6 ? 3 : 2, rows = Math.ceil(n / cols), cx = j % cols, cy = Math.floor(j / cols);
     return [(cx - (cols - 1) / 2) * 30, (cy - (rows - 1) / 2) * 28];
   }
-  function lieuMort(p) { // là où un joueur éliminé est tombé : au milieu du chemin piégé de l'étape de sa chute
+  function lieuMort(p) { // là où un joueur éliminé est tombé : au milieu du chemin piégé qu'il avait pris
     const e = p.mort - 1, s = segment(e);
-    return s ? pt(e, s.piege === 'gauche' ? -1 : 1, .45) : [nodeX(e), Y0];
+    if (!s) return [nodeX(e), Y0];
+    const j = p.mortChemin ?? s.pieges?.[0] ?? 0;
+    return pt(e, s.ecarts[j] ?? s.ecarts[0], .45);
   }
 
   function persos(tt, k) {
@@ -318,7 +321,7 @@ const TempleCarte = (() => {
         perso(nodeX(k) + px, Y0 + py + (calme ? 0 : Math.sin(performance.now() / 330 + j) * 1.5), j); return;
       }
       // révélation : départ, arrêt juste avant l'obstacle (suspense), puis le piège
-      const c = p.choix === 'gauche' ? -1 : 1, style = c < 0 ? cur.decorG : cur.decorD;
+      const ch = p.choix ?? 0, c = cur.ecarts[ch] ?? cur.ecarts[0], style = cur.chemins[ch]?.decor;
       const rang = E.joueurs.filter((q, i) => i < j && q.choix === p.choix && (q.vies > 0 || q.perdu)).length, retard = rang * .06;
       const approche = (tt < 1.1 ? ease(tt / 1.1) * .4 : .4) - retard;
       if (tombeIci) {
@@ -329,7 +332,7 @@ const TempleCarte = (() => {
           const u = .4 - retard + clamp(d, 0, .35) * .3;
           [x, y] = pt(k, c, u);
           if (style === 'liane' && d < .45) { // il s'élance au bout de la liane… qui casse
-            const [ax, ay] = ancre(k, c); ctx.strokeStyle = '#4c7a2a'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(x, y); ctx.stroke();
+            const [ax, ay] = ancre(k, ch); ctx.strokeStyle = '#4c7a2a'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(x, y); ctx.stroke();
             echelle = 1.25;
           } else { echelle = Math.max(0, 1 - (d - (style === 'liane' ? .45 : 0)) * 1.3); alpha = Math.max(0, 1 - d * 1.1); }
           if (tt >= PIEGE + 1.3) { // réapparition à la plateforme suivante, en clignotant ; ou ☠️ s'il n'a plus de vie
@@ -348,7 +351,7 @@ const TempleCarte = (() => {
       let [x, y] = pt(k, c, clamp(u - retard * (1 - ease(clamp((tt - PIEGE - .6) / 1, 0, 1))), 0, 1));
       let echelle = 1;
       const uu = u - retard;
-      if (style === 'liane' && uu > .42 && uu < .58) { const [ax, ay] = ancre(k, c); ctx.strokeStyle = '#4c7a2a'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(x, y); ctx.stroke(); echelle = 1.3; }
+      if (style === 'liane' && uu > .42 && uu < .58) { const [ax, ay] = ancre(k, ch); ctx.strokeStyle = '#4c7a2a'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(x, y); ctx.stroke(); echelle = 1.3; }
       if (style === 'escalade' && uu > .44 && uu < .56) echelle = 1.15;
       const arr = ease(clamp((tt - PIEGE - 1.5) / .6, 0, 1));
       if (arr > 0) { x += (nodeX(k + 1) + px - x) * arr; y += (Y0 + py - y) * arr; }

@@ -463,6 +463,10 @@ body[data-theme="temple"] .tp-choix .btn.choisi { border-color: var(--accent); b
 .dr-degats { color: var(--muted); font: 600 clamp(12px, 1.1vw, 20px) var(--mono); }
 .dr-muret { width: 90%; height: clamp(22px, 3.4vh, 44px); border-radius: 4px; background: repeating-linear-gradient(90deg, #7a4e25 0 22%, #5b3a1c 22% 25%); box-shadow: inset 0 -5px 0 rgba(0, 0, 0, .25); }
 .dr-poste.hors { opacity: .45; }
+.dr-etat { min-height: 1.3em; font-size: clamp(13px, 1.25vw, 22px); color: var(--muted); text-align: center; }
+.dr-poste.dehors { border-color: var(--danger); background: var(--danger-soft); }
+.dr-poste.dehors .dr-etat { color: var(--danger); }
+.dr-poste.dehors .dr-muret { transform: translateY(8px); opacity: .55; }
 .dr-poste.tire { box-shadow: 0 0 26px rgba(242, 197, 61, .55); }
 .dr-poste.touche { animation: dr-secousse .5s 2; border-color: var(--danger); }
 .dr-pan { position: absolute; top: -1.4em; font: 800 clamp(16px, 1.7vw, 30px) var(--display); color: #f2c53d; animation: mm-pop .3s ease-out; }
@@ -486,3 +490,11 @@ body[data-theme="temple"] .tp-choix .btn.choisi { border-color: var(--accent); b
 .dr-observer { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; min-height: 72px; }
 .dr-tirs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .dr-tirs .btn:first-child { grid-column: 1 / -1; }
+
+/* Temple, blocs de pierre : plus de chemins, texte plus petit */
+.tp-duel.n3 .tp-nom { font-size: clamp(20px, 2.3vw, 42px); }
+.tp-duel.n4 .tp-nom { font-size: clamp(17px, 1.8vw, 32px); }
+.tp-duel.n3 .tp-msg, .tp-duel.n4 .tp-msg { font-size: clamp(13px, 1.15vw, 22px); }
+.tp-duel.n4 { gap: .8vw; }
+.tp-duel.n4 .tp-obs { padding: 1.4vh .8vw; }
+.tp-phrase { color: var(--danger); }

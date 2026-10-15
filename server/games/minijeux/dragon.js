@@ -1,9 +1,9 @@
 // Mini-jeu « La Chasse au dragon » (tir, sans violence : on est « touché », puis « hors jeu »).
-// Chacun pour soi (1v1v1v1) ou 2 contre 2. Par défaut, chaque joueur est à l'abri derrière son muret : rien ne peut le toucher,
-// mais il ne voit pas le jeu sur son téléphone. Pour agir, il se met à découvert :
-//   - observer (en maintenant le bouton) : il voit qui est à découvert, ce que font les autres, leurs munitions ;
+// Chacun pour soi (1v1v1v1) ou 2 contre 2. Le téléphone ne sert que de manette : pour savoir ce qui se passe, on regarde l'écran.
+// Par défaut, chaque joueur est à l'abri derrière son muret : rien ne peut le toucher. Pour agir, il se met à découvert :
 //   - viser un joueur ou le dragon (1 s) puis tirer : un joueur n'est touché que s'il est à découvert au moment du tir ;
 //   - chercher des munitions (quelques secondes).
+// L'écran montre en direct qui est à découvert et ce qu'il fait.
 // Le dragon ne bouge pas ; il attaque à intervalles irréguliers (annoncé 2 s avant) et touche tous ceux qui sont à découvert.
 // Fin : dragon vaincu, un seul joueur (ou une équipe) encore en jeu, ou temps écoulé.
 // Classement : les survivants d'abord, selon leurs dégâts sur le dragon ; puis les éliminés, le dernier éliminé devant.
@@ -168,26 +168,23 @@ export function adminAction(ctx, g, r, a) {
   return err('Action inconnue.');
 }
 
-// Ce que voit chacun. L'écran et les joueurs à l'abri ne voient pas qui est à découvert : il faut observer pour le savoir.
+// Ce que voit chacun : l'écran montre tout (qui est à découvert, ce qu'il fait, ses munitions) ; le téléphone, seulement son joueur.
 export function view(ctx, g, r, as, nom) {
   const d = r.dr;
   if (!d) return null;
-  const now = ctx.now();
   const v = {
     type: id, phase: d.phase, fin: d.fin, raison: d.raison,
     dragon: { pv: d.dragon.pv, max: d.dragon.max, prepare: d.phase === 'jeu' && d.dragon.prevenu, attaque: d.dragon.prevenu ? d.dragon.attaque : null },
     joueurs: r.joueurs.map(p => ({ nom: p, equipe: equipeDe(r, p), vies: d.j[p].vies, horsJeu: !enJeu(d, p), degats: d.j[p].degats })),
     events: d.events.slice(-8),
+    etats: r.joueurs.map(p => ({ nom: p, action: enJeu(d, p) ? d.j[p].action : 'horsjeu', cible: d.j[p].cible, munitions: d.j[p].munitions })),
     equipes: r.equipes.length > 2 || r.equipes.every(t => t.length === 1) ? null : r.equipes,
   };
-  const tout = () => r.joueurs.map(p => ({ nom: p, action: enJeu(d, p) ? d.j[p].action : 'horsjeu', cible: d.j[p].cible, munitions: d.j[p].munitions }));
-  if (as === 'admin') { v.etats = tout(); v.attaque = d.dragon.attaque; }
+  if (as === 'admin') v.attaque = d.dragon.attaque;
   if (as === 'joueur' && d.j[nom]) {
     const me = d.j[nom];
     v.moi = { vies: me.vies, munitions: me.munitions, action: me.action, cible: me.cible, finAction: me.finAction, horsJeu: !enJeu(d, nom), equipe: equipeDe(r, nom) };
     v.cibles = r.joueurs.filter(p => p !== nom && enJeu(d, p) && equipeDe(r, p) !== equipeDe(r, nom));
-    // à découvert, on voit le jeu : qui est à découvert, ce qu'il fait, ses munitions, et quand le dragon attaquera
-    if (d.phase === 'jeu' && enJeu(d, nom) && me.action !== 'cache') { v.vue = tout().filter(x => x.nom !== nom); v.attaqueDans = Math.max(0, d.dragon.attaque - now); }
   }
   return v;
 }

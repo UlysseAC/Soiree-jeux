@@ -380,12 +380,38 @@ function tpDecor(ligne) {
   return { nom: nom.trim(), decor: TP_INDICES.find(([, re]) => re.test(sansAccents(nom)))?.[0] || 'jungle', choisi: false, inconnu: c || '' };
 }
 
+// Chemins de chaque étape (même règle que le serveur) : « chemins:pièges » séparés par des virgules, la dernière valeur vaut pour la suite.
+function tpPlan(j) {
+  const plan = String(j.cheminsEtapes || '').split(/[,;\s]+/).filter(Boolean);
+  return Array.from({ length: Math.max(1, Math.min(20, Number(j.etapes) || 5)) }, (_, k) => {
+    const [n, p] = String(plan[Math.min(k + 1, plan.length) - 1] || '2:1').split(':').map(Number);
+    const c = Math.max(2, Math.min(4, n || 2));
+    return [c, Math.max(1, Math.min(c - 1, p || 1))];
+  });
+}
+function tpPlanReglages(j, s) {
+  const opt = (v, lo, hi) => Array.from({ length: hi - lo + 1 }, (_, i) => lo + i).map(x => `<option value="${x}" ${x === v ? 'selected' : ''}>${x}</option>`).join('');
+  return `<div class="field"><span class="label">Chemins à chaque étape</span>
+    <div class="scroll"><table><thead><tr><th>Étape</th><th>Chemins</th><th>Dont piégés</th></tr></thead><tbody>${tpPlan(j).map(([c, p], k) => `<tr><td class="mono">${k + 1}</td>
+      <td><select class="in" style="width:auto" data-tp-plan="${s}" data-k="${k}" data-quoi="chemins" aria-label="Chemins à l'étape ${k + 1}">${opt(c, 2, 4)}</select></td>
+      <td><select class="in" style="width:auto" data-tp-plan="${s}" data-k="${k}" data-quoi="pieges" aria-label="Chemins piégés à l'étape ${k + 1}">${opt(p, 1, c - 1)}</select></td></tr>`).join('')}</tbody></table></div>
+    <span class="muted" style="font-size:13px">Par exemple 2 chemins aux premières étapes, puis 3 ou 4 à partir de l'étape 3. Il reste toujours au moins un chemin sûr.</span></div>`;
+}
+app.addEventListener('change', e => {
+  const sel = e.target.closest('[data-tp-plan]');
+  if (!sel) return;
+  const s = sel.dataset.tpPlan, plan = tpPlan(V.gameConfig.jeux[s]);
+  const k = Number(sel.dataset.k), v = Number(sel.value);
+  if (sel.dataset.quoi === 'chemins') plan[k] = [v, Math.min(plan[k][1], v - 1)]; else plan[k][1] = v;
+  admin({ type: 'config', scope: 'jeu', path: `jeux.${s}.cheminsEtapes`, value: plan.map(([c, p]) => `${c}:${p}`).join(',') });
+});
+
 // Réglages propres au « Temple aztèque » : les obstacles (avec leur décor), les pièges, les étapes et les vies.
 function mjTempleReglages(c, s) {
   const j = c.jeux[s];
   const obs = String(j.obstacles || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean).map(tpDecor).filter(o => o.nom);
   return `<div class="box" style="gap:10px">
-    <p class="muted" style="margin:0;font-size:14px">Jeu de chance. À chaque étape, deux obstacles tirés de ta liste : chaque joueur en choisit un sur son téléphone. L'un des deux, au hasard, est un piège qui fait perdre une vie. Ceux qui arrivent au temple avec le plus de vies gagnent ; les éliminés sont classés selon l'étape atteinte.</p>
+    <p class="muted" style="margin:0;font-size:14px">Jeu de chance. À chaque étape, 2 à 4 chemins (réglable plus bas) tirés de ta liste : chaque joueur en choisit un sur son téléphone. Un ou plusieurs chemins, au hasard, sont piégés et font perdre une vie. Ceux qui arrivent au temple avec le plus de vies gagnent ; les éliminés sont classés selon l'étape atteinte.</p>
     <label class="field"><span class="label">Obstacles (un par ligne) · ${obs.length}</span>
       <textarea class="in mono" rows="12" id="c-jeu-jeux-${s}-obstacles" data-cfg="jeux.${s}.obstacles" data-kind="area" data-scope="jeu" placeholder="Pont de bois | Le pont s'effondre ! | eau">${esc(j.obstacles)}</textarea>
       <span class="muted" style="font-size:13px">Écris <strong>nom | ce qui arrive si c'est le piège | décor</strong>. La phrase et le décor sont facultatifs : sans phrase, une phrase de la liste « Pièges » est tirée au hasard ; sans décor, il est deviné d'après le nom. Pour mettre un décor sans phrase : <span class="mono">Grotte aux chauves-souris | | tunnel</span>.${obs.length < 2 ? ' <span style="color:var(--danger)">Il faut au moins 2 obstacles.</span>' : ''}</span></label>
@@ -394,16 +420,18 @@ function mjTempleReglages(c, s) {
       <div class="scroll"><table><tbody>${obs.map(o => `<tr><td>${esc(o.nom)}</td><td>${esc(TP_DECORS[o.decor])}</td><td class="muted" style="font-size:13px">${o.choisi ? 'choisi' : o.inconnu ? `<span style="color:var(--danger)">« ${esc(o.inconnu)} » n'existe pas : décor deviné</span>` : 'deviné d\'après le nom'}</td></tr>`).join('')}</tbody></table></div></div>
     <label class="field"><span class="label">Pièges (un par ligne)</span>
       <textarea class="in" rows="4" id="c-jeu-jeux-${s}-pieges" data-cfg="jeux.${s}.pieges" data-kind="area" data-scope="jeu" placeholder="Un serpent te mord !">${esc(j.pieges)}</textarea></label>
+    <div class="grid-auto"><label class="field"><span class="label">Affichage sur l'écran</span><select class="in" id="c-jeu-jeux-${s}-affichageTemple" data-cfg="jeux.${s}.affichageTemple" data-kind="text" data-scope="jeu">${[['carte', 'Carte vue du dessus'], ['pierres', 'Blocs de pierre (première version)']].map(([v, l]) => `<option value="${v}" ${(j.affichageTemple || 'carte') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
     <div class="grid-auto">${cfgInput(`jeux.${s}.etapes`, j.etapes, 'num', { label: 'Étapes jusqu\'au temple' })}${cfgInput(`jeux.${s}.vies`, j.vies, 'num', { label: 'Vies' })}
       ${cfgInput(`jeux.${s}.tempsChoix`, j.tempsChoix, 'dur', { label: 'Temps pour choisir' })}${cfgInput(`jeux.${s}.tempsPiege`, j.tempsPiege, 'dur', { label: 'Affichage du piège' })}</div>
+    ${tpPlanReglages(j, s)}
   </div>`;
 }
 function mjTemplePartie(e) {
   const phase = { choix: 'Les joueurs choisissent', resultat: 'Piège révélé', arrivee: 'Arrivée au temple', fini: 'Terminé' }[e.phase];
   const coeurs = p => p.vies > 0 ? '❤️'.repeat(p.vies) + '🖤'.repeat(Math.max(0, e.viesMax - p.vies)) : `☠️ étape ${p.mort}`;
-  const rows = e.joueurs.map(p => `<tr><td><strong>${esc(p.nom)}</strong></td><td>${coeurs(p)}</td><td>${e.phase === 'choix' ? (p.vies > 0 ? (p.choisi ? '✓ a choisi' : '<span class="muted">pas encore</span>') : '') : p.choix ? `${esc(e[p.choix])}${p.auto ? ' <span class="muted">(au hasard)</span>' : ''}${p.perdu ? ' · <strong style="color:var(--danger)">−1</strong>' : ''}` : ''}</td></tr>`).join('');
+  const rows = e.joueurs.map(p => `<tr><td><strong>${esc(p.nom)}</strong></td><td>${coeurs(p)}</td><td>${e.phase === 'choix' ? (p.vies > 0 ? (p.choisi ? '✓ a choisi' : '<span class="muted">pas encore</span>') : '') : p.choix != null ? `${esc(e.chemins[p.choix]?.nom)}${p.auto ? ' <span class="muted">(au hasard)</span>' : ''}${p.perdu ? ' · <strong style="color:var(--danger)">−1</strong>' : ''}` : ''}</td></tr>`).join('');
   return `<div class="box" style="background:var(--ink)"><div class="spread"><strong>Étape ${e.etape} / ${e.total} · ${phase}</strong>${e.phase !== 'fini' ? `<span class="pill accent"><span class="mono" data-until="${e.fin}"></span></span>` : ''}</div>
-    <p style="margin:0">${esc(e.gauche)} <span class="muted">ou</span> ${esc(e.droite)}${e.piege ? ` · piège : <strong>${esc(e[e.piege])}</strong> (${esc(e.message)})` : ''}</p>
+    <p style="margin:0">${e.chemins.map(c => esc(c.nom)).join(' <span class="muted">·</span> ')}${e.pieges ? ` · ${e.pieges.length > 1 ? 'pièges' : 'piège'} : ${e.pieges.map(i => `<strong>${esc(e.chemins[i].nom)}</strong> (${esc(e.messages[i])})`).join(', ')}` : ''}</p>
     <div class="scroll"><table><thead><tr><th>Joueur</th><th>Vies</th><th>Choix</th></tr></thead><tbody>${rows}</tbody></table></div>
     ${e.phase !== 'fini' ? '<div><button class="btn sm" data-mj="suivant">Passer à l\'étape suivante</button></div>' : ''}</div>`;
 }

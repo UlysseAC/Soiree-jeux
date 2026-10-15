@@ -95,6 +95,8 @@ function mjCompris(a) {
 // Le Temple aztèque : deux obstacles, puis le piège révélé (après un roulement de tambour), puis l'arrivée au temple.
 const TP_DELAI = 2400; // suspense avant la révélation du piège (ms), le même que --tp-delai en CSS
 const TP_PYRAMIDE = `<svg class="tp-pyr" viewBox="0 0 120 92" aria-hidden="true"><g fill="currentColor"><rect x="48" y="2" width="24" height="16" rx="1"/><rect x="38" y="18" width="44" height="14"/><rect x="27" y="32" width="66" height="14"/><rect x="16" y="46" width="88" height="14"/><rect x="4" y="60" width="112" height="16"/></g><rect x="55" y="7" width="10" height="11" fill="rgba(0,0,0,.45)"/><rect x="56" y="32" width="8" height="44" fill="rgba(0,0,0,.22)"/><path d="M0 80h120v4H0z" fill="currentColor" opacity=".5"/></svg>`;
+const TP_FISSURE = `<svg class="tp-fissure" viewBox="0 0 100 60" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" d="M48 0 L52 14 L44 24 L55 33 L47 45 L53 60 M52 14 L66 20 L72 31 M44 24 L30 28 L24 40 M55 33 L70 42"/></svg>`;
+const tpTorche = () => `<div class="tp-torche" aria-hidden="true"><span class="tp-flamme">🔥</span><span class="tp-baton"></span></div>`;
 const tpDecor = () => `<div class="tp-deco" aria-hidden="true"><span class="tp-liane l1">🌿</span><span class="tp-liane l2">🍃</span><span class="tp-liane l3">🌿</span><span class="tp-liane r1">🌿</span><span class="tp-liane r2">🍃</span><span class="tp-liane r3">🌿</span></div>`;
 function tpCoeurs(e, p) {
   if (!(p.vies > 0) && !p.perdu) return '☠️';
@@ -117,13 +119,28 @@ function mjTemple(a, e) {
   const rev = e.phase === 'resultat';
   const reste = e.fin - SJ.now();
   const perdus = e.joueurs.filter(p => p.perdu);
+  const nomsPieges = (e.pieges || []).map(i => e.chemins[i]?.nom);
+  const phrases = (e.pieges || []).map(i => e.messages?.[i]).filter(Boolean);
   const sub = !rev
     ? `<div class="sc-sub">À vos téléphones : quel passage ? · <strong class="mono tp-timer ${reste < 6000 ? 'urgent' : ''}" data-until="${e.fin}"></strong> · ${e.joueurs.filter(p => p.vies > 0 && p.choisi).length} / ${e.joueurs.filter(p => p.vies > 0).length} ont choisi</div>`
-    : `<div class="sc-sub tp-swap"><span class="tp-avant">🥁 Le temple gronde… lequel est piégé ?</span><span class="tp-apres">${perdus.length ? `${perdus.map(p => esc(p.nom)).join(', ')} ${perdus.length > 1 ? 'perdent' : 'perd'} une vie !` : 'Personne n\'est tombé dans le piège !'}</span></div>`;
-  // La carte vue du dessus (dessinée par temple-carte.js) ; sous elle, chaque joueur avec la couleur de son t-shirt et ses vies.
-  return `<div class="tp-scene ${rev ? 'tp-rev' : ''}">${tpDecor()}${head}${sub}
-    <canvas id="tp-carte" class="tp-carte" width="1280" height="720" aria-label="Carte du chemin vers le temple"></canvas>
-    <div class="tp-joueurs">${e.joueurs.map((p, j) => `<div class="tp-j ${p.vies > 0 || p.perdu ? '' : 'mort'} ${p.perdu ? 'perdu' : ''}"><i class="tp-tshirt" style="--tshirt:${TempleCarte.COULEURS[j % TempleCarte.COULEURS.length]}"></i><strong>${esc(p.nom)}</strong><span>${tpCoeurs(e, p)}</span>${!rev && p.vies > 0 ? `<em>${p.choisi ? '✓' : '…'}</em>` : ''}</div>`).join('')}</div></div>`;
+    : `<div class="sc-sub tp-swap"><span class="tp-avant">🥁 Le temple gronde… ${nomsPieges.length > 1 ? 'lesquels sont piégés' : 'lequel est piégé'} ?</span><span class="tp-apres">${phrases.length ? `<span class="tp-phrase">☠️ ${phrases.map(esc).join(' · ')}</span> ` : ''}${perdus.length ? `${perdus.map(p => esc(p.nom)).join(', ')} ${perdus.length > 1 ? 'perdent' : 'perd'} une vie !` : 'Personne n\'est tombé dans le piège !'}</span></div>`;
+  const joueurs = `<div class="tp-joueurs">${e.joueurs.map((p, j) => `<div class="tp-j ${p.vies > 0 || p.perdu ? '' : 'mort'} ${p.perdu ? 'perdu' : ''}">${e.affichage === 'carte' ? `<i class="tp-tshirt" style="--tshirt:${TempleCarte.COULEURS[j % TempleCarte.COULEURS.length]}"></i>` : ''}<strong>${esc(p.nom)}</strong><span>${tpCoeurs(e, p)}</span>${!rev && p.vies > 0 ? `<em>${p.choisi ? '✓' : '…'}</em>` : ''}</div>`).join('')}</div>`;
+  if (e.affichage === 'carte') { // la carte vue du dessus (dessinée par temple-carte.js)
+    return `<div class="tp-scene ${rev ? 'tp-rev' : ''}">${tpDecor()}${head}${sub}
+      <canvas id="tp-carte" class="tp-carte" width="1280" height="720" aria-label="Carte du chemin vers le temple"></canvas>${joueurs}</div>`;
+  }
+  // Première version : le chemin d'étapes, et un bloc de pierre par passage, entre deux torches
+  const ici = e.etape - (e.phase === 'choix' ? 1 : 0);
+  const chemin = `<div class="tp-chemin">${Array.from({ length: e.total }, (_, i) => `<span class="${i < ici ? 'fait' : i === e.etape - 1 ? 'ici' : ''}">${i === e.etape - 1 ? '<i>👣</i>' : ''}</span>`).join('')}${TP_PYRAMIDE}</div>`;
+  const bloc = (c, i) => {
+    const qui = rev ? e.joueurs.filter(p => p.choix === i) : [];
+    const piege = rev && e.pieges.includes(i);
+    return `<div class="tp-obs ${rev ? `revele ${piege ? 'piege' : 'sur'}` : ''}">${piege ? TP_FISSURE + '<div class="tp-debris" aria-hidden="true"><span>🪨</span><span>🪨</span><span>🪨</span></div>' : ''}
+      <div class="tp-fl">${i + 1}</div><div class="tp-nom">${esc(c.nom)}</div>
+      ${rev ? `<div class="tp-msg">${piege ? `☠️ ${esc(e.messages[i] || '')}` : '✓ Passage sûr'}</div><div class="tp-qui">${qui.map(p => `<span>${esc(p.nom)}</span>`).join('') || '<span class="muted">personne</span>'}</div>` : ''}</div>`;
+  };
+  return `<div class="tp-scene ${rev ? 'tp-rev' : ''}">${tpDecor()}${head}${chemin}${sub}
+    <div class="tp-duel n${e.chemins.length}" style="grid-template-columns:auto repeat(${e.chemins.length}, minmax(0, 1fr)) auto">${tpTorche()}${e.chemins.map(bloc).join('')}${tpTorche()}</div>${joueurs}</div>`;
 }
 // Le Mime : préparation du duo, puis le mime (chrono, essais du devineur, mots trouvés).
 function mjMime(a, e) {
@@ -150,7 +167,7 @@ function mjMime(a, e) {
     ${scores}`;
 }
 // La Chasse au dragon : le dragon et sa barre de vie en haut, le poste de chaque joueur derrière son muret en bas.
-// On ne montre pas qui est à découvert (il faut observer sur son téléphone pour le savoir) : seulement les tirs, une fois tirés.
+// L'écran montre tout en direct : qui est à découvert et ce qu'il fait (les téléphones n'ont que les boutons).
 function mjDragon(a, e) {
   const head = `<div class="mj-kicker">Round ${a.n} · ${esc(a.nom)}${e.phase === 'jeu' ? ` · fin dans <span class="mono" data-until="${e.fin}"></span>` : ''}</div>`;
   const now = SJ.now(), recent = (ev, ms) => now - ev.at < ms;
@@ -161,10 +178,13 @@ function mjDragon(a, e) {
     const tire = e.events.find(ev => ev.type === 'tir' && ev.de === p.nom && recent(ev, 1400));
     const vise = e.events.find(ev => ev.type === 'tir' && ev.vers === p.nom && recent(ev, 1400));
     const brule = souffle?.touches.includes(p.nom);
-    return `<div class="dr-poste ${p.horsJeu ? 'hors' : ''} ${tire ? 'tire' : ''} ${(vise?.touche || brule) ? 'touche' : ''}" ${teamCol(p) ? `style="--team:${teamCol(p)}"` : ''}>
+    const st = e.etats.find(x => x.nom === p.nom) || {}, dehors = !p.horsJeu && st.action && st.action !== 'cache';
+    const fait = { vise: `🎯 vise ${st.cible === 'dragon' ? 'le dragon' : esc(st.cible || '')}`, cherche: '📦 cherche des munitions', observe: '👀 à découvert' }[st.action];
+    return `<div class="dr-poste ${p.horsJeu ? 'hors' : ''} ${dehors ? 'dehors' : ''} ${tire ? 'tire' : ''} ${(vise?.touche || brule) ? 'touche' : ''}" ${teamCol(p) ? `style="--team:${teamCol(p)}"` : ''}>
       ${tire ? '<div class="dr-pan">PAN !</div>' : ''}${vise ? `<div class="dr-bulle">${vise.touche ? '💥 Touché !' : '🪵 À l\'abri !'}</div>` : brule ? '<div class="dr-bulle">🔥 Touché !</div>' : ''}
       <div class="dr-nom">${esc(p.nom)}</div><div class="dr-vies">${p.horsJeu ? '😵 hors jeu' : '❤️'.repeat(p.vies)}</div>
-      <div class="dr-muret" aria-hidden="true"></div><div class="dr-degats">🐉 ${p.degats}</div></div>`;
+      <div class="dr-etat">${p.horsJeu ? '' : dehors ? `<strong>⚠️ ${fait}</strong>` : '🪵 à l\'abri'}</div>
+      <div class="dr-muret" aria-hidden="true"></div><div class="dr-degats">${p.horsJeu ? '' : `${'🔸'.repeat(st.munitions || 0) || '0 munition'} · `}🐉 ${p.degats}</div></div>`;
   }).join('');
   const msg = ev => {
     if (ev.type === 'tir') return ev.vers === 'dragon' ? `🎯 ${esc(ev.de)} touche le dragon !` : ev.touche ? `💥 ${esc(ev.de)} touche ${esc(ev.vers)} !` : `🔫 ${esc(ev.de)} tire sur ${esc(ev.vers)}… raté, à l'abri !`;
