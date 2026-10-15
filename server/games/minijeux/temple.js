@@ -78,7 +78,6 @@ function resoudre(ctx, r, sc) {
   cur.perdus = vivants(r).filter(p => cur.choix[p] === cur.piege);
   for (const p of cur.perdus) if (--t.vies[p] <= 0) t.mort[p] = t.etape;
   t.passees.push(cur);
-  if (cur.perdus.length) ctx.sfx?.('boom');
   t.phase = 'resultat';
   t.fin = ctx.now() + clampInt(sc.tempsPiege, 8, 2, 120) * 1000;
 }

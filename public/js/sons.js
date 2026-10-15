@@ -73,5 +73,27 @@ const Sons = (() => {
     });
   }
 
-  return { enable, on, marcher, boom, fanfare, gong };
+  // Le Temple aztèque : roulement de tambour qui accélère (suspense), coup de tambour, pierre qui roule, flûte.
+  function coup(gain = .8) { noise(.25, { freq: 140, gain, decay: .25 }); }
+  function tambour(dur = 2.2) {
+    if (!on()) return;
+    let t = 0, gap = .22;
+    while (t < dur) { const g = .35 + .5 * (t / dur); setTimeout(() => coup(g), t * 1000); t += gap; gap = Math.max(.06, gap * .88); }
+  }
+  function pierre() { noise(1.1, { freq: 110, q: 4, gain: .7, decay: 1.1 }); }
+  function flute(notes = [587, 659, 784, 659]) {
+    if (!on()) return;
+    notes.forEach((f, i) => {
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      const t = ac.currentTime + i * .22;
+      g.gain.setValueAtTime(.0001, t);
+      g.gain.exponentialRampToValueAtTime(.18, t + .04);
+      g.gain.exponentialRampToValueAtTime(.0001, t + .5);
+      o.connect(g).connect(ac.destination);
+      o.start(t); o.stop(t + .55);
+    });
+  }
+
+  return { enable, on, marcher, boom, fanfare, gong, coup, tambour, pierre, flute };
 })();

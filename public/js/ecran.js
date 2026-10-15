@@ -16,7 +16,14 @@ function celebrate(key, ms, extra) {
 }
 
 SJ.sock.on('connect', () => SJ.emit('hello', { role: 'ecran' }));
-SJ.sock.on('etat', v => { V = v; document.body.dataset.game = v.gameId; draw(); });
+SJ.sock.on('etat', v => {
+  V = v; document.body.dataset.game = v.gameId;
+  // Décor aztèque pendant un round du Temple (annonce, partie, résultats).
+  const mjr = v.gameId === 'minijeux' && v.game ? v.game.actif || v.game.recent : null;
+  document.body.dataset.theme = mjr?.type === 'temple' ? 'temple' : '';
+  if (v.gameId === 'minijeux' && v.game) tpSons(v.game);
+  draw();
+});
 SJ.sock.on('sfx', n => { if (n === 'boom') Sons.boom(); if (n === 'victoire') Sons.fanfare(); if (n === 'annonce') Sons.gong(); });
 
 const soundBtn = document.getElementById('sound');
@@ -84,31 +91,69 @@ function mjCompris(a) {
   return `<div class="mj-compris">${a.joueurs.map(p => `<span class="${a.compris.includes(p) ? 'on' : ''}">${a.compris.includes(p) ? '✓' : '…'} ${esc(p)}</span>`).join('')}</div>`;
 }
 // « La Définition » : écriture, vote, révélation.
-// Le Temple aztèque : deux obstacles, puis le piège révélé, puis l'arrivée au temple.
+// Le Temple aztèque : deux obstacles, puis le piège révélé (après un roulement de tambour), puis l'arrivée au temple.
+const TP_DELAI = 2400; // suspense avant la révélation du piège (ms), le même que --tp-delai en CSS
+const TP_PYRAMIDE = `<svg class="tp-pyr" viewBox="0 0 120 92" aria-hidden="true"><g fill="currentColor"><rect x="48" y="2" width="24" height="16" rx="1"/><rect x="38" y="18" width="44" height="14"/><rect x="27" y="32" width="66" height="14"/><rect x="16" y="46" width="88" height="14"/><rect x="4" y="60" width="112" height="16"/></g><rect x="55" y="7" width="10" height="11" fill="rgba(0,0,0,.45)"/><rect x="56" y="32" width="8" height="44" fill="rgba(0,0,0,.22)"/><path d="M0 80h120v4H0z" fill="currentColor" opacity=".5"/></svg>`;
+const TP_FISSURE = `<svg class="tp-fissure" viewBox="0 0 100 60" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" d="M48 0 L52 14 L44 24 L55 33 L47 45 L53 60 M52 14 L66 20 L72 31 M44 24 L30 28 L24 40 M55 33 L70 42"/></svg>`;
+const tpDecor = () => `<div class="tp-deco" aria-hidden="true"><span class="tp-liane l1">🌿</span><span class="tp-liane l2">🍃</span><span class="tp-liane l3">🌿</span><span class="tp-liane r1">🌿</span><span class="tp-liane r2">🍃</span><span class="tp-liane r3">🌿</span></div>`;
+const tpTorche = () => `<div class="tp-torche" aria-hidden="true"><span class="tp-flamme">🔥</span><span class="tp-baton"></span></div>`;
+function tpCoeurs(e, p) {
+  if (!(p.vies > 0) && !p.perdu) return '☠️';
+  const plein = p.vies; // déjà diminué : le cœur perdu s'affiche à part, et se brise après le suspense
+  const casse = e.phase === 'resultat' && p.perdu ? '<span class="tp-c"><b>❤️</b><b>🖤</b></span>' : '';
+  return '❤️'.repeat(Math.max(0, plein)) + casse + '<span class="tp-vide">' + '♥'.repeat(Math.max(0, e.viesMax - Math.max(0, plein) - (casse ? 1 : 0))) + '</span>';
+}
 function mjTemple(a, e) {
   const head = `<div class="mj-kicker">Round ${a.n} · ${esc(a.nom)} · étape ${e.etape} / ${e.total}</div>`;
-  const coeurs = p => p.vies > 0 ? '❤️'.repeat(p.vies) + '<span class="tp-vide">' + '♥'.repeat(Math.max(0, e.viesMax - p.vies)) + '</span>' : '☠️';
-  const chemin = `<div class="tp-chemin">${Array.from({ length: e.total }, (_, i) => `<span class="${i < e.etape - (e.phase === 'choix' ? 1 : 0) ? 'fait' : i === e.etape - 1 ? 'ici' : ''}"></span>`).join('')}<b>🏛️</b></div>`;
+  const ici = e.etape - (e.phase === 'choix' ? 1 : 0);
+  const chemin = `<div class="tp-chemin">${Array.from({ length: e.total }, (_, i) => `<span class="${i < ici ? 'fait' : i === e.etape - 1 ? 'ici' : ''}">${i === e.etape - 1 && e.phase !== 'arrivee' ? '<i>👣</i>' : ''}</span>`).join('')}${TP_PYRAMIDE}</div>`;
   if (e.phase === 'arrivee' || e.phase === 'fini') {
     const arrives = e.joueurs.filter(p => p.vies > 0).sort((x, y) => y.vies - x.vies);
     const morts = e.joueurs.filter(p => !(p.vies > 0)).sort((x, y) => y.mort - x.mort);
-    return `${head}<div class="mj-round">🏛️ Le temple !</div>
-      <div class="sc-sub">${arrives.length ? `${arrives.length > 1 ? 'Ils arrivent' : 'Arrivée'} au temple et récupère${arrives.length > 1 ? 'nt' : ''} le trésor 💰` : 'Personne n\'a survécu au chemin…'}</div>
-      <div class="tp-joueurs">${arrives.map(p => `<div class="tp-j on"><strong>${esc(p.nom)}</strong><span>${coeurs(p)}</span></div>`).join('')}
-        ${morts.map(p => `<div class="tp-j mort"><strong>${esc(p.nom)}</strong><span>☠️ étape ${p.mort}</span></div>`).join('')}</div>`;
+    const or = arrives.length ? `<div class="tp-or" aria-hidden="true">${Array.from({ length: 18 }, (_, i) => `<span style="left:${(i * 37) % 100}%;animation-delay:${((i * 7) % 18) / 6}s">${['🪙', '💰', '✨'][i % 3]}</span>`).join('')}</div>` : '';
+    return `<div class="tp-scene tp-fin">${tpDecor()}${or}${head}
+      <div class="tp-arrivee">${TP_PYRAMIDE}<div><div class="mj-round">Le temple !</div>
+      <div class="sc-sub">${arrives.length ? `${arrives.length > 1 ? 'Ils arrivent' : 'Arrivée'} au temple et récupère${arrives.length > 1 ? 'nt' : ''} le trésor 💰` : 'Personne n\'a survécu au chemin… le trésor reste caché.'}</div></div></div>
+      <div class="tp-joueurs">${arrives.map(p => `<div class="tp-j on"><strong>${esc(p.nom)}</strong><span>${tpCoeurs(e, p)}</span></div>`).join('')}
+        ${morts.map(p => `<div class="tp-j mort"><strong>${esc(p.nom)}</strong><span>☠️ étape ${p.mort}</span></div>`).join('')}</div></div>`;
   }
+  const rev = e.phase === 'resultat';
   const side = c => {
-    const qui = e.phase === 'resultat' ? e.joueurs.filter(p => p.choix === c) : [];
-    const piege = e.phase === 'resultat' && e.piege === c;
-    return `<div class="tp-obs ${e.phase === 'resultat' ? (piege ? 'piege' : 'sur') : ''}"><div class="tp-fl">${c === 'gauche' ? '⬅' : '➡'}</div><div class="tp-nom">${esc(e[c])}</div>
-      ${e.phase === 'resultat' ? `<div class="tp-msg">${piege ? `☠️ ${esc(e.message)}` : '✓ Passage sûr'}</div><div class="tp-qui">${qui.map(p => `<span>${esc(p.nom)}</span>`).join('') || '<span class="muted">personne</span>'}</div>` : ''}</div>`;
+    const qui = rev ? e.joueurs.filter(p => p.choix === c) : [];
+    const piege = rev && e.piege === c;
+    return `<div class="tp-obs ${rev ? `revele ${piege ? 'piege' : 'sur'}` : ''}">${piege ? TP_FISSURE + '<div class="tp-debris" aria-hidden="true"><span>🪨</span><span>🪨</span><span>🪨</span></div>' : ''}
+      <div class="tp-fl">${c === 'gauche' ? '◀' : '▶'}</div><div class="tp-nom">${esc(e[c])}</div>
+      ${rev ? `<div class="tp-msg">${piege ? `☠️ ${esc(e.message)}` : '✓ Passage sûr'}</div><div class="tp-qui">${qui.map(p => `<span>${esc(p.nom)}</span>`).join('') || '<span class="muted">personne</span>'}</div>` : ''}</div>`;
   };
-  const sub = e.phase === 'choix'
-    ? `À vos téléphones : quel passage ? · <strong class="mono" data-until="${e.fin}"></strong> · ${e.joueurs.filter(p => p.vies > 0 && p.choisi).length} / ${e.joueurs.filter(p => p.vies > 0).length} ont choisi`
-    : e.joueurs.some(p => p.perdu) ? `${e.joueurs.filter(p => p.perdu).map(p => esc(p.nom)).join(', ')} ${e.joueurs.filter(p => p.perdu).length > 1 ? 'perdent' : 'perd'} une vie !` : 'Personne n\'est tombé dans le piège !';
-  return `${head}${chemin}<div class="sc-sub">${sub}</div>
-    <div class="tp-duel">${side('gauche')}<div class="tp-ou">ou</div>${side('droite')}</div>
-    <div class="tp-joueurs">${e.joueurs.map(p => `<div class="tp-j ${p.vies > 0 ? '' : 'mort'} ${p.perdu ? 'perdu' : ''}"><strong>${esc(p.nom)}</strong><span>${coeurs(p)}</span>${e.phase === 'choix' && p.vies > 0 ? `<em>${p.choisi ? '✓' : '…'}</em>` : ''}</div>`).join('')}</div>`;
+  const reste = e.fin - SJ.now();
+  const perdus = e.joueurs.filter(p => p.perdu);
+  const sub = !rev
+    ? `<div class="sc-sub">À vos téléphones : quel passage ? · <strong class="mono tp-timer ${reste < 6000 ? 'urgent' : ''}" data-until="${e.fin}"></strong> · ${e.joueurs.filter(p => p.vies > 0 && p.choisi).length} / ${e.joueurs.filter(p => p.vies > 0).length} ont choisi</div>`
+    : `<div class="sc-sub tp-swap"><span class="tp-avant">🥁 Le temple gronde… lequel est piégé ?</span><span class="tp-apres">${perdus.length ? `${perdus.map(p => esc(p.nom)).join(', ')} ${perdus.length > 1 ? 'perdent' : 'perd'} une vie !` : 'Personne n\'est tombé dans le piège !'}</span></div>`;
+  return `<div class="tp-scene ${rev ? 'tp-rev' : ''}">${tpDecor()}${head}${chemin}${sub}
+    <div class="tp-duel">${tpTorche()}${side('gauche')}<div class="tp-ou">ou</div>${side('droite')}${tpTorche()}</div>
+    <div class="tp-joueurs">${e.joueurs.map(p => `<div class="tp-j ${p.vies > 0 || p.perdu ? '' : 'mort'} ${p.perdu ? 'perdu' : ''}"><strong>${esc(p.nom)}</strong><span>${tpCoeurs(e, p)}</span>${!rev && p.vies > 0 ? `<em>${p.choisi ? '✓' : '…'}</em>` : ''}</div>`).join('')}</div></div>`;
+}
+// Sons du Temple, au changement d'étape (pas au premier affichage de la page).
+let tpCle = null, tpSec = null;
+function tpSons(g) {
+  const e = g.etat;
+  if (!e || e.type !== 'temple') { tpCle = null; return; }
+  const cle = `${g.actif?.n}:${e.etape}:${e.phase}`;
+  if (tpCle && cle !== tpCle) {
+    if (e.phase === 'choix') Sons.pierre();
+    if (e.phase === 'resultat') {
+      Sons.tambour(TP_DELAI / 1000);
+      const perdu = e.joueurs.some(p => p.perdu);
+      setTimeout(() => (perdu ? Sons.boom() : Sons.flute([784, 988])), TP_DELAI);
+    }
+    if (e.phase === 'arrivee') { Sons.flute(); setTimeout(() => Sons.fanfare(), 900); }
+  }
+  tpCle = cle;
+  // Les 5 dernières secondes du choix : un coup de tambour par seconde.
+  const sec = Math.ceil((e.fin - SJ.now()) / 1000);
+  if (e.phase === 'choix' && sec <= 5 && sec > 0 && sec !== tpSec) Sons.coup(.45);
+  tpSec = sec;
 }
 
 function mjDefinition(a, e) {
