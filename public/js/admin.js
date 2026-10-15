@@ -331,18 +331,18 @@ const MJ_AUTO = ['definition', 'temple', 'mime', 'dragon']; // mini-jeux joués 
 function mjDragonReglages(c, s) {
   const j = c.jeux[s];
   return `<div class="box" style="gap:10px">
-    <p class="muted" style="margin:0;font-size:14px">Jeu de tir, sans violence. Chacun est à l'abri derrière son muret et ne voit rien ; sur son téléphone, il peut observer (en maintenant le bouton), viser un joueur ou le dragon (1 s), ou chercher des munitions : tout cela le met à découvert. Le dragon attaque régulièrement (annoncé 2 s avant) et touche ceux qui sont à découvert. Fin : dragon vaincu, un seul joueur ou une équipe encore en jeu, ou temps écoulé. Les survivants passent devant, selon leurs dégâts sur le dragon ; puis les éliminés, le dernier éliminé devant.</p>
+    <p class="muted" style="margin:0;font-size:14px">Jeu de tir, sans violence, qui se suit en direct sur l'écran. Chacun est à l'abri derrière son muret ; son téléphone sert de manette : Viser (il se lève et prend une cible), flèches pour passer d'une cible à l'autre (joueurs et dragon), Tirer (après 1 s sur la même cible), Recharger, Se cacher. Debout, il peut être touché. Le dragon attaque régulièrement (annoncé 2 s avant) et touche ceux qui sont debout. Fin : dragon vaincu, un seul joueur ou une équipe encore en jeu, ou temps écoulé. Les survivants passent devant, selon leurs dégâts sur le dragon ; puis les éliminés, le dernier éliminé devant.</p>
     <div class="grid-auto"><label class="field"><span class="label">Équipes</span><select class="in" id="c-jeu-jeux-${s}-equipesDragon" data-cfg="jeux.${s}.equipesDragon" data-kind="text" data-scope="jeu">${[['chacun', 'Chacun pour soi (4 joueurs)'], ['2v2', '2 contre 2']].map(([v, l]) => `<option value="${v}" ${j.equipesDragon === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
       ${cfgInput(`jeux.${s}.viesTir`, j.viesTir, 'num', { label: 'Vies par joueur' })}${cfgInput(`jeux.${s}.pvDragon`, j.pvDragon, 'num', { label: 'Vie du dragon (touches)' })}${cfgInput(`jeux.${s}.dureeTir`, j.dureeTir, 'dur', { label: 'Durée maximale' })}</div>
-    <div class="grid-auto">${cfgInput(`jeux.${s}.munitions`, j.munitions, 'num', { label: 'Munitions au départ' })}${cfgInput(`jeux.${s}.munitionsTrouvees`, j.munitionsTrouvees, 'num', { label: 'Munitions trouvées' })}${cfgInput(`jeux.${s}.tempsRecherche`, j.tempsRecherche, 'dur', { label: 'Temps pour chercher' })}
+    <div class="grid-auto">${cfgInput(`jeux.${s}.chargeur`, j.chargeur, 'num', { label: 'Balles par chargeur' })}${cfgInput(`jeux.${s}.tempsRecharge`, j.tempsRecharge, 'dur', { label: 'Temps pour recharger' })}
       ${cfgInput(`jeux.${s}.attaqueMin`, j.attaqueMin, 'dur', { label: 'Attaque du dragon : au plus tôt' })}${cfgInput(`jeux.${s}.attaqueMax`, j.attaqueMax, 'dur', { label: 'au plus tard' })}</div>
   </div>`;
 }
 function mjDragonPartie(e) {
-  const ACT = { cache: '🪵 à l\'abri', observe: '👀 observe', vise: '🎯 vise', cherche: '📦 cherche', horsjeu: '😵 hors jeu' };
-  const rows = e.etats.map(x => { const p = e.joueurs.find(j => j.nom === x.nom); return `<tr><td><strong>${esc(x.nom)}</strong></td><td>${'❤️'.repeat(p.vies)}${p.horsJeu ? '😵' : ''}</td><td>${ACT[x.action]}${x.cible ? ` ${esc(x.cible)}` : ''}</td><td class="mono">${x.munitions}</td><td class="mono">${p.degats}</td></tr>`; }).join('');
+  const ACT = { cache: '🪵 à l\'abri', vise: '🎯 vise', recharge: '🔄 recharge', horsjeu: '😵 hors jeu' };
+  const rows = e.etats.map(x => { const p = e.joueurs.find(j => j.nom === x.nom); return `<tr><td><strong>${esc(x.nom)}</strong></td><td>${'❤️'.repeat(p.vies)}${p.horsJeu ? '😵' : ''}</td><td>${ACT[x.action]}${x.cible ? ` ${esc(x.cible)}` : ''}</td><td class="mono">${x.balles}</td><td class="mono">${p.degats}</td></tr>`; }).join('');
   return `<div class="box" style="background:var(--ink)"><div class="spread"><strong>🐉 Dragon : ${e.dragon.pv} / ${e.dragon.max}</strong>${e.phase === 'jeu' ? `<span class="pill accent">fin dans <span class="mono" data-until="${e.fin}"></span> · attaque dans <span class="mono" data-until="${e.attaque}"></span></span>` : ''}</div>
-    <div class="scroll"><table><thead><tr><th>Joueur</th><th>Vies</th><th>En ce moment</th><th>Munitions</th><th>Dégâts au dragon</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="scroll"><table><thead><tr><th>Joueur</th><th>Vies</th><th>En ce moment</th><th>Balles</th><th>Dégâts au dragon</th></tr></thead><tbody>${rows}</tbody></table></div>
     ${e.phase === 'jeu' ? '<div><button class="btn sm" data-mj="suivant" data-confirm="Arrêter la partie maintenant ?">Arrêter la partie</button></div>' : ''}</div>`;
 }
 

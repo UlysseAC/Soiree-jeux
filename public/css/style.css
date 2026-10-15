@@ -498,3 +498,12 @@ body[data-theme="temple"] .tp-choix .btn.choisi { border-color: var(--accent); b
 .tp-duel.n4 { gap: .8vw; }
 .tp-duel.n4 .tp-obs { padding: 1.4vh .8vw; }
 .tp-phrase { color: var(--danger); }
+
+/* Chasse au dragon : la scène sur l'écran, la manette sur le téléphone */
+.dr-scene { display: block; width: min(100%, calc(56vh * 16 / 9)); max-width: 100%; aspect-ratio: 16 / 9; border-radius: 14px; border: 3px solid #5b3a1c; box-shadow: 0 12px 40px rgba(0, 0, 0, .5); background: #171126; }
+.dr-balles { font-size: 22px; letter-spacing: 2px; color: #f2c53d; }
+.dr-cible { display: grid; grid-template-columns: 64px minmax(0, 1fr) 64px; gap: 8px; align-items: center; }
+.dr-cible .btn { min-height: 64px; font-size: 26px; padding: 0; }
+.dr-nomcible { font: 800 26px/1.1 var(--display); text-transform: uppercase; overflow-wrap: anywhere; }
+.dr-gros { min-height: 76px; font-size: 22px; }
+.dr-bas { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }

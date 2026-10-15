@@ -420,22 +420,37 @@ function mjAvecQui(t) {
   return t.coequipiers?.length ? `Équipe ${team} : tu joues avec ${esc(liste(t.coequipiers))} contre ${esc(adv)}` : `Équipe ${team} : tu joues seul contre ${esc(adv)}`;
 }
 // « La Définition » sur le téléphone : le joueur écrit, les autres relient les mots aux joueurs.
-// La Chasse au dragon, sur le téléphone : seulement les boutons (le jeu se suit sur l'écran). À l'abri par défaut ; viser ou chercher met à découvert.
-const DR_ACT = { cache: '🪵 à l\'abri', observe: '👀 observe', vise: '🎯 vise', cherche: '📦 cherche des munitions', horsjeu: '😵 hors jeu' };
+// La Chasse au dragon, sur le téléphone : seulement la manette (le jeu se suit sur l'écran).
+// Viser (se lever et prendre une cible), flèches pour changer de cible, Tirer (après 1 s sur la cible), Recharger, Se cacher.
+let drMinuteur = null;
 function mjDragon(e) {
   const m = e.moi;
   if (!m) return `<div class="card"><p style="font-size:18px">🐉 La chasse au dragon a commencé. Regarde l'écran !</p></div>`;
   if (e.phase === 'fini') return `<div class="card center"><p style="font-size:20px">Partie terminée !</p><p class="muted">Regarde le classement sur l'écran.</p></div>`;
   if (m.horsJeu) return `<div class="card center"><div class="huge" style="font-size:44px">😵</div><p style="font-size:18px">Tu es hors jeu.</p><p class="muted">Regarde la fin de la partie sur l'écran.</p></div>`;
-  const occupe = m.action === 'vise' || m.action === 'cherche', decouvert = m.action !== 'cache';
-  let h = `<div class="card dr-moi ${decouvert ? 'decouvert' : ''}"><div class="spread"><span style="font-size:24px">${'❤️'.repeat(m.vies)}</span><span class="dr-mun">${'🔸'.repeat(m.munitions) || '<span class="muted">0 munition</span>'}</span></div>
-    <strong style="font-size:18px">${decouvert ? '⚠️ À découvert !' : '🪵 À l\'abri : rien ne peut te toucher'}</strong>
-    ${occupe ? `<div>${m.action === 'vise' ? `🎯 Tu vises ${m.cible === 'dragon' ? 'le dragon' : esc(m.cible)}…` : '📦 Tu cherches des munitions…'}</div><div class="dr-prog"><div id="dr-prog-${m.finAction}" style="animation-duration:${Math.max(0, m.finAction - SJ.now())}ms"></div></div>` : ''}</div>`;
-  const off = occupe || m.munitions <= 0 ? 'disabled' : '';
-  h += `<div class="dr-tirs"><button class="btn big primary" data-act="drViser" data-cible="dragon" ${off || (e.dragon.pv <= 0 ? 'disabled' : '')}>🎯 Viser le dragon</button>
-    ${e.cibles.map(c => `<button class="btn" data-act="drViser" data-cible="${esc(c)}" ${off}>🎯 Viser ${esc(c)}</button>`).join('')}</div>
-    <button class="btn" data-act="drChercher" ${occupe ? 'disabled' : ''}>📦 Chercher des munitions</button>
-    <p class="muted center" style="margin:0;font-size:13px">Viser prend 1 s ; viser et chercher te mettent à découvert. Regarde l'écran pour voir qui est à découvert !</p>`;
+  const now = SJ.now(), debout = m.action !== 'cache', recharge = m.action === 'recharge';
+  const pret = m.action === 'vise' && now >= m.pretA;
+  // le bouton Tirer s'allume tout seul au bout de la seconde de visée
+  clearTimeout(drMinuteur);
+  if (m.action === 'vise' && !pret) drMinuteur = setTimeout(draw, m.pretA - now + 30);
+  if (recharge) drMinuteur = setTimeout(draw, Math.max(0, m.finRecharge - now) + 30);
+  const balles = '▮'.repeat(m.balles) + '▯'.repeat(Math.max(0, e.chargeur - m.balles));
+  let h = `<div class="card dr-moi ${debout ? 'decouvert' : ''}"><div class="spread"><span style="font-size:24px">${'❤️'.repeat(m.vies)}</span><span class="dr-balles mono" aria-label="${m.balles} balles">${balles}</span></div>
+    <strong style="font-size:17px">${recharge ? '🔄 Tu recharges… (à découvert)' : debout ? '⚠️ Debout : à découvert !' : '🪵 À l\'abri derrière ton muret'}</strong>
+    ${recharge ? `<div class="dr-prog"><div id="dr-prog-${m.finRecharge}" style="animation-duration:${Math.max(0, m.finRecharge - now)}ms"></div></div>` : ''}</div>`;
+  if (!debout) {
+    h += `<button class="btn primary big dr-gros" data-act="drViser">🎯 Viser</button>
+      <button class="btn big" data-act="drRecharger" ${m.balles >= e.chargeur ? 'disabled' : ''}>🔄 Recharger</button>`;
+  } else {
+    const cible = m.cible === 'dragon' ? '🐉 le dragon' : m.cible ? esc(m.cible) : '—';
+    h += `<div class="dr-cible"><button class="btn big" data-act="drCible" data-sens="-1" aria-label="Cible précédente" ${recharge ? 'disabled' : ''}>◀</button>
+        <div class="center"><span class="label">Ta cible</span><div class="dr-nomcible">${cible}</div></div>
+        <button class="btn big" data-act="drCible" data-sens="1" aria-label="Cible suivante" ${recharge ? 'disabled' : ''}>▶</button></div>
+      ${m.action === 'vise' && !pret ? `<div class="dr-prog"><div id="dr-vise-${m.pretA}" style="animation-duration:${Math.max(0, m.pretA - now)}ms"></div></div>` : ''}
+      <button class="btn primary big dr-gros" data-act="drTirer" ${pret && m.balles > 0 ? '' : 'disabled'}>${m.balles <= 0 ? 'Chargeur vide' : pret ? '🔫 Tirer' : 'Vise…'}</button>
+      <div class="dr-bas"><button class="btn big" data-act="drRecharger" ${recharge || m.balles >= e.chargeur ? 'disabled' : ''}>🔄 Recharger</button>
+        <button class="btn big" data-act="drCacher">🪵 Se cacher</button></div>`;
+  }
   return h;
 }
 
@@ -655,8 +670,11 @@ app.addEventListener('click', e => {
   }
   const a = t.dataset.act;
   if (a === 'mjCompris') { act({ type: 'compris' }); return; }
-  if (a === 'drViser') { act({ type: 'viser', cible: t.dataset.cible }); return; }
-  if (a === 'drChercher') { act({ type: 'chercher' }); return; }
+  if (a === 'drViser') { act({ type: 'viser' }); return; }
+  if (a === 'drCible') { act({ type: 'cible', sens: Number(t.dataset.sens) }); return; }
+  if (a === 'drTirer') { act({ type: 'tirer' }); navigator.vibrate?.(40); return; }
+  if (a === 'drRecharger') { act({ type: 'recharger' }); return; }
+  if (a === 'drCacher') { act({ type: 'cacher' }); return; }
   if (a === 'mmPret') { act({ type: 'pret' }); return; }
   if (a === 'mmPasser') { act({ type: 'passer' }); return; }
   if (a === 'mmDeviner') { mmDeviner(); return; }

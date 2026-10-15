@@ -72,15 +72,18 @@ Une journée de rounds à heures régulières. À chaque round, un mini-jeu et d
 
 ## La Chasse au dragon
 
-- Jeu de tir **sans violence** (pistolets, « 💥 touché ! », « 😵 hors jeu », jamais de sang). **Chacun pour soi** (4 joueurs) ou **2 contre 2** (on ne peut pas tirer sur son coéquipier).
-- **Réglages** : équipes, vies par joueur (2), vie du dragon (10 touches), durée maximale (3 min), munitions au départ (3), munitions trouvées (2), temps pour chercher (3 s), intervalle des attaques du dragon (8 à 12 s).
-- **Le téléphone ne sert que de manette** : pour savoir ce qui se passe, on regarde l'écran. **Par défaut, chacun est à l'abri derrière son muret** : rien ne peut le toucher. Sur le téléphone :
-  - **Viser** un joueur ou le dragon : 1 s de visée à découvert, puis le tir (1 munition). Un joueur n'est touché que s'il est à découvert au moment du tir ; sinon « raté, à l'abri ».
-  - **Chercher des munitions** : à découvert pendant 3 s, +2 munitions.
-- **Le dragon** ne bouge pas ; il attaque à intervalles irréguliers, annoncé 2 s avant sur l'écran, et touche tous ceux qui sont à découvert.
-- **Écran** : le dragon et sa barre de vie, le poste de chaque joueur derrière son muret, avec en direct ce qu'il fait (« 🪵 à l'abri », « ⚠️ 🎯 vise Hugo », « ⚠️ 📦 cherche des munitions »), ses munitions, ses vies et ses dégâts au dragon ; les tirs (« PAN ! », « 💥 Touché ! », « 🪵 À l'abri ! ») et le souffle du dragon.
+- Jeu de tir **sans violence** (pistolets, « 💥 touché ! », « 😵 hors jeu », jamais de sang). **Chacun pour soi** (4 joueurs) ou **2 contre 2** (son coéquipier n'est jamais une cible).
+- **Réglages** : équipes, vies par joueur (2), vie du dragon (10 touches), durée maximale (3 min), balles par chargeur (3), temps pour recharger (2 s), intervalle des attaques du dragon (8 à 12 s).
+- **L'écran montre la scène en direct, vue de face** : le dragon au fond avec sa barre de vie, les joueurs devant, chacun derrière son muret en bois. À l'abri, on ne voit que le haut de sa tête ; quand il vise ou recharge, il se lève. Une ligne de visée relie chaque tireur à sa cible (pointillée pendant la seconde de visée, pleine quand il peut tirer) ; les tirs, les touches, les « PAF ! à l'abri » et le souffle du dragon s'animent. Sous chaque muret : nom, vies, balles, dégâts au dragon.
+- **Le téléphone sert de manette** :
+  - **Viser** : le joueur se lève (il peut être touché) et prend une cible, d'abord un adversaire, même s'il est à l'abri ;
+  - **◀ ▶** : la cible passe d'un joueur à l'autre, puis au dragon, et ainsi de suite ;
+  - **Tirer** : possible après 1 s sur la même cible (changer de cible relance la seconde). Un joueur n'est touché que s'il est debout ; à l'abri, c'est « raté ». Le dragon est toujours touché.
+  - **Recharger** : remplit le chargeur, debout pendant 2 s ; ensuite on reprend sa visée.
+  - **Se cacher** : retour derrière le muret.
+- **Le dragon** ne bouge pas ; il attaque à intervalles irréguliers, annoncé 2 s avant sur l'écran, et touche tous ceux qui sont debout.
 - **Fin** : dragon vaincu, un seul joueur (ou une équipe) encore en jeu, ou temps écoulé. **Classement** : les survivants d'abord, selon leurs dégâts sur le dragon ; puis les éliminés, le dernier éliminé devant.
-- **Admin** : voit tout (ce que fait chacun, munitions, prochaine attaque) et peut arrêter la partie.
+- **Admin** : voit ce que fait chacun, ses balles, la prochaine attaque, et peut arrêter la partie.
 
 ## Classement
 

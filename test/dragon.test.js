@@ -7,7 +7,7 @@ const NAMES = ['Léa', 'Hugo', 'Inès', 'Malik', 'Chloé', 'Tom'];
 function setup(opts = {}) {
   let t = Date.UTC(2026, 9, 13, 7, 0);
   const cfg = { ...mj.defaultConfig(), joueurs: NAMES.join('\n'), decalage: -120, programme: 'mj1' };
-  Object.assign(cfg.jeux.mj1, { type: 'dragon', equipesDragon: 'chacun', viesTir: 2, munitions: 3, munitionsTrouvees: 2, tempsRecherche: 3, pvDragon: 10, attaqueMin: 30, attaqueMax: 30, dureeTir: 180, joueurs: 2, ...opts });
+  Object.assign(cfg.jeux.mj1, { type: 'dragon', equipesDragon: 'chacun', viesTir: 2, chargeur: 3, tempsRecharge: 2, pvDragon: 10, attaqueMin: 30, attaqueMax: 30, dureeTir: 180, joueurs: 2, ...opts });
   const ctx = { now: () => t, cfg, sfx: () => {} };
   const g = mj.start(ctx);
   NAMES.forEach((n, i) => mj.claim(ctx, g, `p${i}`, n));
@@ -29,83 +29,112 @@ test('format : 4 joueurs chacun pour soi, ou 2 contre 2', () => {
   assert.equal(b.r.equipes.length, 2);
 });
 
-test('à l\'abri, on ne peut pas être touché ; à découvert, si ; l\'écran montre qui est à découvert', () => {
-  const { g, ctx, r, pid, at, now, act } = setup();
-  const [a, b] = r.joueurs;
-  assert.equal(act(a, { type: 'viser', cible: b }).ok, true);
-  const st = mj.screenView(ctx, g).etat.etats;
-  assert.deepEqual(st.find(x => x.nom === a), { nom: a, action: 'vise', cible: b, munitions: 3 }, 'l\'écran montre qui vise qui');
-  assert.equal(st.find(x => x.nom === b).action, 'cache');
-  at(now() + 1000);
-  assert.equal(r.dr.j[b].vies, 2, 'cible à l\'abri : raté');
-  assert.equal(r.dr.j[a].munitions, 2, 'le tir coûte une munition');
-  assert.equal(r.dr.j[a].action, 'cache', 'après le tir, retour à l\'abri');
-  act(b, { type: 'observer', on: true });
-  act(a, { type: 'viser', cible: b });
-  at(now() + 1000);
-  assert.equal(r.dr.j[b].vies, 1, 'cible qui observe : touchée');
-  assert.ok(r.dr.events.some(e => e.type === 'tir' && e.touche));
+// viser une cible précise : Viser, puis les flèches jusqu'à elle, puis attendre 1 s
+function viserSur(s, nom, cible) {
+  s.act(nom, { type: 'viser' });
+  for (let k = 0; k < 6 && s.r.dr.j[nom].cible !== cible; k++) s.act(nom, { type: 'cible', sens: 1 });
+  assert.equal(s.r.dr.j[nom].cible, cible);
+  s.at(s.now() + 1000);
+}
+
+test('Viser : on se lève et on prend d\'abord un adversaire, même à l\'abri ; les flèches font défiler les cibles et le dragon', () => {
+  const s = setup();
+  const [a, b, c, d] = s.r.joueurs;
+  assert.equal(s.r.dr.j[a].action, 'cache');
+  s.act(a, { type: 'viser' });
+  assert.equal(s.r.dr.j[a].action, 'vise', 'à découvert');
+  assert.equal(s.r.dr.j[a].cible, b, 'premier adversaire, même à l\'abri');
+  const vus = [];
+  for (let k = 0; k < 4; k++) { s.act(a, { type: 'cible', sens: 1 }); vus.push(s.r.dr.j[a].cible); }
+  assert.deepEqual(vus, [c, d, 'dragon', b], 'droite : joueur suivant, puis le dragon, puis on recommence');
+  s.act(a, { type: 'cible', sens: -1 });
+  assert.equal(s.r.dr.j[a].cible, 'dragon', 'gauche : dans l\'autre sens');
+  const st = mj.screenView(s.ctx, s.g).etat.etats.find(x => x.nom === a);
+  assert.equal(st.action, 'vise'); assert.equal(st.cible, 'dragon');
+  s.act(a, { type: 'cacher' });
+  assert.equal(s.r.dr.j[a].action, 'cache');
 });
 
-test('le dragon : touché en 1 s de visée, il attaque ceux qui sont à découvert, annoncé à l\'avance', () => {
-  const { g, ctx, r, at, now, act } = setup({ attaqueMin: 10, attaqueMax: 10 });
-  const [a, b, c] = r.joueurs;
-  act(a, { type: 'viser', cible: 'dragon' });
-  at(now() + 999);
-  assert.equal(r.dr.dragon.pv, 10, 'pas avant une seconde');
-  at(now() + 1);
-  assert.equal(r.dr.dragon.pv, 9);
-  assert.equal(r.dr.j[a].degats, 1);
-  act(b, { type: 'observer', on: true });
-  act(c, { type: 'chercher' });
-  at(r.dr.dragon.attaque - 1500);
-  assert.equal(mj.screenView(ctx, g).etat.dragon.prepare, true, 'préavis');
-  at(r.dr.dragon.attaque);
-  // c a fini de chercher avant l'attaque ? 3 s de recherche : non, encore à découvert
-  assert.equal(r.dr.j[b].vies, 1, 'qui observe est touché');
-  assert.equal(r.dr.j[a].vies, 2, 'à l\'abri : rien');
+test('Tirer : seulement après 1 s sur la même cible ; touche un joueur à découvert, rate un joueur à l\'abri', () => {
+  const s = setup();
+  const [a, b] = s.r.joueurs;
+  s.act(a, { type: 'viser' });
+  assert.equal(s.act(a, { type: 'tirer' }).ok, false, 'trop tôt');
+  s.at(s.now() + 1000);
+  assert.equal(s.act(a, { type: 'tirer' }).ok, true);
+  assert.equal(s.r.dr.j[b].vies, 2, 'b à l\'abri : raté');
+  assert.equal(s.r.dr.j[a].balles, 2);
+  s.act(b, { type: 'viser' }); // b se lève
+  s.at(s.now() + 600);
+  s.act(a, { type: 'tirer' });
+  assert.equal(s.r.dr.j[b].vies, 1, 'b debout : touché');
+  s.act(a, { type: 'cible', sens: 1 });
+  assert.equal(s.act(a, { type: 'tirer' }).ok, false, 'nouvelle cible : on recommence la seconde');
 });
 
-test('chercher des munitions : à découvert quelques secondes, +2 munitions', () => {
-  const { r, at, now, act } = setup();
-  const [a] = r.joueurs;
-  assert.equal(act(a, { type: 'chercher' }).ok, true);
-  assert.equal(act(a, { type: 'viser', cible: 'dragon' }).ok, false, 'occupé');
-  at(now() + 3000);
-  assert.equal(r.dr.j[a].munitions, 5);
-  assert.equal(r.dr.j[a].action, 'cache');
+test('le dragon : chaque tir le touche, il attaque ceux qui sont debout, annoncé à l\'avance', () => {
+  const s = setup({ attaqueMin: 10, attaqueMax: 10 });
+  const [a, b] = s.r.joueurs;
+  viserSur(s, a, 'dragon');
+  s.act(a, { type: 'tirer' });
+  assert.equal(s.r.dr.dragon.pv, 9);
+  assert.equal(s.r.dr.j[a].degats, 1);
+  s.at(s.r.dr.dragon.attaque - 1500);
+  assert.equal(mj.screenView(s.ctx, s.g).etat.dragon.prepare, true, 'préavis');
+  s.at(s.r.dr.dragon.attaque);
+  assert.equal(s.r.dr.j[a].vies, 1, 'debout : touché par le souffle');
+  assert.equal(s.r.dr.j[b].vies, 2, 'à l\'abri : rien');
 });
 
-test('sans munition, on ne peut pas tirer ; on ne tire pas sur son coéquipier', () => {
-  const { r, at, now, act } = setup({ equipesDragon: '2v2', munitions: 1 });
-  const [x, y] = r.equipes[0];
-  assert.equal(act(x, { type: 'viser', cible: y }).ok, false, 'coéquipier');
-  act(x, { type: 'viser', cible: 'dragon' }); at(now() + 1000);
-  assert.equal(act(x, { type: 'viser', cible: 'dragon' }).ok, false, 'plus de munitions');
+test('Recharger : à découvert quelques secondes, chargeur plein, puis on reprend la visée', () => {
+  const s = setup();
+  const [a] = s.r.joueurs;
+  assert.equal(s.act(a, { type: 'recharger' }).ok, false, 'chargeur déjà plein');
+  viserSur(s, a, 'dragon');
+  for (let k = 0; k < 3; k++) { s.act(a, { type: 'tirer' }); s.at(s.now() + 600); }
+  assert.equal(s.r.dr.j[a].balles, 0);
+  assert.equal(s.act(a, { type: 'tirer' }).ok, false, 'chargeur vide');
+  s.act(a, { type: 'recharger' });
+  assert.equal(s.r.dr.j[a].action, 'recharge');
+  s.at(s.now() + 2000);
+  assert.equal(s.r.dr.j[a].balles, 3);
+  assert.equal(s.r.dr.j[a].action, 'vise');
+  assert.equal(s.r.dr.j[a].cible, 'dragon');
+});
+
+test('en 2 contre 2, son coéquipier n\'est jamais une cible', () => {
+  const s = setup({ equipesDragon: '2v2' });
+  const [x, y] = s.r.equipes[0];
+  s.act(x, { type: 'viser' });
+  const vus = new Set([s.r.dr.j[x].cible]);
+  for (let k = 0; k < 5; k++) { s.act(x, { type: 'cible', sens: 1 }); vus.add(s.r.dr.j[x].cible); }
+  assert.ok(!vus.has(y));
+  assert.deepEqual([...vus].sort(), [...s.r.equipes[1], 'dragon'].sort());
 });
 
 test('fin et classement : survivants selon les dégâts au dragon, puis éliminés (le dernier éliminé devant)', () => {
-  const { r, at, now, act } = setup({ pvDragon: 3, munitions: 5 });
-  const [a, b, c, d] = r.joueurs;
-  // c est éliminé en premier, puis d (deux touches chacun pendant qu'ils observent)
-  for (const cible of [c, c, d, d]) { act(cible, { type: 'observer', on: true }); act(a, { type: 'viser', cible }); at(now() + 1000); }
-  assert.ok(r.dr.j[c].horsJeuA < r.dr.j[d].horsJeuA);
-  // a : 1 touche au dragon (et 4 tirs sur les joueurs), b : 2 touches → le dragon (3 pv) tombe
-  act(a, { type: 'viser', cible: 'dragon' }); at(now() + 1000);
-  act(b, { type: 'viser', cible: 'dragon' }); at(now() + 1000);
-  act(b, { type: 'viser', cible: 'dragon' }); at(now() + 1000);
-  assert.equal(r.status, 'fini');
-  assert.equal(r.dr.raison, 'dragon');
-  assert.equal(r.points[b].place, 1, 'b : plus de dégâts');
-  assert.equal(r.points[a].place, 2);
-  assert.equal(r.points[d].place, 3, 'd éliminé après c');
-  assert.equal(r.points[c].place, 4);
+  const s = setup({ pvDragon: 3, chargeur: 9 });
+  const [a, b, c, d] = s.r.joueurs;
+  for (const cible of [c, d]) { // c puis d se lèvent et se font toucher deux fois
+    s.act(cible, { type: 'viser' });
+    viserSur(s, a, cible);
+    s.act(a, { type: 'tirer' }); s.at(s.now() + 600); s.act(a, { type: 'tirer' }); s.at(s.now() + 600);
+  }
+  assert.ok(s.r.dr.j[c].horsJeuA < s.r.dr.j[d].horsJeuA);
+  viserSur(s, a, 'dragon'); s.act(a, { type: 'tirer' });
+  viserSur(s, b, 'dragon'); s.act(b, { type: 'tirer' }); s.at(s.now() + 600); s.act(b, { type: 'tirer' }); s.at(s.now() + 50);
+  assert.equal(s.r.status, 'fini');
+  assert.equal(s.r.dr.raison, 'dragon');
+  assert.equal(s.r.points[b].place, 1, 'b : plus de dégâts');
+  assert.equal(s.r.points[a].place, 2);
+  assert.equal(s.r.points[d].place, 3, 'd éliminé après c');
+  assert.equal(s.r.points[c].place, 4);
 });
 
 test('fin quand il ne reste qu\'un joueur, ou au bout du temps', () => {
-  const s1 = setup({ viesTir: 1 });
+  const s1 = setup({ viesTir: 1, chargeur: 9 });
   const [a, b, c, d] = s1.r.joueurs;
-  for (const cible of [b, c, d]) { s1.act(cible, { type: 'observer', on: true }); s1.act(a, { type: 'viser', cible }); s1.at(s1.now() + 1000); }
+  for (const cible of [b, c, d]) { s1.act(cible, { type: 'viser' }); viserSur(s1, a, cible); s1.act(a, { type: 'tirer' }); s1.at(s1.now() + 50); }
   assert.equal(s1.r.status, 'fini');
   assert.equal(s1.r.dr.raison, 'survivant');
   assert.equal(s1.r.points[a].place, 1);

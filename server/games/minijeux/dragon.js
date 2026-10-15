@@ -1,9 +1,11 @@
 // Mini-jeu « La Chasse au dragon » (tir, sans violence : on est « touché », puis « hors jeu »).
-// Chacun pour soi (1v1v1v1) ou 2 contre 2. Le téléphone ne sert que de manette : pour savoir ce qui se passe, on regarde l'écran.
-// Par défaut, chaque joueur est à l'abri derrière son muret : rien ne peut le toucher. Pour agir, il se met à découvert :
-//   - viser un joueur ou le dragon (1 s) puis tirer : un joueur n'est touché que s'il est à découvert au moment du tir ;
-//   - chercher des munitions (quelques secondes).
-// L'écran montre en direct qui est à découvert et ce qu'il fait.
+// Chacun pour soi (1v1v1v1) ou 2 contre 2. Le téléphone ne sert que de manette ; tout se suit en direct sur l'écran.
+// Par défaut, chaque joueur est à l'abri derrière son muret : rien ne peut le toucher. Sur son téléphone :
+//   - Viser : il se lève (à découvert) et prend une cible, d'abord un adversaire, même s'il est à l'abri ;
+//     les flèches font passer la cible d'un joueur à l'autre, puis au dragon, et ainsi de suite ;
+//   - Tirer : possible après 1 s sur la même cible ; un joueur n'est touché que s'il est à découvert ;
+//   - Recharger : remplit le chargeur en quelques secondes, à découvert ;
+//   - Se cacher : retour derrière le muret.
 // Le dragon ne bouge pas ; il attaque à intervalles irréguliers (annoncé 2 s avant) et touche tous ceux qui sont à découvert.
 // Fin : dragon vaincu, un seul joueur (ou une équipe) encore en jeu, ou temps écoulé.
 // Classement : les survivants d'abord, selon leurs dégâts sur le dragon ; puis les éliminés, le dernier éliminé devant.
@@ -14,9 +16,8 @@ export const label = 'La Chasse au dragon';
 export const defaults = {
   equipesDragon: 'chacun', // chacun (1v1v1v1) | 2v2
   viesTir: 2,
-  munitions: 3,
-  munitionsTrouvees: 2,
-  tempsRecherche: 3,
+  chargeur: 3,
+  tempsRecharge: 2,
   pvDragon: 10,
   attaqueMin: 8,
   attaqueMax: 12,
@@ -25,9 +26,9 @@ export const defaults = {
 
 export const format = sc => (sc.equipesDragon === '2v2' ? [2, 2] : [1, 1, 1, 1]);
 
-const VISEE = 1000, PREAVIS = 2000, MAX_OBSERVATION = 20000, MAX_MUNITIONS = 9;
-const clampInt = (v, d, lo, hi) => Math.max(lo, Math.min(hi, Math.round(Number(v) ?? d)));
-const num = (v, d, lo, hi) => (Number.isFinite(Number(v)) && v !== '' ? clampInt(v, d, lo, hi) : d);
+export const VISEE = 1000; // temps à rester sur la même cible avant de pouvoir tirer
+const PREAVIS = 2000, CADENCE = 500;
+const num = (v, d, lo, hi) => { const n = Math.round(Number(v)); return Number.isFinite(n) && v !== '' && v != null ? Math.max(lo, Math.min(hi, n)) : d; };
 
 const equipeDe = (r, nom) => r.equipes.findIndex(t => t.includes(nom));
 const enJeu = (d, p) => d.j[p] && d.j[p].vies > 0;
@@ -38,12 +39,18 @@ function prochaineAttaque(ctx, sc) {
   return ctx.now() + (lo + Math.random() * (hi - lo)) * 1000;
 }
 
+// Cibles possibles, dans l'ordre des flèches : les adversaires encore en jeu (même à l'abri), puis le dragon.
+export function cibles(r, nom) {
+  const d = r.dr, eq = equipeDe(r, nom);
+  return [...r.joueurs.filter(p => p !== nom && enJeu(d, p) && equipeDe(r, p) !== eq), ...(d.dragon.pv > 0 ? ['dragon'] : [])];
+}
+
 export function start(ctx, g, r, sc) {
-  const now = ctx.now(), pv = num(sc.pvDragon, 10, 1, 99);
+  const now = ctx.now(), pv = num(sc.pvDragon, 10, 1, 99), balles = num(sc.chargeur, 3, 1, 12);
   r.dr = {
-    phase: 'jeu', fin: now + num(sc.dureeTir, 180, 30, 1800) * 1000, debut: now,
+    phase: 'jeu', fin: now + num(sc.dureeTir, 180, 30, 1800) * 1000, debut: now, chargeur: balles,
     dragon: { pv, max: pv, attaque: prochaineAttaque(ctx, sc) + 2000, prevenu: false },
-    j: Object.fromEntries(r.joueurs.map(p => [p, { vies: num(sc.viesTir, 2, 1, 9), munitions: num(sc.munitions, 3, 0, MAX_MUNITIONS), action: 'cache', cible: null, finAction: 0, depuis: now, degats: 0, horsJeuA: 0 }])),
+    j: Object.fromEntries(r.joueurs.map(p => [p, { vies: num(sc.viesTir, 2, 1, 9), balles, action: 'cache', cible: null, viseDepuis: 0, dernierTir: 0, finRecharge: 0, degats: 0, horsJeuA: 0 }])),
     events: [], n: 0, raison: null,
   };
 }
@@ -56,7 +63,7 @@ function evenement(ctx, d, e) {
 function toucher(ctx, d, p, par) {
   const me = d.j[p];
   me.vies--;
-  if (me.vies <= 0) { me.vies = 0; me.action = 'cache'; me.cible = null; me.horsJeuA = ctx.now(); evenement(ctx, d, { type: 'horsjeu', nom: p, par }); }
+  if (me.vies <= 0) { Object.assign(me, { vies: 0, action: 'cache', cible: null, horsJeuA: ctx.now() }); evenement(ctx, d, { type: 'horsjeu', nom: p, par }); }
 }
 
 function equipesEnJeu(r) { return r.equipes.filter(t => t.some(p => enJeu(r.dr, p))).length; }
@@ -76,44 +83,40 @@ function places(r) {
 function terminer(ctx, r, raison) {
   r.dr.phase = 'fini';
   r.dr.raison = raison;
-  for (const p of Object.keys(r.dr.j)) { r.dr.j[p].action = 'cache'; r.dr.j[p].cible = null; }
+  for (const me of Object.values(r.dr.j)) Object.assign(me, { action: 'cache', cible: null });
   evenement(ctx, r.dr, { type: 'fin', raison });
   return { changed: true, places: places(r) };
+}
+
+// Si la cible n'est plus possible (hors jeu, dragon vaincu), on passe à la suivante.
+function corrigerCible(ctx, r, p) {
+  const me = r.dr.j[p];
+  if (!me.cible) return;
+  const liste = cibles(r, p);
+  if (!liste.includes(me.cible)) { me.cible = liste[0] || null; me.viseDepuis = ctx.now(); }
 }
 
 export function tick(ctx, g, r, sc) {
   const d = r.dr, now = ctx.now();
   if (!d || d.phase !== 'jeu') return { changed: false };
+  if (d.dragon.pv <= 0) return terminer(ctx, r, 'dragon');
   let changed = false;
-  // actions qui se terminent : tirs (après 1 s de visée) et recherches de munitions
   for (const [p, me] of Object.entries(d.j)) {
     if (!enJeu(d, p)) continue;
-    if (me.action === 'observe' && now - me.depuis > MAX_OBSERVATION) { me.action = 'cache'; changed = true; }
-    if ((me.action === 'vise' || me.action === 'cherche') && now >= me.finAction) {
-      if (me.action === 'cherche') {
-        me.munitions = Math.min(MAX_MUNITIONS, me.munitions + num(sc.munitionsTrouvees, 2, 1, 9));
-        evenement(ctx, d, { type: 'munitions', nom: p });
-      } else {
-        me.munitions--;
-        if (me.cible === 'dragon') {
-          if (d.dragon.pv > 0) { d.dragon.pv--; me.degats++; evenement(ctx, d, { type: 'tir', de: p, vers: 'dragon', touche: true }); }
-        } else if (enJeu(d, me.cible)) {
-          const touche = expose(d, me.cible);
-          evenement(ctx, d, { type: 'tir', de: p, vers: me.cible, touche });
-          if (touche) toucher(ctx, d, me.cible, p);
-        }
-      }
-      me.action = 'cache'; me.cible = null; me.depuis = now;
+    if (me.action === 'recharge' && now >= me.finRecharge) {
+      me.balles = d.chargeur;
+      me.action = me.cible ? 'vise' : 'cache';
+      if (me.cible) me.viseDepuis = now;
       changed = true;
     }
   }
-  if (d.dragon.pv <= 0) return terminer(ctx, r, 'dragon');
   // le dragon : préavis, puis attaque sur tous ceux qui sont à découvert
   if (!d.dragon.prevenu && now >= d.dragon.attaque - PREAVIS) { d.dragon.prevenu = true; evenement(ctx, d, { type: 'souffle-prepare' }); changed = true; }
   if (now >= d.dragon.attaque) {
     const touches = Object.keys(d.j).filter(p => expose(d, p));
     evenement(ctx, d, { type: 'souffle', touches });
     for (const p of touches) toucher(ctx, d, p, 'dragon');
+    for (const p of r.joueurs) corrigerCible(ctx, r, p);
     d.dragon.attaque = prochaineAttaque(ctx, sc);
     d.dragon.prevenu = false;
     changed = true;
@@ -132,29 +135,48 @@ export function playerAction(ctx, g, r, nom, a, sc) {
   if (!r.joueurs.includes(nom)) return err('Tu ne joues pas ce round.');
   const me = d.j[nom], now = ctx.now();
   if (!enJeu(d, nom)) return err('Tu es hors jeu.');
-  const occupe = me.action === 'vise' || me.action === 'cherche';
-  if (a.type === 'observer') {
-    if (occupe) return ok('');
-    me.action = a.on ? 'observe' : 'cache';
-    me.depuis = now;
+  if (a.type === 'viser') { // se lever et prendre une cible : d'abord un adversaire, même s'il est à l'abri
+    const liste = cibles(r, nom);
+    if (!liste.length) return err('Plus de cible.');
+    if (!me.cible || !liste.includes(me.cible)) { me.cible = liste[0]; me.viseDepuis = now; }
+    if (me.action === 'cache') me.action = 'vise';
     return ok('');
   }
-  if (a.type === 'viser') {
-    if (occupe) return err('Tu es déjà occupé.');
-    if (me.munitions <= 0) return err('Plus de munitions : va en chercher !');
-    if (a.cible === 'dragon') { if (d.dragon.pv <= 0) return err('Le dragon est déjà vaincu.'); }
-    else {
-      if (!enJeu(d, a.cible) || a.cible === nom) return err('Cible impossible.');
-      if (equipeDe(r, a.cible) === equipeDe(r, nom)) return err('C\'est ton coéquipier !');
-    }
-    Object.assign(me, { action: 'vise', cible: a.cible, finAction: now + VISEE, depuis: now });
-    return ok(a.cible === 'dragon' ? 'Tu vises le dragon…' : `Tu vises ${a.cible}…`);
+  if (a.type === 'cible') { // flèches gauche / droite
+    if (me.action === 'cache') return err('Appuie d\'abord sur « Viser ».');
+    const liste = cibles(r, nom);
+    if (!liste.length) return err('Plus de cible.');
+    const i = liste.indexOf(me.cible), sens = a.sens < 0 ? -1 : 1;
+    me.cible = liste[((i < 0 ? 0 : i + sens) % liste.length + liste.length) % liste.length];
+    me.viseDepuis = now;
+    return ok('');
   }
-  if (a.type === 'chercher') {
-    if (occupe) return err('Tu es déjà occupé.');
-    if (me.munitions >= MAX_MUNITIONS) return err('Tu as déjà le maximum de munitions.');
-    Object.assign(me, { action: 'cherche', cible: null, finAction: now + num(sc.tempsRecherche, 3, 1, 30) * 1000, depuis: now });
-    return ok('Tu cherches des munitions…');
+  if (a.type === 'tirer') {
+    if (me.action !== 'vise' || !me.cible) return err('Appuie d\'abord sur « Viser ».');
+    if (me.balles <= 0) return err('Chargeur vide : recharge !');
+    if (now - me.viseDepuis < VISEE) return err('Garde ta cible une seconde avant de tirer.');
+    if (now - me.dernierTir < CADENCE) return err('');
+    me.balles--;
+    me.dernierTir = now;
+    if (me.cible === 'dragon') {
+      d.dragon.pv--; me.degats++;
+      evenement(ctx, d, { type: 'tir', de: nom, vers: 'dragon', touche: true });
+      return ok(d.dragon.pv <= 0 ? 'Le dragon est vaincu !' : '');
+    }
+    const touche = expose(d, me.cible);
+    evenement(ctx, d, { type: 'tir', de: nom, vers: me.cible, touche });
+    if (touche) { toucher(ctx, d, me.cible, nom); corrigerCible(ctx, r, nom); }
+    return ok(touche ? 'Touché !' : 'Raté : à l\'abri !');
+  }
+  if (a.type === 'recharger') {
+    if (me.action === 'recharge') return err('Tu recharges déjà.');
+    if (me.balles >= d.chargeur) return err('Ton chargeur est plein.');
+    Object.assign(me, { action: 'recharge', finRecharge: now + num(sc.tempsRecharge, 2, 1, 30) * 1000 });
+    return ok('');
+  }
+  if (a.type === 'cacher') {
+    Object.assign(me, { action: 'cache', cible: null, finRecharge: 0 });
+    return ok('');
   }
   return err('Action inconnue.');
 }
@@ -168,23 +190,22 @@ export function adminAction(ctx, g, r, a) {
   return err('Action inconnue.');
 }
 
-// Ce que voit chacun : l'écran montre tout (qui est à découvert, ce qu'il fait, ses munitions) ; le téléphone, seulement son joueur.
+// L'écran montre tout en direct (qui est debout, qui vise qui, les balles) ; le téléphone, seulement son joueur.
 export function view(ctx, g, r, as, nom) {
   const d = r.dr;
   if (!d) return null;
   const v = {
-    type: id, phase: d.phase, fin: d.fin, raison: d.raison,
+    type: id, phase: d.phase, fin: d.fin, raison: d.raison, chargeur: d.chargeur,
     dragon: { pv: d.dragon.pv, max: d.dragon.max, prepare: d.phase === 'jeu' && d.dragon.prevenu, attaque: d.dragon.prevenu ? d.dragon.attaque : null },
     joueurs: r.joueurs.map(p => ({ nom: p, equipe: equipeDe(r, p), vies: d.j[p].vies, horsJeu: !enJeu(d, p), degats: d.j[p].degats })),
+    etats: r.joueurs.map(p => ({ nom: p, action: enJeu(d, p) ? d.j[p].action : 'horsjeu', cible: d.j[p].cible, balles: d.j[p].balles, pretA: d.j[p].viseDepuis + VISEE, finRecharge: d.j[p].finRecharge })),
     events: d.events.slice(-8),
-    etats: r.joueurs.map(p => ({ nom: p, action: enJeu(d, p) ? d.j[p].action : 'horsjeu', cible: d.j[p].cible, munitions: d.j[p].munitions })),
-    equipes: r.equipes.length > 2 || r.equipes.every(t => t.length === 1) ? null : r.equipes,
+    equipes: r.equipes.every(t => t.length === 1) ? null : r.equipes,
   };
   if (as === 'admin') v.attaque = d.dragon.attaque;
   if (as === 'joueur' && d.j[nom]) {
     const me = d.j[nom];
-    v.moi = { vies: me.vies, munitions: me.munitions, action: me.action, cible: me.cible, finAction: me.finAction, horsJeu: !enJeu(d, nom), equipe: equipeDe(r, nom) };
-    v.cibles = r.joueurs.filter(p => p !== nom && enJeu(d, p) && equipeDe(r, p) !== equipeDe(r, nom));
+    v.moi = { vies: me.vies, balles: me.balles, action: me.action, cible: me.cible, pretA: me.viseDepuis + VISEE, finRecharge: me.finRecharge, horsJeu: !enJeu(d, nom), equipe: equipeDe(r, nom) };
   }
   return v;
 }
