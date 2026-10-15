@@ -1,13 +1,13 @@
 # Jeu 4 — Les Mini-Jeux (structure)
 
-Une journée de rounds à heures régulières. À chaque round, un mini-jeu et des joueurs tirés au sort. Chaque mini-jeu a un nom, une page de règles écrite par l'organisateur, un format et des points par place. Un mini-jeu est soit **manuel** (l'organisateur saisit les places à la fin), soit un jeu automatique joué sur les téléphones : pour l'instant **La Définition** et **Le Temple aztèque**.
+Une journée de rounds à heures régulières. À chaque round, un mini-jeu et des joueurs tirés au sort. Chaque mini-jeu a un nom, une page de règles écrite par l'organisateur, un format et des points par place. Un mini-jeu est soit **manuel** (l'organisateur saisit les places à la fin), soit un jeu automatique joué sur les téléphones : pour l'instant **La Définition**, **Le Temple aztèque** et **Le Mime**.
 
 ## Avant la journée (onglet « Réglages du jeu »)
 
 - **Participants** : un nom par ligne.
 - **Journée** : heure de début, heure de fin, nombre de rounds. Les rounds sont répartis à intervalles égaux (8 h et 12 rounds = un round toutes les 40 min). L'admin voit combien de rounds chacun jouera.
 - **Programme** : le mini-jeu de chaque round, dans l'ordre (un mini-jeu peut revenir). « Remplir automatiquement » enchaîne en boucle les mini-jeux cochés « utilisés ».
-- **Les 6 mini-jeux** : nom (libre), **type** (manuel, La Définition ou Le Temple aztèque), page de règles (affichée en grand sur l'écran et sur les téléphones avant le jeu), **format**, durée indicative, points par place (ex. « 10, 6, 3, 1 »).
+- **Les 6 mini-jeux** : nom (libre), **type** (manuel, La Définition, Le Temple aztèque ou Le Mime), page de règles (affichée en grand sur l'écran et sur les téléphones avant le jeu), **format**, durée indicative, points par place (ex. « 10, 6, 3, 1 »).
 - **Format** : vide = chacun pour soi, avec un nombre de joueurs par round (0 = tout le monde) ; ou des équipes : `1v1v1v1` (4 joueurs, chacun pour soi), `2v2`, `3v1`, `2v1`, `2v2v2`, `3v3`… (8 équipes et 10 joueurs par équipe au plus). Les équipes s'appellent Rouges, Bleus, Verts, Jaunes… Les places se donnent par équipe et chaque membre reçoit les points de la place de son équipe.
 - Réglages pris en compte tout de suite : participants, noms, règles, points. Horaires, nombre de rounds et programme : fixés à l'ouverture de la journée.
 
@@ -52,6 +52,18 @@ Une journée de rounds à heures régulières. À chaque round, un mini-jeu et d
 - **Arrivée** : après la dernière étape (ou quand tout le monde est éliminé), l'écran montre ceux qui arrivent au temple et récupèrent le trésor.
 - **Classement** : ceux qui arrivent au temple, du plus de vies au moins de vies, puis les éliminés, du plus loin au moins loin. Ex æquo possibles.
 - **Admin** : voit les vies et les choix en direct, peut « Passer à l'étape suivante » et remplacer un joueur (le remplaçant reprend ses vies).
+
+## Le Mime
+
+- En **duos** (2 duos par défaut, réglable) : le format est fixé automatiquement (2 duos = 2 contre 2).
+- **Réglages** : la liste des **mots à mimer** (un par ligne ; une liste d'exemples est déjà remplie), le nombre de duos, le temps pour mimer (45 s chacun) et le temps pour se préparer (10 s).
+- **Déroulement** : le premier de chaque duo mime, duo après duo, puis les rôles s'inversent (2 duos = 4 tours). Avant chaque tour, l'écran annonce qui mime et qui devine ; celui qui mime peut lancer tout de suite avec « C'est parti ! ».
+- **Celui qui mime** voit le mot sur son téléphone, sans faire de bruit, et peut **passer au mot suivant** quand il veut. Son téléphone vibre quand son partenaire trouve.
+- **Celui qui devine** écrit ses réponses (touche Entrée ou « Valider »), autant de fois qu'il veut. Accents, majuscules, article (« une girafe ») et pluriel ne comptent pas ; une petite faute est acceptée (aucune sur les mots de 3 lettres ou moins, 1 jusqu'à 7 lettres, 2 au-delà). Un mot trouvé passe tout de suite au suivant.
+- **Écran** : grand chrono, essais faux barrés, « ✓ MAGICIEN ! » quand c'est trouvé, mots trouvés et passés du tour, score de chaque duo. Le mot en cours n'apparaît jamais sur l'écran ni chez les autres.
+- Un mot ne revient jamais dans le même round ; dans la journée, les mots déjà sortis reviennent en dernier. Plus de mots : le tour s'arrête.
+- **Gagnant** : le duo qui a fait trouver le plus de mots (ex æquo possibles) ; chaque membre reçoit les points de la place du duo.
+- **Admin** : voit le mot en cours et les essais, peut « Passer à l'étape suivante » et remplacer un joueur.
 
 ## Classement
 

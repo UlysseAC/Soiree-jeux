@@ -21,7 +21,7 @@ SJ.sock.on('etat', v => {
   // Décor aztèque pendant un round du Temple (annonce, partie, résultats).
   const mjr = v.gameId === 'minijeux' && v.game ? v.game.actif || v.game.recent : null;
   document.body.dataset.theme = mjr?.type === 'temple' ? 'temple' : '';
-  if (v.gameId === 'minijeux' && v.game) tpSons(v.game);
+  if (v.gameId === 'minijeux' && v.game) { tpSons(v.game); mimeSons(v.game); }
   draw();
 });
 SJ.sock.on('sfx', n => { if (n === 'boom') Sons.boom(); if (n === 'victoire') Sons.fanfare(); if (n === 'annonce') Sons.gong(); });
@@ -134,6 +134,48 @@ function mjTemple(a, e) {
     <div class="tp-duel">${tpTorche()}${side('gauche')}<div class="tp-ou">ou</div>${side('droite')}${tpTorche()}</div>
     <div class="tp-joueurs">${e.joueurs.map(p => `<div class="tp-j ${p.vies > 0 || p.perdu ? '' : 'mort'} ${p.perdu ? 'perdu' : ''}"><strong>${esc(p.nom)}</strong><span>${tpCoeurs(e, p)}</span>${!rev && p.vies > 0 ? `<em>${p.choisi ? '✓' : '…'}</em>` : ''}</div>`).join('')}</div></div>`;
 }
+// Le Mime : préparation du duo, puis le mime (chrono, essais du devineur, mots trouvés).
+function mjMime(a, e) {
+  const head = `<div class="mj-kicker">Round ${a.n} · ${esc(a.nom)} · tour ${e.tour} / ${e.tours}</div>`;
+  const c = e.cur;
+  if (!c) return head;
+  const team = i => MJ_TEAMS[i] ?? [`Duo ${i + 1}`, 'var(--accent)'];
+  const [tn, tc] = team(c.equipe);
+  const scores = `<div class="mm-scores">${a.equipes.map((t, i) => `<div class="mm-score ${i === c.equipe ? 'on' : ''}" style="--team:${team(i)[1]}"><span>${esc(team(i)[0])}</span><small>${t.map(esc).join(' + ')}</small><b>${e.score[i] ?? 0}</b></div>`).join('')}</div>`;
+  if (e.phase === 'pret') {
+    return `${head}<div class="mj-round" style="color:${tc}">${esc(tn)}</div>
+      <div class="mm-roles"><span>🤫 <strong>${esc(c.mime)}</strong> mime</span><span>✍️ <strong>${esc(c.devine)}</strong> devine</span></div>
+      <div class="sc-sub">Prêts ? Ça commence dans <strong class="mono" data-until="${e.fin}"></strong></div>${scores}`;
+  }
+  const reste = e.fin - SJ.now();
+  const flash = e.dernier && e.dernier.tour === e.tour - 1 && SJ.now() - e.dernier.at < 3000 ? e.dernier : null;
+  return `${head}
+    <div class="mm-jeu"><div class="mm-chrono mono ${reste < 6000 ? 'urgent' : ''}" data-until="${e.fin}"></div>
+      <div class="stack" style="gap:1vh"><div class="mm-roles"><span>🤫 <strong>${esc(c.mime)}</strong> mime</span><span>✍️ <strong>${esc(c.devine)}</strong> devine</span></div>
+      <div class="mm-trouves" style="--team:${tc}"><b>${e.histo.filter(x => x.trouve).length}</b> trouvé${e.histo.filter(x => x.trouve).length > 1 ? 's' : ''} ce tour</div></div></div>
+    ${flash ? `<div class="mm-flash ${flash.trouve ? 'ok' : 'passe'}">${flash.trouve ? `✓ ${esc(flash.mot)} !` : `⏭ Passé : ${esc(flash.mot)}`}</div>` : ''}
+    <div class="mm-essais">${e.essais.map(x => `<span>${esc(x)}</span>`).join('')}</div>
+    <div class="mm-histo">${e.histo.map(x => `<span class="${x.trouve ? 'ok' : ''}">${x.trouve ? '✓' : '⏭'} ${esc(x.mot)}</span>`).join('')}</div>
+    ${scores}`;
+}
+// Sons du Mime : gong au début du mime, petite flûte pour un mot trouvé, coup sourd pour un mot passé, tambour à la fin.
+let mmPrec = null, mmSec = null;
+function mimeSons(g) {
+  const e = g.etat;
+  if (!e || e.type !== 'mime') { mmPrec = null; return; }
+  const now = { n: g.actif?.n, tour: e.tour, phase: e.phase, at: e.dernier?.at || 0 };
+  const p = mmPrec;
+  if (p && p.n === now.n) {
+    if (now.phase === 'mime' && p.phase === 'pret') Sons.gong();
+    else if (now.at !== p.at && now.tour === p.tour && e.dernier) (e.dernier.trouve ? Sons.flute([784, 1047]) : Sons.coup(.5));
+    if (now.tour !== p.tour) Sons.boom();
+  }
+  mmPrec = now;
+  const sec = Math.ceil((e.fin - SJ.now()) / 1000);
+  if (e.phase === 'mime' && sec <= 5 && sec > 0 && sec !== mmSec) Sons.coup(.4);
+  mmSec = sec;
+}
+
 // Sons du Temple, au changement d'étape (pas au premier affichage de la page).
 let tpCle = null, tpSec = null;
 function tpSons(g) {
@@ -200,6 +242,8 @@ function minijeux(g) {
     main = mjDefinition(a, g.etat);
   } else if (a && a.status === 'jeu' && g.etat?.type === 'temple') {
     main = mjTemple(a, g.etat);
+  } else if (a && a.status === 'jeu' && g.etat?.type === 'mime') {
+    main = mjMime(a, g.etat);
   } else if (a) {
     main = `<div class="mj-kicker">Round ${a.n} en cours · ${esc(a.format)} · <span class="mono" data-since="${a.debutAt}"></span></div><div class="mj-round">${esc(a.nom)}</div>
       ${mjPlayers(a)}

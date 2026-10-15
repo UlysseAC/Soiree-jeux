@@ -5,11 +5,14 @@
 import { normName } from '../util.js';
 import * as definition from './minijeux/definition.js';
 import * as temple from './minijeux/temple.js';
+import * as mime from './minijeux/mime.js';
 
 // Types de mini-jeux : « manuel » (l'organisateur saisit les places) ou un mini-jeu programmé.
-export const TYPES = { definition, temple };
-export const TYPE_LABELS = { manuel: 'Manuel (tu saisis les places)', definition: definition.label, temple: temple.label };
+export const TYPES = { definition, temple, mime };
+export const TYPE_LABELS = { manuel: 'Manuel (tu saisis les places)', definition: definition.label, temple: temple.label, mime: mime.label };
 const typeOf = (cfg, slot) => TYPES[cfg.jeux[slot]?.type] || null;
+// Format d'un mini-jeu : fixé par son type (Le Mime : des duos ; les autres jeux automatiques : chacun pour soi), sinon celui saisi par l'admin.
+export const formatOf = (cfg, slot) => { const T = typeOf(cfg, slot); return T ? T.format?.(cfg.jeux[slot]) || null : parseFormat(cfg.jeux[slot]?.format); };
 
 export const id = 'minijeux';
 export const name = 'Les Mini-Jeux';
@@ -32,7 +35,7 @@ export function defaultConfig() {
     programme: [...SLOTS, ...SLOTS].join(','), // mini-jeu de chaque round, dans l'ordre
     jeux: Object.fromEntries(SLOTS.map((s, i) => [s, {
       actif: true, // utilisé par « remplir automatiquement »
-      type: 'manuel', // manuel | definition | temple
+      type: 'manuel', // manuel | definition | temple | mime
       nom: `Mini-jeu ${i + 1}`,
       regles: '',
       format: '', // '' = chacun pour soi (avec « joueurs ») ; sinon équipes, ex. « 2v2 », « 3v1 », « 1v1v1v1 »
@@ -41,6 +44,7 @@ export function defaultConfig() {
       points: '10, 6, 3, 1', // points par place
       ...definition.defaults, // La Définition : mots inventés, manches, temps
       ...temple.defaults, // Le Temple aztèque : obstacles, pièges, étapes, vies, temps
+      ...mime.defaults, // Le Mime : mots à mimer, nombre de duos, temps
     }])),
   };
 }
@@ -85,7 +89,7 @@ export const formatLabel = sizes => (!sizes ? 'Chacun pour soi' : sizes.every(n 
 export const TEAM_NAMES = ['Rouges', 'Bleus', 'Verts', 'Jaunes', 'Violets', 'Orange', 'Roses', 'Gris'];
 
 const sizeOf = (cfg, slot, total) => {
-  const sizes = !typeOf(cfg, slot) && parseFormat(cfg.jeux[slot]?.format); // mini-jeux automatiques : chacun pour soi
+  const sizes = formatOf(cfg, slot);
   if (sizes) return Math.min(sizes.reduce((a, b) => a + b, 0), total);
   const j = Math.round(Number(cfg.jeux[slot]?.joueurs) || 0);
   return j > 0 ? Math.min(j, total) : total;
@@ -214,7 +218,7 @@ function announce(ctx, g, r) {
   const names = roster(ctx.cfg);
   r.joueurs = draw(g, names, sizeOf(ctx.cfg, r.jeu, names.length), prevPlayers(g, r));
   r.type = ctx.cfg.jeux[r.jeu]?.type || 'manuel';
-  r.format = TYPES[r.type] ? null : parseFormat(ctx.cfg.jeux[r.jeu]?.format); // mini-jeux automatiques : chacun pour soi
+  r.format = formatOf(ctx.cfg, r.jeu);
   r.equipes = teamsFor(g, r.joueurs, r.format);
   r.compris = [];
   r.status = 'annonce';
@@ -453,8 +457,8 @@ function roundView(ctx, r, withRules = false) {
   const v = {
     n: r.n, jeu: r.jeu, nom: j.nom, at: r.at, status: r.status, joueurs: r.joueurs,
     equipes: r.equipes || r.joueurs.map(p => [p]),
-    equipesNommees: !!(r.format || parseFormat(j.format)) && !(r.format || parseFormat(j.format)).every(n => n === 1),
-    format: formatLabel(r.status === 'prevu' ? parseFormat(j.format) : r.format),
+    equipesNommees: !!(r.status === 'prevu' ? formatOf(ctx.cfg, r.jeu) : r.format)?.some(n => n > 1),
+    format: formatLabel(r.status === 'prevu' ? formatOf(ctx.cfg, r.jeu) : r.format),
     startAt: r.status === 'annonce' ? startAtOf(ctx.cfg, r) : r.debutAt || r.at,
     taille: sizeOf(ctx.cfg, r.jeu, roster(ctx.cfg).length), duree: j.duree, debutAt: r.debutAt, finAt: r.finAt,
     type: r.type || j.type || 'manuel', compris: r.compris || [],

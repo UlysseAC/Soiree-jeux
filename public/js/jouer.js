@@ -28,6 +28,17 @@ SJ.sock.on('etat', v => {
   buzz(before, v);
 });
 
+// Le Mime : envoyer un essai (bouton ou touche Entrée), puis vider le champ en gardant le clavier ouvert.
+function mmDeviner() {
+  const el = document.getElementById('mm-essai');
+  const v = (el?.value || '').trim();
+  if (!v) return;
+  ui.mmDraft = '';
+  if (el) { el.value = ''; el.focus(); }
+  act({ type: 'deviner', texte: v });
+}
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'mm-essai') { e.preventDefault(); mmDeviner(); } });
+
 async function act(a) {
   const r = await SJ.emit('joueur', a);
   SJ.toast(r);
@@ -61,6 +72,7 @@ function buzz(a, b) {
   if (!g0?.duel && g1.duel) navigator.vibrate?.([80, 60, 80]);
   if (!g0?.monTour && g1.monTour) navigator.vibrate?.([300, 120, 300, 120, 500]);
   if (!g0?.block && g1.block) navigator.vibrate?.(400);
+  if (g1.etat?.type === 'mime' && g1.etat.role === 'mime' && g1.etat.dernier?.trouve && g1.etat.dernier.at !== g0?.etat?.dernier?.at) navigator.vibrate?.(150); // mot trouvé par le partenaire
   if (g0?.etat?.type === 'temple' && g0.etat.phase === 'choix' && g1.etat?.phase === 'resultat' && g1.etat.joueurs.find(p => p.nom === g1.nom)?.perdu) setTimeout(() => navigator.vibrate?.([500, 100, 500]), 2400); // piège ! (après le suspense)
   if (g0?.random?.stage !== 'hint' && g1.random?.stage === 'hint') { navigator.vibrate?.(150); ui.aideConfirm = false; }
   if (g0?.random?.attente && g1.random?.stage === 'hint' && !g1.random.attente) navigator.vibrate?.(150);
@@ -407,6 +419,31 @@ function mjAvecQui(t) {
   return t.coequipiers?.length ? `Équipe ${team} : tu joues avec ${esc(liste(t.coequipiers))} contre ${esc(adv)}` : `Équipe ${team} : tu joues seul contre ${esc(adv)}`;
 }
 // « La Définition » sur le téléphone : le joueur écrit, les autres relient les mots aux joueurs.
+// Le Mime, sur le téléphone : celui qui mime voit le mot et peut passer ; celui qui devine écrit ses essais.
+function mjMime(e) {
+  const c = e.cur;
+  if (!c) return '';
+  let h = `<span class="label" style="text-align:center">Tour ${e.tour} / ${e.tours}${e.phase !== 'fini' ? ` · <strong class="mono" data-until="${e.fin}"></strong>` : ''}</span>`;
+  const trouves = e.histo.filter(x => x.trouve).length;
+  const essais = e.essais.length ? `<div class="mm-essais-tel">${e.essais.map(x => `<span>${esc(x)}</span>`).join('')}</div>` : '';
+  if (e.role === 'mime') {
+    if (e.phase === 'pret') return h + `<div class="card turn center"><div class="huge" style="font-size:40px">🤫 À toi de mimer !</div><p style="font-size:18px">Mets-toi face à <strong>${esc(c.devine)}</strong>. Pas un bruit !</p></div>
+      <button class="btn primary big" data-act="mmPret">C'est parti !</button>`;
+    const flash = e.dernier && e.dernier.tour === e.tour - 1 && SJ.now() - e.dernier.at < 3000 ? e.dernier : null;
+    if (flash) h += `<div class="card center" style="border-color:${flash.trouve ? 'var(--ok)' : 'var(--line)'}"><strong style="font-size:20px;color:${flash.trouve ? 'var(--ok)' : 'var(--muted)'}">${flash.trouve ? `✓ Trouvé : ${esc(flash.mot)} !` : `⏭ Passé : ${esc(flash.mot)}`}</strong></div>`;
+    return h + `<div class="card turn center"><span class="label">Mime</span><div class="mm-mot">${esc(e.mot || '…')}</div><p class="muted">Sans un bruit ! · ${trouves} trouvé${trouves > 1 ? 's' : ''}</p></div>
+      <button class="btn big" data-act="mmPasser">Passer au mot suivant ⏭</button>
+      ${essais ? `<div class="card"><span class="label">${esc(c.devine)} a proposé</span>${essais}</div>` : ''}`;
+  }
+  if (e.role === 'devine') {
+    if (e.phase === 'pret') return h + `<div class="card turn center"><div class="huge" style="font-size:40px">✍️ À toi de deviner !</div><p style="font-size:18px"><strong>${esc(c.mime)}</strong> va mimer. Écris ce que tu devines, autant de fois que tu veux.</p></div>`;
+    return h + `<div class="card turn center"><p style="font-size:18px;margin:0">Que mime <strong>${esc(c.mime)}</strong> ?</p><p class="muted" style="margin:0">${trouves} trouvé${trouves > 1 ? 's' : ''} · accents et petites fautes acceptés</p></div>
+      <input class="in" id="mm-essai" autocomplete="off" autocapitalize="off" maxlength="60" style="font-size:22px;padding:14px" placeholder="Ta réponse…" value="${esc(ui.mmDraft || '')}">
+      <button class="btn primary big" data-act="mmDeviner">Valider</button>${essais}`;
+  }
+  return h + `<div class="card"><p style="font-size:18px">🤫 <strong>${esc(c.mime)}</strong> mime pour <strong>${esc(c.devine)}</strong>.</p><p class="muted">Regarde l'écran, et pas un mot !</p></div>`;
+}
+
 // Le Temple aztèque, sur le téléphone : je choisis un passage, ou je regarde si je ne joue pas.
 function mjTemple(e) {
   const coeurs = (v, max) => '❤️'.repeat(Math.max(0, v)) + '🖤'.repeat(Math.max(0, max - Math.max(0, v)));
@@ -509,6 +546,8 @@ function miniJeux() {
     h += mjDefinition(g.etat);
   } else if (g.etat?.type === 'temple') {
     h += mjTemple(g.etat);
+  } else if (g.etat?.type === 'mime') {
+    h += mjMime(g.etat);
   } else if (t) {
     h += `<div class="card turn center"><span class="label">Round ${t.n} · ${esc(t.nom)}</span><div class="huge" style="font-size:44px">À toi de jouer !</div><p>${mjAvecQui(t)}</p><p class="muted">Suis les consignes de l'écran.</p></div>`;
     if (t.regles) h += `<div class="card"><span class="label">Règles</span><p style="white-space:pre-wrap">${esc(t.regles)}</p></div>`;
@@ -552,6 +591,7 @@ app.addEventListener('click', async e => {
 app.addEventListener('input', e => {
   if (e.target.id === 'mj-q') { ui.mjQ = e.target.value; draw(); }
   if (e.target.id === 'mj-def') ui.mjDraft = e.target.value;
+  if (e.target.id === 'mm-essai') ui.mmDraft = e.target.value;
 });
 app.addEventListener('change', e => { const m = e.target.dataset.mjLien; if (m != null) { ui.mjLiens[m] = e.target.value; draw(); } });
 
@@ -590,6 +630,9 @@ app.addEventListener('click', e => {
   }
   const a = t.dataset.act;
   if (a === 'mjCompris') { act({ type: 'compris' }); return; }
+  if (a === 'mmPret') { act({ type: 'pret' }); return; }
+  if (a === 'mmPasser') { act({ type: 'passer' }); return; }
+  if (a === 'mmDeviner') { mmDeviner(); return; }
   if (a === 'tpChoisir') { act({ type: 'choisir', cote: t.dataset.cote }); return; }
   if (a === 'mjEcrire') { const v = document.getElementById('mj-def')?.value || ''; act({ type: 'ecrire', texte: v }).then(r => { if (r.ok) ui.mjDraft = null; }); return; }
   if (a === 'mjVoter') {
