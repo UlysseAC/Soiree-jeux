@@ -4,6 +4,8 @@
 // Un joueur marque un point chaque fois que quelqu'un relie son mot à lui. Celui qui en a le plus gagne.
 // Plusieurs manches (3 par défaut), un nouveau mot par joueur à chaque manche.
 // Les spectateurs sont classés selon leurs bonnes réponses : le premier tiers gagne un bonus (1 point par défaut).
+// Le même moteur sert à « L'Anecdote » (r.type === 'anecdote', voir anecdote.js) : pas de mot, chacun écrit une anecdote
+// sur lui ; les cartes s'appellent A, B, C… et c'est le joueur qu'on a le MOINS souvent retrouvé qui gagne.
 import { shuffle } from '../../util.js';
 
 export const id = 'definition';
@@ -40,9 +42,11 @@ function pickWords(g, sc, n) {
 function nextManche(ctx, g, r, sc) {
   const d = r.def;
   d.manche++;
-  const w = pickWords(g, sc, r.joueurs.length);
+  const anecdote = r.type === 'anecdote';
+  // L'Anecdote : chaque joueur reçoit au hasard une lettre de carte (A, B, C…), affichées dans l'ordre alphabétique
+  const w = anecdote ? shuffle(r.joueurs.map((_, i) => String.fromCharCode(65 + i))) : pickWords(g, sc, r.joueurs.length);
   const mots = Object.fromEntries(r.joueurs.map((p, i) => [p, w[i]]));
-  d.cur = { mots, defs: {}, votes: {}, ordre: shuffle(r.joueurs).map(p => mots[p]), trouves: null };
+  d.cur = { mots, defs: {}, votes: {}, ordre: anecdote ? [...w].sort() : shuffle(r.joueurs).map(p => mots[p]), trouves: null };
   d.phase = 'ecriture';
   d.fin = ctx.now() + sc.tempsEcriture * 1000;
 }
@@ -111,7 +115,9 @@ export function tick(ctx, g, r, sc, spectateurs) {
     const places = {};
     r.equipes.forEach((team, i) => {
       const score = team.reduce((s, p) => s + (t[p] || 0), 0);
-      places[i] = 1 + r.equipes.filter(o => o.reduce((s, p) => s + (t[p] || 0), 0) > score).length;
+      // La Définition : le plus souvent retrouvé gagne ; L'Anecdote : le moins souvent retrouvé gagne
+      const mieux = r.type === 'anecdote' ? (a, b) => a < b : (a, b) => a > b;
+      places[i] = 1 + r.equipes.filter(o => mieux(o.reduce((s, p) => s + (t[p] || 0), 0), score)).length;
     });
     d.devineurs = devineurs(r);
     const pts = Math.max(0, Math.round(Number(sc.pointsDevineurs) || 0));
@@ -131,9 +137,9 @@ export function playerAction(ctx, g, r, nom, a, sc, spectateurs) {
     if (!r.joueurs.includes(nom)) return err('Tu ne joues pas ce round.');
     if (d.phase !== 'ecriture') return err("Le temps d'écriture est fini.");
     const t = clip(a.texte, 300);
-    if (t.length < 2) return err('Écris ta définition.');
+    if (t.length < 2) return err(r.type === 'anecdote' ? 'Écris ton anecdote.' : 'Écris ta définition.');
     d.cur.defs[nom] = t;
-    return ok('Définition envoyée ! Tu peux la modifier jusqu\'à la fin du temps.');
+    return ok(`${r.type === 'anecdote' ? 'Anecdote envoyée' : 'Définition envoyée'} ! Tu peux la modifier jusqu'à la fin du temps.`);
   }
   if (a.type === 'voter') {
     if (!spectateurs.includes(nom)) return err('Seuls ceux qui ne jouent pas ce round peuvent deviner.');
@@ -165,9 +171,9 @@ export function view(ctx, g, r, as, nom, spectateurs) {
   const d = r.def;
   if (!d?.cur) return null;
   const cur = d.cur;
-  const base = { type: id, manche: d.manche, total: d.total, phase: d.phase, fin: d.fin, joueurs: r.joueurs,
+  const base = { type: r.type === 'anecdote' ? 'anecdote' : id, manche: d.manche, total: d.total, phase: d.phase, fin: d.fin, joueurs: r.joueurs,
     ecrit: r.joueurs.filter(p => cur.defs[p]), votants: Object.keys(cur.votes).length, spectateurs: spectateurs.length };
-  const cards = cur.ordre.map(mot => ({ mot, def: cur.defs[authorOf(cur, mot)] || '(pas de définition)' }));
+  const cards = cur.ordre.map(mot => ({ mot, def: cur.defs[authorOf(cur, mot)] || (r.type === 'anecdote' ? '(pas d\'anecdote)' : '(pas de définition)') }));
   const reveled = d.phase === 'revelation' || d.phase === 'fini';
   if (d.phase === 'vote' || reveled) base.cartes = cards;
   if (reveled) {

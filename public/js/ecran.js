@@ -235,20 +235,23 @@ function tpSons(g) {
   tpSec = sec;
 }
 
+// La Définition et L'Anecdote (même déroulement) : écriture, puis les spectateurs relient chaque carte à un joueur, puis les réponses.
 function mjDefinition(a, e) {
+  const A = e.type === 'anecdote';
   const head = `<div class="mj-kicker">Round ${a.n} · ${esc(a.nom)} · manche ${e.manche} / ${e.total}</div>`;
   if (e.phase === 'ecriture') {
-    return `${head}<div class="mj-round">Inventez une définition !</div>
-      <div class="sc-sub">Chaque joueur a reçu un mot qui n'existe pas. Encore <strong class="mono" data-until="${e.fin}"></strong></div>
+    return `${head}<div class="mj-round">${A ? 'Racontez une anecdote !' : 'Inventez une définition !'}</div>
+      <div class="sc-sub">${A ? 'Chaque joueur écrit sur son téléphone une anecdote vraie sur lui.' : 'Chaque joueur a reçu un mot qui n\'existe pas.'} Encore <strong class="mono" data-until="${e.fin}"></strong></div>
       <div class="mj-compris">${e.joueurs.map(p => `<span class="${e.ecrit.includes(p) ? 'on' : ''}">${e.ecrit.includes(p) ? '✓' : '✎'} ${esc(p)}</span>`).join('')}</div>
-      <p class="sc-sub muted">Les autres : préparez-vous à deviner qui avait quel mot !</p>`;
+      <p class="sc-sub muted">Les autres : préparez-vous à deviner ${A ? 'qui a vécu quoi' : 'qui avait quel mot'} !</p>`;
   }
-  const cards = `<div class="mj-cards">${e.cartes.map(c => `<div class="mj-card"><div class="mj-mot">${esc(c.mot)}</div><div class="mj-def">${esc(c.def)}</div>
-    ${c.auteur ? `<div class="mj-auteur">${esc(c.auteur)} · <span class="p">${c.trouves} ${c.trouves > 1 ? 'ont trouvé' : 'a trouvé'}</span></div>` : ''}</div>`).join('')}</div>`;
+  const titre = c => (A ? `Anecdote ${esc(c.mot)}` : esc(c.mot));
+  const cards = `<div class="mj-cards ${A ? 'mj-anecdotes' : ''}">${e.cartes.map(c => `<div class="mj-card"><div class="mj-mot">${titre(c)}</div><div class="mj-def">${esc(c.def)}</div>
+    ${c.auteur ? `<div class="mj-auteur">${esc(c.auteur)} · <span class="p">${c.trouves} ${A ? (c.trouves > 1 ? 'l\'ont reconnu' : 'l\'a reconnu') : (c.trouves > 1 ? 'ont trouvé' : 'a trouvé')}</span></div>` : ''}</div>`).join('')}</div>`;
   if (e.phase === 'vote') {
-    return `${head}<div class="sc-sub">À vos téléphones : reliez chaque mot à ${e.joueurs.map(esc).join(', ')} · <strong class="mono" data-until="${e.fin}"></strong> · ${e.votants} / ${e.spectateurs} ont répondu</div>${cards}`;
+    return `${head}<div class="sc-sub">À vos téléphones : reliez chaque ${A ? 'anecdote' : 'mot'} à ${e.joueurs.map(esc).join(', ')} · <strong class="mono" data-until="${e.fin}"></strong> · ${e.votants} / ${e.spectateurs} ont répondu</div>${cards}`;
   }
-  return `${head}<div class="sc-sub">Les réponses !</div>${cards}`;
+  return `${head}<div class="sc-sub">Les réponses !${A ? ' Le moins reconnu gagne.' : ''}</div>${cards}`;
 }
 function mjSide(g, title = 'Classement de la journée') {
   const rows = g.classement.filter(r => r.points || g.faits).slice(0, 12);
@@ -275,7 +278,7 @@ function minijeux(g) {
       ${a.regles ? `<div class="mj-rules mj-rules-page">${esc(a.regles)}</div>` : ''}
       <div class="sc-sub">Le jeu commence quand chaque joueur a appuyé sur <strong>« J'ai compris »</strong> : ${a.compris.length} / ${a.joueurs.length}</div>
       ${mjCompris(a)}`;
-  } else if (a && a.status === 'jeu' && g.etat?.type === 'definition') {
+  } else if (a && a.status === 'jeu' && (g.etat?.type === 'definition' || g.etat?.type === 'anecdote')) {
     main = mjDefinition(a, g.etat);
   } else if (a && a.status === 'jeu' && g.etat?.type === 'temple') {
     main = mjTemple(a, g.etat);

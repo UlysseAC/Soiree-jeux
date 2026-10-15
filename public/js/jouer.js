@@ -519,6 +519,7 @@ function mjDefinition(e, t) {
   if (ui.mjK !== k) { ui.mjK = k; ui.mjDraft = null; ui.mjLiens = {}; }
   const timer = e.phase !== 'revelation' ? ` · <strong class="mono" data-until="${e.fin}"></strong>` : '';
   let h = `<span class="label" style="text-align:center">Manche ${e.manche} / ${e.total}${timer}</span>`;
+  if (e.type === 'anecdote') return h + mjAnecdote(e);
   if (e.monMot !== undefined) { // je joue
     if (e.phase === 'ecriture') {
       h += `<div class="card turn center"><span class="label">Ton mot</span><div class="huge" style="font-size:40px;word-break:break-word">${esc(e.monMot)}</div><p class="muted">Ce mot n'existe pas : invente sa définition !</p></div>
@@ -551,6 +552,34 @@ function mjDefinition(e, t) {
   return h + (e.bons != null ? `<div class="card accent center"><p style="font-size:20px">Tu as trouvé <strong>${e.bons}</strong> / ${e.cartes.length}</p><p class="muted">Total : ${e.mesBons} bonne${e.mesBons > 1 ? 's' : ''} réponse${e.mesBons > 1 ? 's' : ''}. Les meilleurs devineurs gagnent un bonus !</p></div>` : '<div class="card"><p>Regarde les réponses sur l\'écran !</p></div>');
 }
 
+// « L'Anecdote » sur le téléphone : le joueur écrit une anecdote sur lui ; les autres relient chaque anecdote à son auteur.
+function mjAnecdote(e) {
+  if (e.monMot !== undefined) { // je joue
+    if (e.phase === 'ecriture') {
+      return `<div class="card turn center"><div class="huge" style="font-size:34px">✍️ Ton anecdote</div><p>Écris une anecdote vraie sur toi. Moins les autres te reconnaissent, mieux c'est !</p></div>
+        <label class="field"><span class="label">Ton anecdote</span><textarea class="in" id="mj-def" rows="5" maxlength="300" style="font-size:18px" placeholder="Un jour, j'ai…">${esc(ui.mjDraft ?? e.maDef)}</textarea></label>
+        <button class="btn primary big" data-act="mjEcrire">${e.maDef ? 'Modifier mon anecdote' : 'Envoyer mon anecdote'}</button>
+        ${e.maDef ? '<p class="muted center" style="margin:0">✓ Envoyée. Tu peux encore la modifier.</p>' : ''}`;
+    }
+    if (e.phase === 'vote') return `<div class="card center"><p style="font-size:18px">Les autres essaient de deviner à qui est chaque anecdote… La tienne est l'<strong>anecdote ${esc(e.monMot)}</strong>.</p><p class="muted">Garde ton air innocent !</p></div>`;
+    const moi = e.cartes?.find(c => c.mot === e.monMot), n = moi?.trouves ?? 0;
+    return `<div class="card accent center"><p style="font-size:18px">${n ? `<strong>${n}</strong> personne${n > 1 ? 's t\'ont' : ' t\'a'} reconnu` : 'Personne ne t\'a reconnu ! 🕵️'}</p><p class="muted">Total : ${e.totaux?.[V.game.nom] ?? 0} · le moins reconnu gagne</p></div>`;
+  }
+  // je ne joue pas : je devine
+  if (e.phase === 'ecriture') return `<div class="card"><p style="font-size:18px">${e.joueurs.map(esc).join(', ')} écrivent une anecdote sur eux.</p><p class="muted">Prépare-toi : tu vas deviner qui a vécu quoi !</p></div>`;
+  if (e.phase === 'vote') {
+    const pris = Object.values({ ...(e.mesLiens || {}), ...ui.mjLiens }).filter(Boolean);
+    return `<div class="card"><p style="font-size:18px">Relie chaque anecdote à la personne qui l'a vécue.</p></div><div class="mj-vote">${e.cartes.map(c => {
+      const v = ui.mjLiens[c.mot] ?? e.mesLiens?.[c.mot] ?? '';
+      return `<div class="card"><strong style="font-size:18px;color:var(--accent)">Anecdote ${esc(c.mot)}</strong><p>${esc(c.def)}</p>
+        <select class="in" data-mj-lien="${esc(c.mot)}"><option value="">À qui est cette anecdote ?</option>${e.joueurs.map(p => `<option value="${esc(p)}" ${v === p ? 'selected' : ''} ${v !== p && pris.includes(p) ? 'disabled' : ''}>${esc(p)}</option>`).join('')}</select></div>`;
+    }).join('')}</div>
+      <button class="btn primary big" data-act="mjVoter">${e.mesLiens ? 'Modifier mes réponses' : 'Envoyer mes réponses'}</button>
+      ${e.mesLiens ? '<p class="muted center" style="margin:0">✓ Envoyées. Tu peux encore les modifier.</p>' : ''}`;
+  }
+  return e.bons != null ? `<div class="card accent center"><p style="font-size:20px">Tu as trouvé <strong>${e.bons}</strong> / ${e.cartes.length}</p><p class="muted">Total : ${e.mesBons} bonne${e.mesBons > 1 ? 's' : ''} réponse${e.mesBons > 1 ? 's' : ''}. Les meilleurs devineurs gagnent un bonus !</p></div>` : '<div class="card"><p>Regarde les réponses sur l\'écran !</p></div>';
+}
+
 function miniJeux() {
   const g = V.game;
   const title = `<header class="ph-head"><h1 class="ph-title">${esc(V.gameName)}</h1>${g?.nom ? `<span class="pill accent">${esc(g.nom)}</span>` : ''}</header>`;
@@ -578,9 +607,9 @@ function miniJeux() {
     if (t.regles) h += `<div class="card"><span class="label">Règles</span><p style="white-space:pre-wrap">${esc(t.regles)}</p></div>`;
     h += ok ? `<div class="card center"><p style="font-size:18px">✓ Compris !</p><p class="muted">On attend les autres : ${t.compris.length} / ${t.joueurs.length}</p></div>`
       : `<button class="btn primary big" data-act="mjCompris">J'ai compris</button><p class="muted center" style="margin:0">Le jeu commence quand tous les joueurs ont appuyé.</p>`;
-  } else if (t && g.etat?.type === 'definition') {
+  } else if (t && (g.etat?.type === 'definition' || g.etat?.type === 'anecdote')) {
     h += mjDefinition(g.etat, t);
-  } else if (g.etat?.type === 'definition') {
+  } else if (g.etat?.type === 'definition' || g.etat?.type === 'anecdote') {
     h += mjDefinition(g.etat);
   } else if (g.etat?.type === 'temple') {
     h += mjTemple(g.etat);

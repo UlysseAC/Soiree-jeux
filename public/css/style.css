@@ -507,3 +507,7 @@ body[data-theme="temple"] .tp-choix .btn.choisi { border-color: var(--accent); b
 .dr-nomcible { font: 800 26px/1.1 var(--display); text-transform: uppercase; overflow-wrap: anywhere; }
 .dr-gros { min-height: 76px; font-size: 22px; }
 .dr-bas { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+/* L'Anecdote : le titre de carte est une lettre, le texte est plus long */
+.mj-anecdotes .mj-mot { font-size: clamp(16px, 1.6vw, 28px); letter-spacing: .06em; }
+.mj-anecdotes .mj-def { font-size: clamp(15px, 1.45vw, 26px); }
