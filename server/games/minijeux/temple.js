@@ -8,18 +8,22 @@ export const id = 'temple';
 export const label = 'Le Temple aztèque';
 
 export const defaults = {
-  // Un obstacle par ligne ; après « | », ce qui arrive si c'est le piège (sinon une phrase de « pieges » au hasard).
+  // Un obstacle par ligne : « nom | ce qui arrive si c'est le piège | décor ». La phrase et le décor sont facultatifs :
+  // sans phrase, une phrase de « pieges » est tirée au hasard ; sans décor, il est deviné d'après le nom.
   obstacles: [
-    "Pont de lianes | Le pont s'effondre sous tes pieds !",
+    "Pont de bois | Le pont de bois s'effondre sous tes pieds !",
     'Escalier de pierre | Une marche s\'enfonce : des pieux sortent du sol !',
-    'Tunnel obscur | Un serpent te mord dans le noir !',
+    'Tunnel obscur | Le tunnel s\'écroule !',
     'Jungle épaisse | Un léopard te griffe !',
     'Rivière | Les crocodiles attaquent !',
-    'Salle des statues | Des flèches empoisonnées jaillissent des murs !',
+    'Salle des statues | Des pieux jaillissent du sol !',
     'Grotte | Le plafond s\'écroule !',
     'Marais | Tu t\'enlises dans les sables mouvants !',
-    'Couloir de pierre | Le sol se dérobe !',
-    'Liane géante | La liane casse !',
+    'Liane au-dessus du ravin | La liane casse ! | liane',
+    'Paroi rocheuse | Une prise se détache, tu chutes ! | escalade',
+    'Coulée de lave | Le volcan entre en éruption ! | volcan',
+    'Ravin du condor | Le bord du ravin cède ! | ravin',
+    'Nid de serpents | Les serpents attaquent ! | serpents',
   ].join('\n'),
   pieges: ['Un serpent te mord !', 'Un léopard te griffe !', 'Le sol s\'effondre !', 'Un piège mortel se déclenche !'].join('\n'),
   etapes: 5,
@@ -29,16 +33,37 @@ export const defaults = {
 };
 
 const lines = s => String(s || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+const sansAccents = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
-// Obstacles écrits par l'organisateur : { nom, piege } (piege = phrase propre à cet obstacle, ou '').
+// Décors de la carte. L'organisateur peut en choisir un en fin de ligne ; sinon on le devine d'après le nom.
+export const DECORS = ['eau', 'tunnel', 'jungle', 'marais', 'pierre', 'volcan', 'ravin', 'serpents', 'liane', 'escalade'];
+const INDICES = [ // dans l'ordre : le premier qui correspond gagne (« Pont de lianes » est un pont, donc de l'eau)
+  ['volcan', /volcan|lave|feu|braise|cratere/],
+  ['escalade', /escalad|paroi|grimp|falaise|muraille|rocher/],
+  ['eau', /pont|riviere|fleuve|lac|crocod|cascade|\beau\b/],
+  ['liane', /liane|balanc|tarzan/],
+  ['ravin', /ravin|gouffre|precipice|abime|crevasse/],
+  ['serpents', /serpent|vipere|cobra|python|reptile/],
+  ['tunnel', /tunnel|grotte|couloir|caverne|souterrain/],
+  ['marais', /marais|sable|boue|vase/],
+  ['pierre', /escalier|statue|pierre|temple|salle/],
+];
+export function decorDe(nom, choisi = '') {
+  const c = sansAccents(choisi).trim();
+  if (DECORS.includes(c)) return c;
+  const n = sansAccents(nom);
+  return INDICES.find(([, re]) => re.test(n))?.[0] || 'jungle';
+}
+
+// Obstacles écrits par l'organisateur : { nom, piege, decor } (piege = phrase propre à cet obstacle, ou '').
 export function obstaclesOf(sc) {
   const seen = new Set(), out = [];
   for (const line of lines(sc.obstacles)) {
-    const [nom, ...rest] = line.split('|');
+    const [nom, piege = '', decor = ''] = line.split('|');
     const n = nom.trim().replace(/\s+/g, ' ').slice(0, 40);
     if (!n || seen.has(n.toLocaleLowerCase('fr'))) continue;
     seen.add(n.toLocaleLowerCase('fr'));
-    out.push({ nom: n, piege: rest.join('|').trim().slice(0, 120) });
+    out.push({ nom: n, piege: piege.trim().slice(0, 120), decor: decorDe(n, decor) });
   }
   return out;
 }
@@ -51,7 +76,7 @@ function nextEtape(ctx, r, sc) {
   const t = r.tp;
   t.etape++;
   let pool = obstaclesOf(sc);
-  while (pool.length < 2) pool.push({ nom: `Passage n°${pool.length + 1}`, piege: '' });
+  while (pool.length < 2) pool.push({ nom: `Passage n°${pool.length + 1}`, piege: '', decor: 'jungle' });
   const vus = new Set(t.passees.flatMap(e => [e.gauche, e.droite]));
   pool = shuffle(pool).sort((a, b) => vus.has(a.nom) - vus.has(b.nom));
   const [g, d] = pool;
@@ -59,8 +84,9 @@ function nextEtape(ctx, r, sc) {
   const o = piege === 'gauche' ? g : d;
   const generiques = lines(sc.pieges);
   const message = o.piege || generiques[Math.floor(Math.random() * generiques.length)] || 'Piège mortel !';
-  t.cur = { gauche: g.nom, droite: d.nom, piege, message, choix: {}, auto: [], perdus: null };
+  t.cur = { gauche: g.nom, droite: d.nom, decorG: g.decor, decorD: d.decor, piege, message, choix: {}, auto: [], perdus: null };
   t.phase = 'choix';
+  t.debut = ctx.now();
   t.fin = ctx.now() + clampInt(sc.tempsChoix, 20, 5, 600) * 1000;
 }
 
@@ -79,6 +105,7 @@ function resoudre(ctx, r, sc) {
   for (const p of cur.perdus) if (--t.vies[p] <= 0) t.mort[p] = t.etape;
   t.passees.push(cur);
   t.phase = 'resultat';
+  t.debut = ctx.now();
   t.fin = ctx.now() + clampInt(sc.tempsPiege, 8, 2, 120) * 1000;
 }
 
@@ -93,6 +120,7 @@ export function tick(ctx, g, r, sc) {
   } else if (t.phase === 'resultat' && now >= t.fin) {
     if (t.etape < t.total && vivants(r).length) { nextEtape(ctx, r, sc); return { changed: true }; }
     t.phase = 'arrivee';
+    t.debut = now;
     t.fin = now + clampInt(sc.tempsPiege, 8, 2, 120) * 1000;
     return { changed: true };
   } else if (t.phase === 'arrivee' && now >= t.fin) {
@@ -137,8 +165,10 @@ export function view(ctx, g, r, as, nom) {
   if (!t?.cur) return null;
   const cur = t.cur, revele = t.phase !== 'choix';
   const v = {
-    type: id, etape: t.etape, total: t.total, phase: t.phase, fin: t.fin, viesMax: t.viesMax,
-    gauche: cur.gauche, droite: cur.droite,
+    type: id, etape: t.etape, total: t.total, phase: t.phase, fin: t.fin, debut: t.debut || 0, viesMax: t.viesMax,
+    gauche: cur.gauche, droite: cur.droite, decorG: cur.decorG || decorDe(cur.gauche), decorD: cur.decorD || decorDe(cur.droite),
+    // étapes déjà jouées (tout y est dévoilé) : pour dessiner la carte
+    passees: t.passees.filter(e => e !== cur).map(e => ({ gauche: e.gauche, droite: e.droite, decorG: e.decorG || decorDe(e.gauche), decorD: e.decorD || decorDe(e.droite), piege: e.piege })),
     joueurs: r.joueurs.map(p => ({ nom: p, vies: t.vies[p], mort: t.mort[p] || 0, choisi: !!cur.choix[p],
       ...(revele ? { choix: cur.choix[p] || null, perdu: !!cur.perdus?.includes(p), auto: cur.auto.includes(p) } : {}) })),
   };

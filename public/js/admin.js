@@ -348,15 +348,31 @@ function mjMimePartie(e, a) {
     ${e.phase !== 'fini' ? '<div><button class="btn sm" data-mj="suivant">Passer à l\'étape suivante</button></div>' : ''}</div>`;
 }
 
-// Réglages propres au « Temple aztèque » : les obstacles, les pièges, les étapes et les vies.
+// Décors de la carte du Temple (même règle que le serveur) : choisi en fin de ligne, sinon deviné d'après le nom.
+const TP_DECORS = { eau: '🌊 eau (pont de bois)', tunnel: '🪨 tunnel', jungle: '🌴 jungle', marais: '🟤 marais', pierre: '🗿 pierre', volcan: '🌋 volcan', ravin: '⛰️ ravin', serpents: '🐍 serpents', liane: '🌿 liane (saut au-dessus d\'un ravin)', escalade: '🧗 escalade' };
+const TP_INDICES = [['volcan', /volcan|lave|feu|braise|cratere/], ['escalade', /escalad|paroi|grimp|falaise|muraille|rocher/], ['eau', /pont|riviere|fleuve|lac|crocod|cascade|\beau\b/],
+  ['liane', /liane|balanc|tarzan/], ['ravin', /ravin|gouffre|precipice|abime|crevasse/], ['serpents', /serpent|vipere|cobra|python|reptile/],
+  ['tunnel', /tunnel|grotte|couloir|caverne|souterrain/], ['marais', /marais|sable|boue|vase/], ['pierre', /escalier|statue|pierre|temple|salle/]];
+const sansAccents = x => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+function tpDecor(ligne) {
+  const [nom, , choisi = ''] = ligne.split('|');
+  const c = sansAccents(choisi).trim();
+  if (TP_DECORS[c]) return { nom: nom.trim(), decor: c, choisi: true };
+  return { nom: nom.trim(), decor: TP_INDICES.find(([, re]) => re.test(sansAccents(nom)))?.[0] || 'jungle', choisi: false, inconnu: c || '' };
+}
+
+// Réglages propres au « Temple aztèque » : les obstacles (avec leur décor), les pièges, les étapes et les vies.
 function mjTempleReglages(c, s) {
   const j = c.jeux[s];
-  const obs = String(j.obstacles || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+  const obs = String(j.obstacles || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean).map(tpDecor).filter(o => o.nom);
   return `<div class="box" style="gap:10px">
     <p class="muted" style="margin:0;font-size:14px">Jeu de chance. À chaque étape, deux obstacles tirés de ta liste : chaque joueur en choisit un sur son téléphone. L'un des deux, au hasard, est un piège qui fait perdre une vie. Ceux qui arrivent au temple avec le plus de vies gagnent ; les éliminés sont classés selon l'étape atteinte.</p>
     <label class="field"><span class="label">Obstacles (un par ligne) · ${obs.length}</span>
-      <textarea class="in" rows="10" id="c-jeu-jeux-${s}-obstacles" data-cfg="jeux.${s}.obstacles" data-kind="area" data-scope="jeu" placeholder="Pont de lianes | Le pont s'effondre !">${esc(j.obstacles)}</textarea>
-      <span class="muted" style="font-size:13px">Après « | », écris ce qui arrive si cet obstacle est le piège. Sans « | », une phrase de la liste ci-dessous est tirée au hasard.${obs.length < 2 ? ' <span style="color:var(--danger)">Il faut au moins 2 obstacles.</span>' : ''}</span></label>
+      <textarea class="in mono" rows="12" id="c-jeu-jeux-${s}-obstacles" data-cfg="jeux.${s}.obstacles" data-kind="area" data-scope="jeu" placeholder="Pont de bois | Le pont s'effondre ! | eau">${esc(j.obstacles)}</textarea>
+      <span class="muted" style="font-size:13px">Écris <strong>nom | ce qui arrive si c'est le piège | décor</strong>. La phrase et le décor sont facultatifs : sans phrase, une phrase de la liste « Pièges » est tirée au hasard ; sans décor, il est deviné d'après le nom. Pour mettre un décor sans phrase : <span class="mono">Grotte aux chauves-souris | | tunnel</span>.${obs.length < 2 ? ' <span style="color:var(--danger)">Il faut au moins 2 obstacles.</span>' : ''}</span></label>
+    <div class="field"><span class="label">Décors possibles</span><div class="row" style="flex-wrap:wrap;gap:6px">${Object.entries(TP_DECORS).map(([k, l]) => `<span class="pill" title="${k}">${esc(l)}</span>`).join('')}</div></div>
+    <div class="field"><span class="label">Décor de chaque obstacle sur la carte</span>
+      <div class="scroll"><table><tbody>${obs.map(o => `<tr><td>${esc(o.nom)}</td><td>${esc(TP_DECORS[o.decor])}</td><td class="muted" style="font-size:13px">${o.choisi ? 'choisi' : o.inconnu ? `<span style="color:var(--danger)">« ${esc(o.inconnu)} » n'existe pas : décor deviné</span>` : 'deviné d\'après le nom'}</td></tr>`).join('')}</tbody></table></div></div>
     <label class="field"><span class="label">Pièges (un par ligne)</span>
       <textarea class="in" rows="4" id="c-jeu-jeux-${s}-pieges" data-cfg="jeux.${s}.pieges" data-kind="area" data-scope="jeu" placeholder="Un serpent te mord !">${esc(j.pieges)}</textarea></label>
     <div class="grid-auto">${cfgInput(`jeux.${s}.etapes`, j.etapes, 'num', { label: 'Étapes jusqu\'au temple' })}${cfgInput(`jeux.${s}.vies`, j.vies, 'num', { label: 'Vies' })}

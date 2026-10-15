@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as mj from '../server/games/minijeux.js';
-import { obstaclesOf } from '../server/games/minijeux/temple.js';
+import { obstaclesOf, decorDe } from '../server/games/minijeux/temple.js';
 
 const NAMES = ['Léa', 'Hugo', 'Inès', 'Malik', 'Chloé', 'Tom'];
 
@@ -28,7 +28,22 @@ function etape(ctx, g, r, pid, tombent = []) {
 }
 
 test('obstacles : un par ligne, avec la phrase du piège après « | »', () => {
-  assert.deepEqual(obstaclesOf({ obstacles: 'Pont | Le pont casse !\n\npont\nGrotte' }), [{ nom: 'Pont', piege: 'Le pont casse !' }, { nom: 'Grotte', piege: '' }]);
+  assert.deepEqual(obstaclesOf({ obstacles: 'Pont | Le pont casse !\n\npont\nGrotte' }), [{ nom: 'Pont', piege: 'Le pont casse !', decor: 'eau' }, { nom: 'Grotte', piege: '', decor: 'tunnel' }]);
+});
+
+test('décor : choisi en fin de ligne, sinon deviné d\'après le nom', () => {
+  assert.deepEqual(obstaclesOf({ obstacles: 'Champ de cactus | Les épines te piquent ! | Jungle\nPont du dragon | | VOLCAN\nChemin | Aïe | inconnu' }).map(o => [o.nom, o.piege, o.decor]),
+    [['Champ de cactus', 'Les épines te piquent !', 'jungle'], ['Pont du dragon', '', 'volcan'], ['Chemin', 'Aïe', 'jungle']]);
+  assert.equal(decorDe('Pont de lianes'), 'eau', 'un pont reste un pont');
+  assert.equal(decorDe('Liane au-dessus du ravin'), 'liane');
+  assert.equal(decorDe('Paroi rocheuse'), 'escalade');
+  assert.equal(decorDe('Coulée de lave'), 'volcan');
+  assert.equal(decorDe('Gouffre sans fond'), 'ravin');
+  assert.equal(decorDe('Nid de vipères'), 'serpents');
+  assert.equal(decorDe('Caverne'), 'tunnel');
+  assert.equal(decorDe('Sables mouvants'), 'marais');
+  assert.equal(decorDe('Salle des statues'), 'pierre');
+  assert.equal(decorDe('Champ de cactus'), 'jungle');
 });
 
 test('le jeu commence après « J\'ai compris » : chacun pour soi même si un format d\'équipes traîne dans les réglages', () => {

@@ -22,6 +22,7 @@ SJ.sock.on('etat', v => {
   const mjr = v.gameId === 'minijeux' && v.game ? v.game.actif || v.game.recent : null;
   document.body.dataset.theme = mjr?.type === 'temple' ? 'temple' : '';
   if (v.gameId === 'minijeux' && v.game) { tpSons(v.game); mimeSons(v.game); }
+  TempleCarte.maj(v.gameId === 'minijeux' ? v.game?.etat : null);
   draw();
 });
 SJ.sock.on('sfx', n => { if (n === 'boom') Sons.boom(); if (n === 'victoire') Sons.fanfare(); if (n === 'annonce') Sons.gong(); });
@@ -94,9 +95,7 @@ function mjCompris(a) {
 // Le Temple aztèque : deux obstacles, puis le piège révélé (après un roulement de tambour), puis l'arrivée au temple.
 const TP_DELAI = 2400; // suspense avant la révélation du piège (ms), le même que --tp-delai en CSS
 const TP_PYRAMIDE = `<svg class="tp-pyr" viewBox="0 0 120 92" aria-hidden="true"><g fill="currentColor"><rect x="48" y="2" width="24" height="16" rx="1"/><rect x="38" y="18" width="44" height="14"/><rect x="27" y="32" width="66" height="14"/><rect x="16" y="46" width="88" height="14"/><rect x="4" y="60" width="112" height="16"/></g><rect x="55" y="7" width="10" height="11" fill="rgba(0,0,0,.45)"/><rect x="56" y="32" width="8" height="44" fill="rgba(0,0,0,.22)"/><path d="M0 80h120v4H0z" fill="currentColor" opacity=".5"/></svg>`;
-const TP_FISSURE = `<svg class="tp-fissure" viewBox="0 0 100 60" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" d="M48 0 L52 14 L44 24 L55 33 L47 45 L53 60 M52 14 L66 20 L72 31 M44 24 L30 28 L24 40 M55 33 L70 42"/></svg>`;
 const tpDecor = () => `<div class="tp-deco" aria-hidden="true"><span class="tp-liane l1">🌿</span><span class="tp-liane l2">🍃</span><span class="tp-liane l3">🌿</span><span class="tp-liane r1">🌿</span><span class="tp-liane r2">🍃</span><span class="tp-liane r3">🌿</span></div>`;
-const tpTorche = () => `<div class="tp-torche" aria-hidden="true"><span class="tp-flamme">🔥</span><span class="tp-baton"></span></div>`;
 function tpCoeurs(e, p) {
   if (!(p.vies > 0) && !p.perdu) return '☠️';
   const plein = p.vies; // déjà diminué : le cœur perdu s'affiche à part, et se brise après le suspense
@@ -105,8 +104,6 @@ function tpCoeurs(e, p) {
 }
 function mjTemple(a, e) {
   const head = `<div class="mj-kicker">Round ${a.n} · ${esc(a.nom)} · étape ${e.etape} / ${e.total}</div>`;
-  const ici = e.etape - (e.phase === 'choix' ? 1 : 0);
-  const chemin = `<div class="tp-chemin">${Array.from({ length: e.total }, (_, i) => `<span class="${i < ici ? 'fait' : i === e.etape - 1 ? 'ici' : ''}">${i === e.etape - 1 && e.phase !== 'arrivee' ? '<i>👣</i>' : ''}</span>`).join('')}${TP_PYRAMIDE}</div>`;
   if (e.phase === 'arrivee' || e.phase === 'fini') {
     const arrives = e.joueurs.filter(p => p.vies > 0).sort((x, y) => y.vies - x.vies);
     const morts = e.joueurs.filter(p => !(p.vies > 0)).sort((x, y) => y.mort - x.mort);
@@ -118,21 +115,15 @@ function mjTemple(a, e) {
         ${morts.map(p => `<div class="tp-j mort"><strong>${esc(p.nom)}</strong><span>☠️ étape ${p.mort}</span></div>`).join('')}</div></div>`;
   }
   const rev = e.phase === 'resultat';
-  const side = c => {
-    const qui = rev ? e.joueurs.filter(p => p.choix === c) : [];
-    const piege = rev && e.piege === c;
-    return `<div class="tp-obs ${rev ? `revele ${piege ? 'piege' : 'sur'}` : ''}">${piege ? TP_FISSURE + '<div class="tp-debris" aria-hidden="true"><span>🪨</span><span>🪨</span><span>🪨</span></div>' : ''}
-      <div class="tp-fl">${c === 'gauche' ? '◀' : '▶'}</div><div class="tp-nom">${esc(e[c])}</div>
-      ${rev ? `<div class="tp-msg">${piege ? `☠️ ${esc(e.message)}` : '✓ Passage sûr'}</div><div class="tp-qui">${qui.map(p => `<span>${esc(p.nom)}</span>`).join('') || '<span class="muted">personne</span>'}</div>` : ''}</div>`;
-  };
   const reste = e.fin - SJ.now();
   const perdus = e.joueurs.filter(p => p.perdu);
   const sub = !rev
     ? `<div class="sc-sub">À vos téléphones : quel passage ? · <strong class="mono tp-timer ${reste < 6000 ? 'urgent' : ''}" data-until="${e.fin}"></strong> · ${e.joueurs.filter(p => p.vies > 0 && p.choisi).length} / ${e.joueurs.filter(p => p.vies > 0).length} ont choisi</div>`
     : `<div class="sc-sub tp-swap"><span class="tp-avant">🥁 Le temple gronde… lequel est piégé ?</span><span class="tp-apres">${perdus.length ? `${perdus.map(p => esc(p.nom)).join(', ')} ${perdus.length > 1 ? 'perdent' : 'perd'} une vie !` : 'Personne n\'est tombé dans le piège !'}</span></div>`;
-  return `<div class="tp-scene ${rev ? 'tp-rev' : ''}">${tpDecor()}${head}${chemin}${sub}
-    <div class="tp-duel">${tpTorche()}${side('gauche')}<div class="tp-ou">ou</div>${side('droite')}${tpTorche()}</div>
-    <div class="tp-joueurs">${e.joueurs.map(p => `<div class="tp-j ${p.vies > 0 || p.perdu ? '' : 'mort'} ${p.perdu ? 'perdu' : ''}"><strong>${esc(p.nom)}</strong><span>${tpCoeurs(e, p)}</span>${!rev && p.vies > 0 ? `<em>${p.choisi ? '✓' : '…'}</em>` : ''}</div>`).join('')}</div></div>`;
+  // La carte vue du dessus (dessinée par temple-carte.js) ; sous elle, chaque joueur avec la couleur de son t-shirt et ses vies.
+  return `<div class="tp-scene ${rev ? 'tp-rev' : ''}">${tpDecor()}${head}${sub}
+    <canvas id="tp-carte" class="tp-carte" width="1280" height="720" aria-label="Carte du chemin vers le temple"></canvas>
+    <div class="tp-joueurs">${e.joueurs.map((p, j) => `<div class="tp-j ${p.vies > 0 || p.perdu ? '' : 'mort'} ${p.perdu ? 'perdu' : ''}"><i class="tp-tshirt" style="--tshirt:${TempleCarte.COULEURS[j % TempleCarte.COULEURS.length]}"></i><strong>${esc(p.nom)}</strong><span>${tpCoeurs(e, p)}</span>${!rev && p.vies > 0 ? `<em>${p.choisi ? '✓' : '…'}</em>` : ''}</div>`).join('')}</div></div>`;
 }
 // Le Mime : préparation du duo, puis le mime (chrono, essais du devineur, mots trouvés).
 function mjMime(a, e) {
@@ -558,6 +549,7 @@ function draw() {
   const before = {};
   document.querySelectorAll('#board li, #board-soiree li').forEach(li => { before[li.dataset.pid] = li.getBoundingClientRect().top; });
   SJ.render(app, html);
+  if (document.getElementById('tp-carte')) TempleCarte.demarrer();
   // Petit QR code dans un coin pendant les jeux, pour ceux qui arrivent en retard.
   const mini = document.getElementById('qr-mini');
   const showMini = !ov && g && V.status === 'playing' && V.qr && !app.querySelector('img.qr');

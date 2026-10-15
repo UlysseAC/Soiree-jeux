@@ -462,7 +462,9 @@ function mjTemple(e) {
   const vies = e.phase === 'resultat' && moi?.perdu
     ? '❤️'.repeat(Math.max(0, e.mesVies)) + '<span class="tp-c"><b>❤️</b><b>🖤</b></span>' + '🖤'.repeat(Math.max(0, e.viesMax - Math.max(0, e.mesVies) - 1))
     : coeurs(e.mesVies, e.viesMax);
-  h += `<div class="card center"><span class="label">Tes vies</span><div style="font-size:32px;letter-spacing:4px">${vies}</div></div>`;
+  const ji = e.joueurs.findIndex(p => p.nom === V.game.nom), tshirt = TempleCarte.COULEURS[ji % TempleCarte.COULEURS.length];
+  h += `<div class="card center"><span class="label">Tes vies</span><div style="font-size:32px;letter-spacing:4px">${vies}</div>
+    <p class="muted tp-moi" style="margin:0;justify-content:center">Sur l'écran, ton explorateur a le t-shirt <i class="tp-tshirt" style="--tshirt:${tshirt};font-size:20px"></i> <strong>${TempleCarte.NOMS_COULEURS[ji % TempleCarte.NOMS_COULEURS.length]}</strong></p></div>`;
   if (e.mesVies <= 0 && !moi?.perdu) return h + `<div class="card center"><p style="font-size:18px">☠️ Éliminé à l'étape ${e.monMort}.</p><p class="muted">Regarde la suite sur l'écran.</p></div>`;
   if (e.phase === 'choix') {
     return h + `<div class="card"><p style="font-size:18px;margin:0">Quel passage prends-tu ?</p></div>

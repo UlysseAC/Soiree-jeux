@@ -439,3 +439,8 @@ body[data-theme="temple"] .tp-choix .btn.choisi { border-color: var(--accent); b
 .mm-mot { font: 800 44px/1.05 var(--display); text-transform: uppercase; word-break: break-word; color: var(--accent); }
 .mm-essais-tel { display: flex; flex-wrap: wrap; gap: 6px; }
 .mm-essais-tel span { background: var(--danger-soft); border-radius: 99px; padding: 3px 10px; text-decoration: line-through; text-decoration-color: var(--danger); }
+
+/* Temple : carte vue du dessus et couleur du t-shirt de chaque joueur */
+.tp-carte { display: block; width: min(100%, calc(52vh * 16 / 9)); max-width: 100%; aspect-ratio: 16 / 9; border-radius: 14px; border: 3px solid #6b5a33; box-shadow: 0 12px 40px rgba(0, 0, 0, .5); background: #1d3b24; }
+.tp-tshirt { width: 1.1em; height: .75em; border-radius: 50%; background: var(--tshirt); box-shadow: inset 0 0 0 2px rgba(0, 0, 0, .3); flex: none; }
+.tp-moi { display: inline-flex; align-items: center; gap: 8px; }
