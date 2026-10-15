@@ -1,13 +1,13 @@
 # Jeu 4 — Les Mini-Jeux (structure)
 
-Une journée de rounds à heures régulières. À chaque round, un mini-jeu et des joueurs tirés au sort. Chaque mini-jeu a un nom, une page de règles écrite par l'organisateur, un format et des points par place. Un mini-jeu est soit **manuel** (l'organisateur saisit les places à la fin), soit un jeu automatique joué sur les téléphones : pour l'instant **La Définition**, **Le Temple aztèque**, **Le Mime**, **La Chasse au dragon** et **L'Anecdote**.
+Une journée de rounds à heures régulières. À chaque round, un mini-jeu et des joueurs tirés au sort. Chaque mini-jeu a un nom, une page de règles écrite par l'organisateur, un format et des points par place. Un mini-jeu est soit **manuel** (l'organisateur saisit les places à la fin), soit un jeu automatique joué sur les téléphones : pour l'instant **La Définition**, **Le Temple aztèque**, **Le Mime**, **La Chasse au dragon**, **L'Anecdote** et **Qu'est-ce qui a changé ?** (mémoire).
 
 ## Avant la journée (onglet « Réglages du jeu »)
 
 - **Participants** : un nom par ligne.
 - **Journée** : heure de début, heure de fin, nombre de rounds. Les rounds sont répartis à intervalles égaux (8 h et 12 rounds = un round toutes les 40 min). L'admin voit combien de rounds chacun jouera.
 - **Programme** : le mini-jeu de chaque round, dans l'ordre (un mini-jeu peut revenir). « Remplir automatiquement » enchaîne en boucle les mini-jeux cochés « utilisés ».
-- **Les 6 mini-jeux** : nom (libre), **type** (manuel, La Définition, Le Temple aztèque, Le Mime, La Chasse au dragon ou L'Anecdote), page de règles (affichée en grand sur l'écran et sur les téléphones avant le jeu), **format**, durée indicative, points par place (ex. « 10, 6, 3, 1 »).
+- **Les 6 mini-jeux** : nom (libre), **type** (manuel, La Définition, Le Temple aztèque, Le Mime, La Chasse au dragon, L'Anecdote ou Qu'est-ce qui a changé ?), page de règles (affichée en grand sur l'écran et sur les téléphones avant le jeu), **format**, durée indicative, points par place (ex. « 10, 6, 3, 1 »).
 - **Format** : vide = chacun pour soi, avec un nombre de joueurs par round (0 = tout le monde) ; ou des équipes : `1v1v1v1` (4 joueurs, chacun pour soi), `2v2`, `3v1`, `2v1`, `2v2v2`, `3v3`… (8 équipes et 10 joueurs par équipe au plus). Les équipes s'appellent Rouges, Bleus, Verts, Jaunes… Les places se donnent par équipe et chaque membre reçoit les points de la place de son équipe.
 - Réglages pris en compte tout de suite : participants, noms, règles, points. Horaires, nombre de rounds et programme : fixés à l'ouverture de la journée.
 
@@ -43,6 +43,13 @@ Une journée de rounds à heures régulières. À chaque round, un mini-jeu et d
 - **Meilleurs devineurs** : les spectateurs sont classés selon leurs bonnes réponses sur toutes les manches. Le premier tiers (arrondi au-dessus : 1 sur 2 ou 3, 2 sur 4 à 6…), ex æquo compris, gagne le bonus, à condition d'avoir au moins une bonne réponse. Ce classement s'affiche sur l'écran avec les résultats et sur le téléphone de chaque spectateur.
 - **Admin** : voit qui a quel mot et les définitions en direct, peut « Passer à l'étape suivante ». Un joueur absent peut être remplacé (le remplaçant reprend son mot) ; retirer ou ajouter un joueur n'est pas possible une fois le jeu lancé.
 - Sans spectateur connecté, le vote est sauté.
+
+## Qu'est-ce qui a changé ? (mémoire)
+
+- **Réglages** : la liste des **objets** (un par ligne, avec un emoji devant si on veut : « 🍎 Pomme » ; 40 exemples fournis), le nombre de joueurs (0 = tout le monde), les manches (5), les objets à la 1re manche (6) et en plus à chaque manche (2), le temps pour mémoriser (15 s) et pour répondre (20 s), la manche à partir de laquelle les objets changent de place (3).
+- **Chaque manche** : l'écran montre la scène (« Regardez bien ! »), puis un court écran noir, puis la même scène avec un objet en moins : un trou à sa place, ou bien tous les objets mélangés à partir de la manche réglée.
+- **Sur le téléphone** : 4 propositions, l'objet disparu et 3 objets qui n'étaient pas dans la scène (regarder l'écran n'aide pas). Une seule réponse ; la manche se termine quand tout le monde a répondu ou à la fin du temps.
+- **Points** : bonne réponse = 100 points + jusqu'à 50 points de rapidité. L'écran montre l'objet qui revient à sa place, qui a trouvé et en combien de temps. Le meilleur total sur toutes les manches gagne.
 
 ## L'Anecdote
 

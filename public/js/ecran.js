@@ -21,7 +21,7 @@ SJ.sock.on('etat', v => {
   // Décor aztèque pendant un round du Temple (annonce, partie, résultats).
   const mjr = v.gameId === 'minijeux' && v.game ? v.game.actif || v.game.recent : null;
   document.body.dataset.theme = mjr?.type === 'temple' ? 'temple' : '';
-  if (v.gameId === 'minijeux' && v.game) { tpSons(v.game); mimeSons(v.game); dragonSons(v.game); }
+  if (v.gameId === 'minijeux' && v.game) { tpSons(v.game); mimeSons(v.game); dragonSons(v.game); memoSons(v.game); }
   TempleCarte.maj(v.gameId === 'minijeux' ? v.game?.etat : null);
   DragonScene.maj(v.gameId === 'minijeux' ? v.game?.etat : null);
   draw();
@@ -235,6 +235,34 @@ function tpSons(g) {
   tpSec = sec;
 }
 
+// « Qu'est-ce qui a changé ? » : la scène à mémoriser, le noir, la scène avec un objet en moins, puis la réponse.
+function mjDisparu(a, e) {
+  const head = `<div class="mj-kicker">Round ${a.n} · ${esc(a.nom)} · manche ${e.manche} / ${e.total}</div>`;
+  const tuile = (o, cls = '') => o ? `<div class="me-obj ${cls}"><span class="me-emoji">${esc(o.emoji || '❔')}</span><span class="me-nom">${esc(o.nom)}</span></div>` : '<div class="me-obj vide" aria-label="case vide"></div>';
+  const grille = (objs, f = tuile) => `<div class="me-grille" style="--n:${Math.ceil(Math.sqrt(objs.length * 1.6))}">${objs.map(o => f(o)).join('')}</div>`;
+  if (e.phase === 'memorise') return `${head}<div class="mj-round">Regardez bien !</div><div class="sc-sub">${e.scene.length} objets · encore <strong class="mono" data-until="${e.fin}"></strong></div>${grille(e.scene)}`;
+  if (e.phase === 'noir') return `${head}<div class="me-noir">🙈 Fermez les yeux…</div>`;
+  if (e.phase === 'question') {
+    return `${head}<div class="mj-round">Qu'est-ce qui a disparu ?</div>
+      <div class="sc-sub">À vos téléphones ! · <strong class="mono" data-until="${e.fin}"></strong> · ${e.repondu} / ${e.joueurs.length} ont répondu</div>${grille(e.apres)}`;
+  }
+  // révélation : l'objet disparu revient à sa place (ou s'affiche à part si les objets ont été mélangés)
+  const trou = e.apres.indexOf(null);
+  const retour = trou >= 0 ? e.apres.map((o, i) => (i === trou ? e.manquant : o)) : [...e.apres, e.manquant];
+  const qui = e.reponses.map(x => `<li class="${x.juste ? 'ok' : ''}"><span>${x.juste ? '✓' : '✗'}</span><strong>${esc(x.nom)}</strong><span class="muted">${x.juste ? `${(x.temps / 1000).toFixed(1)} s` : esc(x.objet)}</span><b>+${x.points}</b></li>`).join('');
+  return `${head}<div class="mj-round me-titre">C'était ${esc(e.manquant.emoji)} ${esc(e.manquant.nom)} !</div>
+    <div class="me-rev"><div>${grille(retour, o => tuile(o, o?.nom === e.manquant.nom ? 'revient' : ''))}</div>
+      <ol class="me-qui">${qui || '<li class="muted">Personne n\'a répondu.</li>'}</ol></div>`;
+}
+let meCle = null;
+function memoSons(g) {
+  const e = g.etat;
+  if (!e || e.type !== 'disparu') { meCle = null; return; }
+  const cle = `${g.actif?.n}:${e.manche}:${e.phase}`;
+  if (meCle && cle !== meCle) { if (e.phase === 'question') Sons.gong(); if (e.phase === 'revelation') Sons.flute([659, 784, 1047]); }
+  meCle = cle;
+}
+
 // La Définition et L'Anecdote (même déroulement) : écriture, puis les spectateurs relient chaque carte à un joueur, puis les réponses.
 function mjDefinition(a, e) {
   const A = e.type === 'anecdote';
@@ -284,6 +312,8 @@ function minijeux(g) {
     main = mjTemple(a, g.etat);
   } else if (a && a.status === 'jeu' && g.etat?.type === 'mime') {
     main = mjMime(a, g.etat);
+  } else if (a && a.status === 'jeu' && g.etat?.type === 'disparu') {
+    main = mjDisparu(a, g.etat);
   } else if (a && a.status === 'jeu' && g.etat?.type === 'dragon') {
     main = mjDragon(a, g.etat);
   } else if (a) {

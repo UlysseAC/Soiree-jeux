@@ -301,8 +301,8 @@ function reglagesMiniJeux(c) {
         ${MJ_AUTO.includes(c.jeux[s].type) ? '' : `<label class="field"><span class="label">Format</span><input class="in" list="mj-formats" id="c-jeu-jeux-${s}-format" data-cfg="jeux.${s}.format" data-kind="text" data-scope="jeu" value="${esc(c.jeux[s].format)}" placeholder="vide = chacun pour soi"><span class="muted" style="font-size:13px">${c.jeux[s].format && !mjFormat(c.jeux[s].format) ? '<span style="color:var(--danger)">Format non reconnu : écris par exemple 2v2, 3v1 ou 1v1v1v1.</span>' : mjFormatLabel(mjFormat(c.jeux[s].format))}</span></label>`}
         ${mjFmt(c, s) ? '' : cfgInput(`jeux.${s}.joueurs`, c.jeux[s].joueurs, 'num', { label: 'Joueurs par round (0 = tout le monde)' })}
         ${cfgInput(`jeux.${s}.duree`, c.jeux[s].duree, 'dur', { label: 'Durée indicative (min:s)' })}${cfgInput(`jeux.${s}.points`, c.jeux[s].points, 'text', { label: 'Points par place (1er, 2e, 3e…)', ph: '10, 6, 3, 1' })}</div>
-      <div class="grid-auto"><label class="field"><span class="label">Type de mini-jeu</span><select class="in" id="c-jeu-jeux-${s}-type" data-cfg="jeux.${s}.type" data-kind="text" data-scope="jeu">${[['manuel', 'Manuel (tu saisis les places)'], ['definition', 'La Définition'], ['temple', 'Le Temple aztèque'], ['mime', 'Le Mime (en duos)'], ['dragon', 'La Chasse au dragon'], ['anecdote', 'L\'Anecdote']].map(([v, l]) => `<option value="${v}" ${c.jeux[s].type === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
-      ${c.jeux[s].type === 'definition' ? mjDefinitionReglages(c, s) : c.jeux[s].type === 'temple' ? mjTempleReglages(c, s) : c.jeux[s].type === 'mime' ? mjMimeReglages(c, s) : c.jeux[s].type === 'dragon' ? mjDragonReglages(c, s) : c.jeux[s].type === 'anecdote' ? mjAnecdoteReglages(c, s) : ''}
+      <div class="grid-auto"><label class="field"><span class="label">Type de mini-jeu</span><select class="in" id="c-jeu-jeux-${s}-type" data-cfg="jeux.${s}.type" data-kind="text" data-scope="jeu">${[['manuel', 'Manuel (tu saisis les places)'], ['definition', 'La Définition'], ['temple', 'Le Temple aztèque'], ['mime', 'Le Mime (en duos)'], ['dragon', 'La Chasse au dragon'], ['anecdote', 'L\'Anecdote'], ['disparu', 'Qu\'est-ce qui a changé ? (mémoire)']].map(([v, l]) => `<option value="${v}" ${c.jeux[s].type === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
+      ${c.jeux[s].type === 'definition' ? mjDefinitionReglages(c, s) : c.jeux[s].type === 'temple' ? mjTempleReglages(c, s) : c.jeux[s].type === 'mime' ? mjMimeReglages(c, s) : c.jeux[s].type === 'dragon' ? mjDragonReglages(c, s) : c.jeux[s].type === 'anecdote' ? mjAnecdoteReglages(c, s) : c.jeux[s].type === 'disparu' ? mjDisparuReglages(c, s) : ''}
       <label class="field"><span class="label">Page de règles affichée sur l'écran avant le jeu</span>
         <textarea class="in" rows="6" id="c-jeu-jeux-${s}-regles" data-cfg="jeux.${s}.regles" data-kind="area" data-scope="jeu" placeholder="Explique le mini-jeu : ce que font les joueurs, comment on gagne… Les joueurs appuient sur « J'ai compris » pour lancer le jeu.">${esc(c.jeux[s].regles)}</textarea></label>
     </div>`).join('');
@@ -325,7 +325,7 @@ function reglagesMiniJeux(c) {
     ${jeux}`;
 }
 
-const MJ_AUTO = ['definition', 'temple', 'mime', 'dragon', 'anecdote']; // mini-jeux joués sur les téléphones : chacun pour soi
+const MJ_AUTO = ['definition', 'temple', 'mime', 'dragon', 'anecdote', 'disparu']; // mini-jeux joués sur les téléphones : chacun pour soi
 
 // Réglages propres à « La Chasse au dragon ».
 function mjDragonReglages(c, s) {
@@ -452,6 +452,28 @@ function mjDefinitionReglages(c, s) {
   </div>`;
 }
 
+// Réglages propres à « Qu'est-ce qui a changé ? » : la liste d'objets, les manches et les temps.
+function mjDisparuReglages(c, s) {
+  const j = c.jeux[s];
+  const n = String(j.objets || '').split(/\r?\n/).filter(x => x.trim()).length;
+  const max = (Number(j.objetsDepart) || 6) + ((Number(j.manchesMemo) || 5) - 1) * (Number(j.objetsPlus) || 0);
+  return `<div class="box" style="gap:10px">
+    <p class="muted" style="margin:0;font-size:14px">Jeu de mémoire. L'écran montre une scène d'objets, l'efface, puis la remontre avec un objet en moins. Sur son téléphone, chacun choisit l'objet disparu parmi 4 (les 3 autres n'étaient pas dans la scène). Bonne réponse : 100 points, plus jusqu'à 50 pour la rapidité. Le meilleur total gagne.</p>
+    <label class="field"><span class="label">Objets (un par ligne, avec un emoji devant si tu veux) · ${n}</span>
+      <textarea class="in" rows="8" id="c-jeu-jeux-${s}-objets" data-cfg="jeux.${s}.objets" data-kind="area" data-scope="jeu" placeholder="🍎 Pomme&#10;🎸 Guitare">${esc(j.objets)}</textarea>
+      ${n < max + 3 ? `<span style="color:var(--danger);font-size:13px">Il faut au moins ${max + 3} objets (${max} dans la scène de la dernière manche, plus 3 propositions fausses).</span>` : '<span class="muted" style="font-size:13px">Les objets sont tirés au hasard à chaque manche.</span>'}</label>
+    <div class="grid-auto">${cfgInput(`jeux.${s}.manchesMemo`, j.manchesMemo, 'num', { label: 'Manches' })}${cfgInput(`jeux.${s}.objetsDepart`, j.objetsDepart, 'num', { label: 'Objets à la 1re manche' })}${cfgInput(`jeux.${s}.objetsPlus`, j.objetsPlus, 'num', { label: 'Objets en plus par manche' })}
+      ${cfgInput(`jeux.${s}.tempsMemo`, j.tempsMemo, 'dur', { label: 'Temps pour mémoriser' })}${cfgInput(`jeux.${s}.tempsReponse`, j.tempsReponse, 'dur', { label: 'Temps pour répondre' })}${cfgInput(`jeux.${s}.melangeDes`, j.melangeDes, 'num', { label: 'Objets mélangés à partir de la manche (0 = jamais)' })}</div>
+  </div>`;
+}
+function mjDisparuPartie(e) {
+  const phase = { memorise: 'Les joueurs mémorisent', noir: 'Écran noir', question: 'Les joueurs répondent', revelation: 'Réponse affichée', fini: 'Terminé' }[e.phase];
+  return `<div class="box" style="background:var(--ink)"><div class="spread"><strong>Manche ${e.manche} / ${e.total} · ${phase}</strong>${e.phase !== 'fini' ? `<span class="pill accent"><span class="mono" data-until="${e.fin}"></span></span>` : ''}</div>
+    <p style="margin:0">Objet disparu : <strong>${esc(e.manquantAdmin.emoji)} ${esc(e.manquantAdmin.nom)}</strong> · ${e.repondu} / ${e.joueurs.length} ont répondu</p>
+    <p style="margin:0">${e.joueurs.map(p => `${esc(p)} : <strong>${e.scores[p] || 0}</strong>`).join(' · ')}</p>
+    ${e.phase !== 'fini' ? '<div><button class="btn sm" data-mj="suivant">Passer à l\'étape suivante</button></div>' : ''}</div>`;
+}
+
 // Réglages propres à « L'Anecdote » : rien à écrire à l'avance, seulement les manches et les temps.
 function mjAnecdoteReglages(c, s) {
   const j = c.jeux[s];
@@ -509,7 +531,7 @@ function partieMiniJeux(g) {
     now = `<div class="box" style="border-color:var(--accent)">
       <div class="spread"><h2>Round ${a.n} · ${esc(a.nom)} <span class="muted" style="font-weight:400">· ${esc(a.format)}</span></h2><span class="pill accent">${a.status === 'annonce' ? `Commence dans <span class="mono" data-until="${a.startAt}"></span>` : `En cours depuis <span class="mono" data-since="${a.debutAt}"></span>`}</span></div>
       ${a.status === 'annonce' ? `<p style="margin:0">Le jeu commence quand tous les joueurs ont appuyé sur « J'ai compris » : <strong>${a.compris.length} / ${a.joueurs.length}</strong>${a.joueurs.filter(p => !a.compris.includes(p)).length ? ` · en attente : ${a.joueurs.filter(p => !a.compris.includes(p)).map(esc).join(', ')}` : ''}</p>` : ''}
-      ${a.status === 'jeu' && (g.etat?.type === 'definition' || g.etat?.type === 'anecdote') ? mjDefinitionPartie(g.etat) : a.status === 'jeu' && g.etat?.type === 'temple' ? mjTemplePartie(g.etat) : a.status === 'jeu' && g.etat?.type === 'mime' ? mjMimePartie(g.etat, a) : a.status === 'jeu' && g.etat?.type === 'dragon' ? mjDragonPartie(g.etat) : ''}
+      ${a.status === 'jeu' && (g.etat?.type === 'definition' || g.etat?.type === 'anecdote') ? mjDefinitionPartie(g.etat) : a.status === 'jeu' && g.etat?.type === 'temple' ? mjTemplePartie(g.etat) : a.status === 'jeu' && g.etat?.type === 'mime' ? mjMimePartie(g.etat, a) : a.status === 'jeu' && g.etat?.type === 'dragon' ? mjDragonPartie(g.etat) : a.status === 'jeu' && g.etat?.type === 'disparu' ? mjDisparuPartie(g.etat) : ''}
       ${playersEditor(a)}
       ${lock(a) ? '' : `<div class="row" style="flex-wrap:wrap"><select class="in" style="width:auto" id="mj-ajout-${a.n}"><option value="">Ajouter un joueur…</option>${opts(byPlays, a.joueurs)}</select><button class="btn sm" data-mj="ajouter" data-n="${a.n}">Ajouter</button></div>`}
       <div class="row" style="flex-wrap:wrap">${a.status === 'annonce' ? '<button class="btn primary" data-mj="commencer" data-confirm="Commencer sans attendre que tout le monde ait compris ?">Commencer maintenant</button>' : a.type === 'manuel' ? `<button class="btn primary" data-mj="resultats" data-n="${a.n}">Valider les résultats</button>` : ''}

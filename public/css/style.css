@@ -511,3 +511,22 @@ body[data-theme="temple"] .tp-choix .btn.choisi { border-color: var(--accent); b
 /* L'Anecdote : le titre de carte est une lettre, le texte est plus long */
 .mj-anecdotes .mj-mot { font-size: clamp(16px, 1.6vw, 28px); letter-spacing: .06em; }
 .mj-anecdotes .mj-def { font-size: clamp(15px, 1.45vw, 26px); }
+
+/* Qu'est-ce qui a changé ? */
+.me-grille { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); gap: 1.2vh 1vw; }
+.me-obj { background: var(--panel); border: 2px solid var(--line); border-radius: 16px; padding: 1.2vh .6vw; display: flex; flex-direction: column; align-items: center; gap: .4vh; min-height: 13vh; justify-content: center; }
+.me-grille .me-obj { min-height: 11vh; }
+.me-emoji { font-size: clamp(34px, 4.6vw, 84px); line-height: 1; }
+.me-nom { font-size: clamp(13px, 1.25vw, 22px); color: var(--muted); text-align: center; }
+.me-obj.vide { border-style: dashed; background: none; }
+.me-obj.revient { border-color: var(--accent); box-shadow: 0 0 30px color-mix(in srgb, var(--accent) 55%, transparent); animation: mm-pop .5s ease-out; }
+.me-obj.revient .me-nom { color: var(--accent); font-weight: 700; }
+.mj-round.me-titre { font-size: clamp(30px, 4vw, 66px); }
+.me-noir { display: grid; place-items: center; min-height: 40vh; font: 800 clamp(30px, 4vw, 70px) var(--display); color: var(--muted); }
+.me-rev { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 2vw; align-items: start; }
+.me-qui { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .8vh; font-size: clamp(14px, 1.4vw, 24px); }
+.me-qui li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: .8vw; align-items: center; background: var(--panel); border-radius: 10px; padding: .6vh .8vw; }
+.me-qui li.ok span:first-child { color: var(--ok); }
+.me-qui b { font-family: var(--mono); color: var(--accent); }
+.me-choix { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.me-choix .btn { min-height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 17px; white-space: normal; }

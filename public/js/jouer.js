@@ -552,6 +552,23 @@ function mjDefinition(e, t) {
   return h + (e.bons != null ? `<div class="card accent center"><p style="font-size:20px">Tu as trouvé <strong>${e.bons}</strong> / ${e.cartes.length}</p><p class="muted">Total : ${e.mesBons} bonne${e.mesBons > 1 ? 's' : ''} réponse${e.mesBons > 1 ? 's' : ''}. Les meilleurs devineurs gagnent un bonus !</p></div>` : '<div class="card"><p>Regarde les réponses sur l\'écran !</p></div>');
 }
 
+// « Qu'est-ce qui a changé ? » sur le téléphone : regarder l'écran, puis choisir l'objet disparu parmi 4.
+function mjDisparu(e) {
+  let h = `<span class="label" style="text-align:center">Manche ${e.manche} / ${e.total}${e.phase === 'question' || e.phase === 'memorise' ? ` · <strong class="mono" data-until="${e.fin}"></strong>` : ''}</span>`;
+  if (!e.moi) return h + '<div class="card"><p style="font-size:18px">🧠 Jeu de mémoire en cours : regarde l\'écran !</p></div>';
+  if (e.phase === 'memorise') return h + `<div class="card turn center"><div class="huge" style="font-size:44px">👀</div><p style="font-size:20px">Regarde bien l'écran et retiens tous les objets !</p></div>`;
+  if (e.phase === 'noir') return h + `<div class="card center"><div class="huge" style="font-size:44px">🙈</div><p style="font-size:18px">Prépare-toi…</p></div>`;
+  if (e.phase === 'question') {
+    if (e.moi.reponse) return h + `<div class="card center"><p style="font-size:18px">✓ Réponse envoyée : <strong>${esc(e.moi.reponse)}</strong></p><p class="muted">On attend les autres…</p></div>`;
+    return h + `<div class="card"><p style="font-size:18px;margin:0">Qu'est-ce qui a disparu ?</p><p class="muted" style="margin:0">Une seule réponse : plus tu es rapide, plus tu gagnes de points.</p></div>
+      <div class="me-choix">${e.choix.map((o, i) => `<button class="btn" data-act="meRepondre" data-choix="${i}"><span style="font-size:40px">${esc(o.emoji || '❔')}</span>${esc(o.nom)}</button>`).join('')}</div>`;
+  }
+  const m = e.moi;
+  return h + (m.juste
+    ? `<div class="card accent center"><div class="huge" style="font-size:40px">✓</div><p style="font-size:20px">Bravo ! +${m.points} points</p><p class="muted">Ton total : ${m.score}</p></div>`
+    : `<div class="card center"><p style="font-size:20px">${m.reponse ? '✗ Raté' : 'Pas de réponse'} : c'était ${esc(e.manquant?.emoji || '')} <strong>${esc(e.manquant?.nom || '')}</strong></p><p class="muted">Ton total : ${m.score}</p></div>`);
+}
+
 // « L'Anecdote » sur le téléphone : le joueur écrit une anecdote sur lui ; les autres relient chaque anecdote à son auteur.
 function mjAnecdote(e) {
   if (e.monMot !== undefined) { // je joue
@@ -615,6 +632,8 @@ function miniJeux() {
     h += mjTemple(g.etat);
   } else if (g.etat?.type === 'mime') {
     h += mjMime(g.etat);
+  } else if (g.etat?.type === 'disparu') {
+    h += mjDisparu(g.etat);
   } else if (g.etat?.type === 'dragon') {
     h += mjDragon(g.etat);
   } else if (t) {
@@ -699,6 +718,7 @@ app.addEventListener('click', e => {
   }
   const a = t.dataset.act;
   if (a === 'mjCompris') { act({ type: 'compris' }); return; }
+  if (a === 'meRepondre') { act({ type: 'repondre', choix: Number(t.dataset.choix) }); return; }
   if (a === 'drViser') { act({ type: 'viser' }); return; }
   if (a === 'drCible') { act({ type: 'cible', sens: Number(t.dataset.sens) }); return; }
   if (a === 'drTirer') { act({ type: 'tirer' }); navigator.vibrate?.(40); return; }
