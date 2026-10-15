@@ -28,6 +28,20 @@ SJ.sock.on('etat', v => {
   buzz(before, v);
 });
 
+// Chasse au dragon : on observe tant que le bouton est maintenu ; dès qu'on le relâche, on retourne à l'abri.
+let drObserve = false;
+document.addEventListener('pointerdown', e => {
+  const b = e.target.closest('[data-hold="observer"]');
+  if (!b || b.disabled) return;
+  e.preventDefault();
+  drObserve = true;
+  SJ.emit('joueur', { type: 'observer', on: true });
+});
+const drRelache = () => { if (drObserve) { drObserve = false; SJ.emit('joueur', { type: 'observer', on: false }); } };
+for (const ev of ['pointerup', 'pointercancel', 'blur']) window.addEventListener(ev, drRelache);
+document.addEventListener('visibilitychange', () => { if (document.hidden) drRelache(); });
+document.addEventListener('contextmenu', e => { if (e.target.closest('[data-hold]')) e.preventDefault(); });
+
 // Le Mime : envoyer un essai (bouton ou touche Entrée), puis vider le champ en gardant le clavier ouvert.
 function mmDeviner() {
   const el = document.getElementById('mm-essai');
@@ -72,6 +86,7 @@ function buzz(a, b) {
   if (!g0?.duel && g1.duel) navigator.vibrate?.([80, 60, 80]);
   if (!g0?.monTour && g1.monTour) navigator.vibrate?.([300, 120, 300, 120, 500]);
   if (!g0?.block && g1.block) navigator.vibrate?.(400);
+  if (g1.etat?.type === 'dragon' && g0?.etat?.moi && g1.etat.moi && g1.etat.moi.vies < g0.etat.moi.vies) navigator.vibrate?.([400, 100, 400]); // touché
   if (g1.etat?.type === 'mime' && g1.etat.role === 'mime' && g1.etat.dernier?.trouve && g1.etat.dernier.at !== g0?.etat?.dernier?.at) navigator.vibrate?.(150); // mot trouvé par le partenaire
   if (g0?.etat?.type === 'temple' && g0.etat.phase === 'choix' && g1.etat?.phase === 'resultat' && g1.etat.joueurs.find(p => p.nom === g1.nom)?.perdu) setTimeout(() => navigator.vibrate?.([500, 100, 500]), 2400); // piège ! (après le suspense)
   if (g0?.random?.stage !== 'hint' && g1.random?.stage === 'hint') { navigator.vibrate?.(150); ui.aideConfirm = false; }
@@ -419,6 +434,32 @@ function mjAvecQui(t) {
   return t.coequipiers?.length ? `Équipe ${team} : tu joues avec ${esc(liste(t.coequipiers))} contre ${esc(adv)}` : `Équipe ${team} : tu joues seul contre ${esc(adv)}`;
 }
 // « La Définition » sur le téléphone : le joueur écrit, les autres relient les mots aux joueurs.
+// La Chasse au dragon, sur le téléphone : à l'abri par défaut (on ne voit rien) ; observer, viser ou chercher met à découvert.
+const DR_ACT = { cache: '🪵 à l\'abri', observe: '👀 observe', vise: '🎯 vise', cherche: '📦 cherche des munitions', horsjeu: '😵 hors jeu' };
+function mjDragon(e) {
+  const m = e.moi;
+  if (!m) return `<div class="card"><p style="font-size:18px">🐉 La chasse au dragon a commencé. Regarde l'écran !</p></div>`;
+  if (e.phase === 'fini') return `<div class="card center"><p style="font-size:20px">Partie terminée !</p><p class="muted">Regarde le classement sur l'écran.</p></div>`;
+  if (m.horsJeu) return `<div class="card center"><div class="huge" style="font-size:44px">😵</div><p style="font-size:18px">Tu es hors jeu.</p><p class="muted">Regarde la fin de la partie sur l'écran.</p></div>`;
+  const occupe = m.action === 'vise' || m.action === 'cherche', decouvert = m.action !== 'cache';
+  let h = `<div class="card dr-moi ${decouvert ? 'decouvert' : ''}"><div class="spread"><span style="font-size:24px">${'❤️'.repeat(m.vies)}</span><span class="dr-mun">${'🔸'.repeat(m.munitions) || '<span class="muted">0 munition</span>'}</span></div>
+    <strong style="font-size:18px">${decouvert ? '⚠️ À découvert !' : '🪵 À l\'abri : rien ne peut te toucher'}</strong>
+    ${occupe ? `<div>${m.action === 'vise' ? `🎯 Tu vises ${m.cible === 'dragon' ? 'le dragon' : esc(m.cible)}…` : '📦 Tu cherches des munitions…'}</div><div class="dr-prog"><div id="dr-prog-${m.finAction}" style="animation-duration:${Math.max(0, m.finAction - SJ.now())}ms"></div></div>` : ''}</div>`;
+  if (e.vue) { // à découvert : on voit le jeu
+    h += `<div class="card dr-vue"><span class="label">Ce que tu vois</span>
+      <div class="spread"><span>🐉 ${e.dragon.pv} / ${e.dragon.max}</span><span class="${e.attaqueDans < 3000 ? 'dr-danger' : 'muted'}">attaque dans <strong class="mono">${Math.ceil(e.attaqueDans / 1000)} s</strong></span></div>
+      ${e.dragon.prepare ? '<div class="dr-danger"><strong>⚠️ Le dragon prend son souffle ! Cache-toi !</strong></div>' : ''}
+      ${e.vue.map(x => `<div class="spread"><strong>${esc(x.nom)}</strong><span class="${x.action === 'cache' || x.action === 'horsjeu' ? 'muted' : 'dr-danger'}">${DR_ACT[x.action]}${x.cible ? ` ${x.cible === 'dragon' ? 'le dragon' : esc(x.cible)}` : ''}</span><span class="muted">${x.action === 'horsjeu' ? '' : `${x.munitions} 🔸`}</span></div>`).join('')}</div>`;
+  }
+  h += `<button class="btn big dr-observer ${m.action === 'observe' ? 'primary' : ''}" data-hold="observer" ${occupe ? 'disabled' : ''}>👀 ${m.action === 'observe' ? 'Tu observes… (relâche pour te cacher)' : 'Maintenir pour observer'}</button>`;
+  const off = occupe || m.munitions <= 0 ? 'disabled' : '';
+  h += `<div class="dr-tirs"><button class="btn big primary" data-act="drViser" data-cible="dragon" ${off || (e.dragon.pv <= 0 ? 'disabled' : '')}>🎯 Viser le dragon</button>
+    ${e.cibles.map(c => `<button class="btn" data-act="drViser" data-cible="${esc(c)}" ${off}>🎯 Viser ${esc(c)}</button>`).join('')}</div>
+    <button class="btn" data-act="drChercher" ${occupe ? 'disabled' : ''}>📦 Chercher des munitions</button>
+    <p class="muted center" style="margin:0;font-size:13px">Viser prend 1 s ; observer, viser et chercher te mettent à découvert.</p>`;
+  return h;
+}
+
 // Le Mime, sur le téléphone : celui qui mime voit le mot et peut passer ; celui qui devine écrit ses essais.
 function mjMime(e) {
   const c = e.cur;
@@ -550,6 +591,8 @@ function miniJeux() {
     h += mjTemple(g.etat);
   } else if (g.etat?.type === 'mime') {
     h += mjMime(g.etat);
+  } else if (g.etat?.type === 'dragon') {
+    h += mjDragon(g.etat);
   } else if (t) {
     h += `<div class="card turn center"><span class="label">Round ${t.n} · ${esc(t.nom)}</span><div class="huge" style="font-size:44px">À toi de jouer !</div><p>${mjAvecQui(t)}</p><p class="muted">Suis les consignes de l'écran.</p></div>`;
     if (t.regles) h += `<div class="card"><span class="label">Règles</span><p style="white-space:pre-wrap">${esc(t.regles)}</p></div>`;
@@ -632,6 +675,8 @@ app.addEventListener('click', e => {
   }
   const a = t.dataset.act;
   if (a === 'mjCompris') { act({ type: 'compris' }); return; }
+  if (a === 'drViser') { act({ type: 'viser', cible: t.dataset.cible }); return; }
+  if (a === 'drChercher') { act({ type: 'chercher' }); return; }
   if (a === 'mmPret') { act({ type: 'pret' }); return; }
   if (a === 'mmPasser') { act({ type: 'passer' }); return; }
   if (a === 'mmDeviner') { mmDeviner(); return; }

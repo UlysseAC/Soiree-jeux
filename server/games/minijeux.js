@@ -6,10 +6,11 @@ import { normName } from '../util.js';
 import * as definition from './minijeux/definition.js';
 import * as temple from './minijeux/temple.js';
 import * as mime from './minijeux/mime.js';
+import * as dragon from './minijeux/dragon.js';
 
 // Types de mini-jeux : « manuel » (l'organisateur saisit les places) ou un mini-jeu programmé.
-export const TYPES = { definition, temple, mime };
-export const TYPE_LABELS = { manuel: 'Manuel (tu saisis les places)', definition: definition.label, temple: temple.label, mime: mime.label };
+export const TYPES = { definition, temple, mime, dragon };
+export const TYPE_LABELS = { manuel: 'Manuel (tu saisis les places)', definition: definition.label, temple: temple.label, mime: mime.label, dragon: dragon.label };
 const typeOf = (cfg, slot) => TYPES[cfg.jeux[slot]?.type] || null;
 // Format d'un mini-jeu : fixé par son type (Le Mime : des duos ; les autres jeux automatiques : chacun pour soi), sinon celui saisi par l'admin.
 export const formatOf = (cfg, slot) => { const T = typeOf(cfg, slot); return T ? T.format?.(cfg.jeux[slot]) || null : parseFormat(cfg.jeux[slot]?.format); };
@@ -35,7 +36,7 @@ export function defaultConfig() {
     programme: [...SLOTS, ...SLOTS].join(','), // mini-jeu de chaque round, dans l'ordre
     jeux: Object.fromEntries(SLOTS.map((s, i) => [s, {
       actif: true, // utilisé par « remplir automatiquement »
-      type: 'manuel', // manuel | definition | temple | mime
+      type: 'manuel', // manuel | definition | temple | mime | dragon
       nom: `Mini-jeu ${i + 1}`,
       regles: '',
       format: '', // '' = chacun pour soi (avec « joueurs ») ; sinon équipes, ex. « 2v2 », « 3v1 », « 1v1v1v1 »
@@ -45,6 +46,7 @@ export function defaultConfig() {
       ...definition.defaults, // La Définition : mots inventés, manches, temps
       ...temple.defaults, // Le Temple aztèque : obstacles, pièges, étapes, vies, temps
       ...mime.defaults, // Le Mime : mots à mimer, nombre de duos, temps
+      ...dragon.defaults, // La Chasse au dragon : équipes, vies, munitions, dragon, durée
     }])),
   };
 }

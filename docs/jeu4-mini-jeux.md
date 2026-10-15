@@ -1,13 +1,13 @@
 # Jeu 4 — Les Mini-Jeux (structure)
 
-Une journée de rounds à heures régulières. À chaque round, un mini-jeu et des joueurs tirés au sort. Chaque mini-jeu a un nom, une page de règles écrite par l'organisateur, un format et des points par place. Un mini-jeu est soit **manuel** (l'organisateur saisit les places à la fin), soit un jeu automatique joué sur les téléphones : pour l'instant **La Définition**, **Le Temple aztèque** et **Le Mime**.
+Une journée de rounds à heures régulières. À chaque round, un mini-jeu et des joueurs tirés au sort. Chaque mini-jeu a un nom, une page de règles écrite par l'organisateur, un format et des points par place. Un mini-jeu est soit **manuel** (l'organisateur saisit les places à la fin), soit un jeu automatique joué sur les téléphones : pour l'instant **La Définition**, **Le Temple aztèque**, **Le Mime** et **La Chasse au dragon**.
 
 ## Avant la journée (onglet « Réglages du jeu »)
 
 - **Participants** : un nom par ligne.
 - **Journée** : heure de début, heure de fin, nombre de rounds. Les rounds sont répartis à intervalles égaux (8 h et 12 rounds = un round toutes les 40 min). L'admin voit combien de rounds chacun jouera.
 - **Programme** : le mini-jeu de chaque round, dans l'ordre (un mini-jeu peut revenir). « Remplir automatiquement » enchaîne en boucle les mini-jeux cochés « utilisés ».
-- **Les 6 mini-jeux** : nom (libre), **type** (manuel, La Définition, Le Temple aztèque ou Le Mime), page de règles (affichée en grand sur l'écran et sur les téléphones avant le jeu), **format**, durée indicative, points par place (ex. « 10, 6, 3, 1 »).
+- **Les 6 mini-jeux** : nom (libre), **type** (manuel, La Définition, Le Temple aztèque, Le Mime ou La Chasse au dragon), page de règles (affichée en grand sur l'écran et sur les téléphones avant le jeu), **format**, durée indicative, points par place (ex. « 10, 6, 3, 1 »).
 - **Format** : vide = chacun pour soi, avec un nombre de joueurs par round (0 = tout le monde) ; ou des équipes : `1v1v1v1` (4 joueurs, chacun pour soi), `2v2`, `3v1`, `2v1`, `2v2v2`, `3v3`… (8 équipes et 10 joueurs par équipe au plus). Les équipes s'appellent Rouges, Bleus, Verts, Jaunes… Les places se donnent par équipe et chaque membre reçoit les points de la place de son équipe.
 - Réglages pris en compte tout de suite : participants, noms, règles, points. Horaires, nombre de rounds et programme : fixés à l'ouverture de la journée.
 
@@ -67,6 +67,19 @@ Une journée de rounds à heures régulières. À chaque round, un mini-jeu et d
 - Un mot ne revient jamais dans le même round ; dans la journée, les mots déjà sortis reviennent en dernier. Plus de mots : le tour s'arrête.
 - **Gagnant** : le duo qui a fait trouver le plus de mots (ex æquo possibles) ; chaque membre reçoit les points de la place du duo.
 - **Admin** : voit le mot en cours et les essais, peut « Passer à l'étape suivante » et remplacer un joueur.
+
+## La Chasse au dragon
+
+- Jeu de tir **sans violence** (pistolets, « 💥 touché ! », « 😵 hors jeu », jamais de sang). **Chacun pour soi** (4 joueurs) ou **2 contre 2** (on ne peut pas tirer sur son coéquipier).
+- **Réglages** : équipes, vies par joueur (2), vie du dragon (10 touches), durée maximale (3 min), munitions au départ (3), munitions trouvées (2), temps pour chercher (3 s), intervalle des attaques du dragon (8 à 12 s).
+- **Par défaut, chacun est à l'abri derrière son muret** : rien ne peut le toucher, mais son téléphone ne montre pas le jeu. Sur le téléphone :
+  - **Observer** (en maintenant le bouton) : on voit la vie du dragon, dans combien de temps il attaque, qui est à découvert, ce qu'il fait (« vise Hugo », « cherche des munitions ») et ses munitions. On redevient à l'abri en relâchant.
+  - **Viser** un joueur ou le dragon : 1 s de visée à découvert, puis le tir (1 munition). Un joueur n'est touché que s'il est à découvert au moment du tir ; sinon « raté, à l'abri ».
+  - **Chercher des munitions** : à découvert pendant 3 s, +2 munitions.
+- **Le dragon** ne bouge pas ; il attaque à intervalles irréguliers, annoncé 2 s avant (sur l'écran et chez ceux qui observent), et touche tous ceux qui sont à découvert.
+- **Écran** : le dragon et sa barre de vie, le poste de chaque joueur derrière son muret (vies, dégâts au dragon), les tirs une fois tirés (« PAN ! », « 💥 Touché ! », « 🪵 À l'abri ! »), le souffle du dragon. L'écran ne montre jamais qui est à découvert : pour le savoir, il faut observer.
+- **Fin** : dragon vaincu, un seul joueur (ou une équipe) encore en jeu, ou temps écoulé. **Classement** : les survivants d'abord, selon leurs dégâts sur le dragon ; puis les éliminés, le dernier éliminé devant.
+- **Admin** : voit tout (ce que fait chacun, munitions, prochaine attaque) et peut arrêter la partie.
 
 ## Classement
 

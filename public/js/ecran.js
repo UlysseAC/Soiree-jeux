@@ -21,7 +21,7 @@ SJ.sock.on('etat', v => {
   // Décor aztèque pendant un round du Temple (annonce, partie, résultats).
   const mjr = v.gameId === 'minijeux' && v.game ? v.game.actif || v.game.recent : null;
   document.body.dataset.theme = mjr?.type === 'temple' ? 'temple' : '';
-  if (v.gameId === 'minijeux' && v.game) { tpSons(v.game); mimeSons(v.game); }
+  if (v.gameId === 'minijeux' && v.game) { tpSons(v.game); mimeSons(v.game); dragonSons(v.game); }
   TempleCarte.maj(v.gameId === 'minijeux' ? v.game?.etat : null);
   draw();
 });
@@ -149,6 +149,55 @@ function mjMime(a, e) {
     <div class="mm-histo">${e.histo.map(x => `<span class="${x.trouve ? 'ok' : ''}">${x.trouve ? '✓' : '⏭'} ${esc(x.mot)}</span>`).join('')}</div>
     ${scores}`;
 }
+// La Chasse au dragon : le dragon et sa barre de vie en haut, le poste de chaque joueur derrière son muret en bas.
+// On ne montre pas qui est à découvert (il faut observer sur son téléphone pour le savoir) : seulement les tirs, une fois tirés.
+function mjDragon(a, e) {
+  const head = `<div class="mj-kicker">Round ${a.n} · ${esc(a.nom)}${e.phase === 'jeu' ? ` · fin dans <span class="mono" data-until="${e.fin}"></span>` : ''}</div>`;
+  const now = SJ.now(), recent = (ev, ms) => now - ev.at < ms;
+  const souffle = [...e.events].reverse().find(ev => ev.type === 'souffle' && recent(ev, 2500));
+  const pv = Math.max(0, e.dragon.pv / e.dragon.max * 100);
+  const teamCol = p => e.equipes ? MJ_TEAMS[p.equipe]?.[1] : null;
+  const postes = e.joueurs.map(p => {
+    const tire = e.events.find(ev => ev.type === 'tir' && ev.de === p.nom && recent(ev, 1400));
+    const vise = e.events.find(ev => ev.type === 'tir' && ev.vers === p.nom && recent(ev, 1400));
+    const brule = souffle?.touches.includes(p.nom);
+    return `<div class="dr-poste ${p.horsJeu ? 'hors' : ''} ${tire ? 'tire' : ''} ${(vise?.touche || brule) ? 'touche' : ''}" ${teamCol(p) ? `style="--team:${teamCol(p)}"` : ''}>
+      ${tire ? '<div class="dr-pan">PAN !</div>' : ''}${vise ? `<div class="dr-bulle">${vise.touche ? '💥 Touché !' : '🪵 À l\'abri !'}</div>` : brule ? '<div class="dr-bulle">🔥 Touché !</div>' : ''}
+      <div class="dr-nom">${esc(p.nom)}</div><div class="dr-vies">${p.horsJeu ? '😵 hors jeu' : '❤️'.repeat(p.vies)}</div>
+      <div class="dr-muret" aria-hidden="true"></div><div class="dr-degats">🐉 ${p.degats}</div></div>`;
+  }).join('');
+  const msg = ev => {
+    if (ev.type === 'tir') return ev.vers === 'dragon' ? `🎯 ${esc(ev.de)} touche le dragon !` : ev.touche ? `💥 ${esc(ev.de)} touche ${esc(ev.vers)} !` : `🔫 ${esc(ev.de)} tire sur ${esc(ev.vers)}… raté, à l'abri !`;
+    if (ev.type === 'souffle') return ev.touches.length ? `🔥 Le dragon souffle : ${ev.touches.map(esc).join(', ')} ${ev.touches.length > 1 ? 'sont touchés' : 'est touché'} !` : '🔥 Le dragon souffle… personne à découvert !';
+    if (ev.type === 'horsjeu') return `😵 ${esc(ev.nom)} est hors jeu`;
+    if (ev.type === 'souffle-prepare') return '⚠️ Le dragon prend son souffle…';
+    if (ev.type === 'fin') return { dragon: '🏆 Le dragon est vaincu !', survivant: '🏁 Plus qu\'un en jeu !', temps: '⏱️ Temps écoulé !' }[ev.raison];
+    return '';
+  };
+  const fil = e.events.filter(ev => ev.type !== 'munitions').slice(-5).reverse().map((ev, i) => `<li class="${i ? '' : 'neuf'}">${msg(ev)}</li>`).join('');
+  return `${head}
+    <div class="dr-arene ${e.dragon.prepare ? 'prepare' : ''} ${souffle ? 'souffle' : ''} ${e.phase === 'fini' && e.dragon.pv <= 0 ? 'vaincu' : ''}">
+      <div class="dr-dragon"><div class="dr-bete" aria-hidden="true">🐉</div>${souffle ? '<div class="dr-feu" aria-hidden="true">🔥🔥🔥</div>' : ''}
+        <div class="dr-pv"><div style="width:${pv}%"></div><span>${e.dragon.pv} / ${e.dragon.max}</span></div>
+        ${e.dragon.prepare ? '<div class="dr-alerte">Le dragon prend son souffle… à l\'abri !</div>' : ''}</div>
+      <div class="dr-postes">${postes}</div>
+    </div>
+    <ul class="dr-fil">${fil}</ul>`;
+}
+let drDernier = 0;
+function dragonSons(g) {
+  const e = g.etat;
+  if (!e || e.type !== 'dragon') { drDernier = 0; return; }
+  const neufs = e.events.filter(ev => ev.id > drDernier);
+  if (drDernier) for (const ev of neufs) {
+    if (ev.type === 'tir') { Sons.pan(); if (ev.touche) setTimeout(() => Sons.coup(.6), 120); }
+    if (ev.type === 'souffle-prepare') Sons.grondement();
+    if (ev.type === 'souffle') Sons.boom();
+    if (ev.type === 'fin') Sons.fanfare();
+  }
+  drDernier = Math.max(drDernier, ...e.events.map(ev => ev.id), 1);
+}
+
 // Sons du Mime : gong au début du mime, petite flûte pour un mot trouvé, coup sourd pour un mot passé, tambour à la fin.
 let mmPrec = null, mmSec = null;
 function mimeSons(g) {
@@ -235,6 +284,8 @@ function minijeux(g) {
     main = mjTemple(a, g.etat);
   } else if (a && a.status === 'jeu' && g.etat?.type === 'mime') {
     main = mjMime(a, g.etat);
+  } else if (a && a.status === 'jeu' && g.etat?.type === 'dragon') {
+    main = mjDragon(a, g.etat);
   } else if (a) {
     main = `<div class="mj-kicker">Round ${a.n} en cours · ${esc(a.format)} · <span class="mono" data-since="${a.debutAt}"></span></div><div class="mj-round">${esc(a.nom)}</div>
       ${mjPlayers(a)}

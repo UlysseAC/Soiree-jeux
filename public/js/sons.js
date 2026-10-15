@@ -95,5 +95,9 @@ const Sons = (() => {
     });
   }
 
-  return { enable, on, marcher, boom, fanfare, gong, coup, tambour, pierre, flute };
+  // Chasse au dragon : un « pan » de pistolet (bref et sec) et le grondement du dragon.
+  function pan() { noise(.09, { freq: 3200, gain: .55, decay: .09 }); setTimeout(() => noise(.25, { freq: 500, gain: .25, decay: .25 }), 20); }
+  function grondement() { noise(1.4, { freq: 90, q: 6, gain: .8, decay: 1.4 }); }
+
+  return { enable, on, marcher, boom, fanfare, gong, coup, tambour, pierre, flute, pan, grondement };
 })();
