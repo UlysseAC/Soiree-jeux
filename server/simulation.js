@@ -1,11 +1,23 @@
 // Simulation depuis l'admin : de faux joueurs jouent les jeux, à un rythme qu'on peut suivre sur l'écran public.
 // Les réglages sont remis comme avant à la fin ; « Effacer la simulation » retire les faux joueurs et leurs points.
+import { shuffle } from './util.js';
 
 const PRENOMS = ['Léa', 'Hugo', 'Inès', 'Malik', 'Chloé', 'Tom', 'Sarah', 'Nico', 'Jade', 'Yanis', 'Emma', 'Louis', 'Nora', 'Rose', 'Hamza', 'Lou', 'Ethan', 'Clara', 'Victor', 'Eva',
   'Mehdi', 'Alice', 'Camille', 'Enzo', 'Julie', 'Sami', 'Anaïs', 'Lucas', 'Noah', 'Paul', 'Léna', 'Gabin', 'Oscar', 'Mila', 'Jules', 'Iris', 'Nathan', 'Lola', 'Samuel', 'Romy',
   'Adam', 'Zoé', 'Théo', 'Manon', 'Rayan', 'Lina', 'Karim', 'Maëlys', 'Arthur', 'Charlotte', 'Axel', 'Nina', 'Liam', 'Jeanne', 'Sacha', 'Léon', 'Agathe', 'Marius', 'Ambre', 'Hugo B.'];
 const ARMES = { pistolet: '9301', fumigene: '9302', menottes: '9303', loupe: '9304', gilet: '9305', voyance: '9306' };
 const codeOf = (T, label) => (label === 15 ? '9999' : `9${T === 'A' ? 1 : 2}${String(label).padStart(2, '0')}`);
+
+// Tests des mini-jeux : nombre de faux joueurs et réglages courts (quelques minutes au total).
+const MINI_NOMS = { definition: 'La Définition', anecdote: "L'Anecdote", temple: 'Le Temple aztèque', mime: 'Le Mime', dragon: 'La Chasse au dragon', disparu: "Qu'est-ce qui a changé ?" };
+const MINI_TESTS = {
+  definition: { n: 5, reglages: { manches: 1, tempsEcriture: 25, tempsVote: 25, tempsRevelation: 8 } },
+  anecdote: { n: 5, reglages: { manches: 1, tempsEcriture: 25, tempsVote: 25, tempsRevelation: 8 } },
+  temple: { n: 5, reglages: { etapes: 3, tempsChoix: 12, tempsPiege: 5, cheminsEtapes: '2:1,3:1,4:2' } },
+  mime: { n: 4, reglages: { duos: 2, tempsMime: 15, tempsPret: 3 } },
+  dragon: { n: 4, reglages: { attaqueMin: 8, attaqueMax: 10, dureeTir: 90, pvDragon: 6 } },
+  disparu: { n: 5, reglages: { manchesMemo: 2, objetsDepart: 4, objetsPlus: 1, tempsMemo: 6, tempsReponse: 12, melangeDes: 2 } },
+};
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const pick = a => a[Math.floor(Math.random() * a.length)];
@@ -51,6 +63,12 @@ export class Simulation {
     if (a.cmd === 'start') {
       if (this.running) return { ok: false, msg: 'Une simulation est déjà en cours.' };
       if (this.so.sess.status === 'playing') return { ok: false, msg: 'Une vraie partie est en cours : arrête-la d\'abord.' };
+      if (String(a.games?.[0] || '').startsWith('mini:')) {
+        const type = a.games[0].slice(5);
+        if (!MINI_TESTS[type]) return { ok: false, msg: 'Mini-jeu inconnu.' };
+        this.runMini(type).catch(e => { console.error('Simulation :', e); this.step = 'Erreur : ' + e.message; this.finish(); });
+        return { ok: true, msg: `Test de « ${MINI_NOMS[type]} » lancé avec ${MINI_TESTS[type].n} faux joueurs. Regarde l'écran public !` };
+      }
       const n = Math.max(4, Math.min(60, Number(a.n) || 50));
       const games = (a.games?.length ? a.games : ['chemin', 'grandpari', 'duel']).filter(g => ['chemin', 'grandpari', 'duel'].includes(g));
       this.run(n, games).catch(e => { console.error('Simulation :', e); this.step = 'Erreur : ' + e.message; this.finish(); });
@@ -124,10 +142,10 @@ export class Simulation {
   }
 
   // Chaque faux joueur agit à son rythme pendant que la partie tourne.
-  async play(turn) {
+  async play(turn, until = () => false) {
     const loops = this.bots.map(async b => {
       await sleep(rnd(0, 3000));
-      while (this.running && this.so.sess.status === 'playing') {
+      while (this.running && this.so.sess.status === 'playing' && !until()) {
         const g = this.view(b);
         if (g && !g.spectator) await turn(b, g);
         await sleep(rnd(1500, 4000));
@@ -164,6 +182,87 @@ export class Simulation {
     // On laisse la victoire puis le classement s'afficher.
     this.step = `${names[id]} : terminé`;
     await this.wait(45000);
+  }
+
+  // Test d'un mini-jeu : faux joueurs, un seul round du type choisi, réglages courts. Le vrai réglage est remis à la fin.
+  async runMini(type) {
+    const s = this.so.s, T = MINI_TESTS[type];
+    this.running = true;
+    this.backup = this.backup ?? { config: clone(s.config), history: clone(s.history), bonus: clone(s.bonus), show: s.show };
+    this.bots = [];
+    for (let i = 0; i < T.n; i++) {
+      let name = PRENOMS[i] ?? `Joueur ${i + 1}`;
+      let r = this.so.join(undefined, name);
+      if (!r.ok) r = this.so.join(undefined, `${name} ${i + 1}`);
+      if (!r.ok) continue;
+      s.people[r.pid].bot = true;
+      this.bots.push({ pid: r.pid, token: r.token, name: s.people[r.pid].name });
+    }
+    this.broadcast();
+    this.step = `${MINI_NOMS[type]} : inscriptions`;
+    this.admin({ type: 'choisirJeu', gameId: 'minijeux' });
+    const c = (path, value) => this.admin({ type: 'config', scope: 'jeu', path, value });
+    c('joueurs', this.bots.map(b => b.name).join('\n'));
+    c('programme', 'mj1');
+    c('jeux.mj1.type', type);
+    c('jeux.mj1.nom', MINI_NOMS[type]);
+    c('jeux.mj1.joueurs', 0);
+    for (const [k, v] of Object.entries(T.reglages)) c(`jeux.mj1.${k}`, v);
+    this.admin({ type: 'lancerJeu' });
+    // Chaque faux joueur prend son nom sur la liste, comme un vrai téléphone
+    for (const b of this.bots) this.so.claimMini(b.token, b.name);
+    this.broadcast();
+    await sleep(500);
+    this.admin({ type: 'jeu', action: { type: 'annoncer' } });
+    this.step = `${MINI_NOMS[type]} : partie en cours`;
+    const r = this.so.sess.game?.rounds?.[0];
+    const fini = () => r?.status === 'fini';
+    // les faux joueurs jouent jusqu'à la fin du round, puis on attend la révélation
+    await Promise.all([this.play((b, g) => this.miniTurn(type, b, g), fini), this.wait(240000, fini)]);
+    await this.wait(20000, fini);
+    this.step = `${MINI_NOMS[type]} : terminé`;
+    await this.wait(12000);
+    this.finish();
+  }
+
+  // Ce que fait un faux joueur à chaque tour. La triche (lire la bonne réponse côté serveur) ne sert qu'à tester l'affichage.
+  miniTurn(type, b, g) {
+    const now = Date.now(), e = g?.etat, m = g?.monTour;
+    if (m?.status === 'annonce' && !m.compris?.includes(b.name)) return this.act(b, { type: 'compris' });
+    if (!e) return;
+    const game = this.so.sess.game, round = game?.rounds?.find(x => x.status === 'jeu');
+    const reponse = (a) => this.act(b, a);
+    if (type === 'definition' || type === 'anecdote') {
+      if (e.phase === 'ecriture' && e.monMot !== undefined && !e.maDef) return reponse({ type: 'ecrire', texte: `Une histoire inventée par ${b.name}` });
+      if (e.phase === 'vote' && e.monMot === undefined && !e.mesLiens) {
+        const perm = shuffle(e.joueurs);
+        return reponse({ type: 'voter', liens: Object.fromEntries(e.cartes.map((c, i) => [c.mot, perm[i % perm.length]])) });
+      }
+    }
+    if (type === 'temple' && e.mesVies > 0 && e.phase === 'choix' && e.monChoix == null) return reponse({ type: 'choisir', chemin: Math.floor(Math.random() * e.chemins.length) });
+    if (type === 'mime') {
+      if (e.role === 'mime' && e.phase === 'pret') return reponse({ type: 'pret' });
+      if (e.role === 'mime' && e.phase === 'mime' && Math.random() < .05) return reponse({ type: 'passer' });
+      if (e.role === 'devine' && e.phase === 'mime' && Math.random() < .35) {
+        const bon = round?.mi?.mot;
+        return reponse({ type: 'deviner', texte: Math.random() < .6 && bon ? bon : 'zzz' });
+      }
+    }
+    if (type === 'dragon' && e.moi) {
+      const mo = e.moi;
+      if (mo.horsJeu) return;
+      if (e.dragon?.prepare && mo.action !== 'cache') return reponse({ type: 'cacher' });
+      if (mo.action === 'cache' && Math.random() < .3) return reponse({ type: 'viser' });
+      if (mo.action === 'vise' && now >= mo.pretA && Math.random() < .5) return reponse({ type: 'tirer' });
+      if (mo.action === 'vise' && Math.random() < .15) return reponse({ type: 'cible', sens: 1 });
+      if (mo.action === 'vise' && mo.balles <= 0) return reponse({ type: 'recharger' });
+      if (mo.action === 'recharge' || mo.action === 'cache') return;
+    }
+    if (type === 'disparu' && e.phase === 'question' && e.moi && !e.moi.reponse) {
+      const bon = round?.mem?.cur?.manquant?.nom;
+      const i = Math.random() < .6 && bon ? e.choix.findIndex(o => o.nom === bon) : Math.floor(Math.random() * e.choix.length);
+      return reponse({ type: 'repondre', choix: Math.max(0, i) });
+    }
   }
 
   async setup(id) {
