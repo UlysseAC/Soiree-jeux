@@ -142,7 +142,7 @@ ${[[-300, '−5 min'], [-60, '−1 min'], [60, '+1 min'], [300, '+5 min']].map((
         <label class="btn" style="cursor:pointer">⬆ Importer un fichier<input type="file" id="import-file" accept="application/json,.json" hidden></label></div>
       <h2 style="margin-top:8px">Noms des jeux</h2>
       <p class="muted" style="margin:0;font-size:14px">Affichés partout : écran public, téléphones, classement. Laisse vide pour revenir au nom d'origine.</p>
-      <div class="grid-auto">${V.games.map((g, i) => cfgInput(`nomsJeux.${g.id}`, V.config.nomsJeux?.[g.id] ?? g.name, 'text', { scope: 'soiree', label: { chemin: 'Jeu de la chaîne et des détectives', duel: 'Jeu des cowboys', grandpari: 'Jeu des paris sportifs', minijeux: 'Journée de mini-jeux' }[g.id] || `Jeu ${i + 1}` })).join('')}</div>
+      <div class="grid-auto">${V.games.map((g, i) => cfgInput(`nomsJeux.${g.id}`, V.config.nomsJeux?.[g.id] ?? g.name, 'text', { scope: 'soiree', label: { chemin: 'Jeu de la chaîne et des détectives', duel: 'Jeu des cowboys', grandpari: 'Jeu des paris sportifs', minijeux: 'Journée de mini-jeux', quiz: 'Le Quiz (jeu final)' }[g.id] || `Jeu ${i + 1}` })).join('')}</div>
     </div>
   </div>`;
 }
@@ -240,6 +240,7 @@ function partieGrandPari(g) {
 
 function partie() {
   if (V.gameId === 'minijeux') return partieMiniJeux(V.game);
+  if (V.gameId === 'quiz') return partieQuiz(V.game);
   if (!V.game) return `<div class="box"><p class="muted" style="margin:0">Aucune partie en cours. Lance le décompte dans l'onglet Soirée.</p></div>`;
   return V.gameId === 'chemin' ? partieChemin(V.game) : V.gameId === 'grandpari' ? partieGrandPari(V.game) : partieDuel(V.game);
 }
@@ -728,10 +729,43 @@ function reglagesGrandPari(c) {
         <td>${cfgInput(`invest.catalogue.${i}.parJoueur`, it.parJoueur, 'num', { width: '80px' })}</td><td>${cfgInput(`invest.catalogue.${i}.remboursement`, it.remboursement, 'num', { width: '70px' })}</td></tr>`).join('')}</tbody></table></div></div>`;
 }
 
+// Même règle que le serveur (server/games/quiz.js) : un bloc par question, 4 réponses, une bonne marquée d'une étoile.
+function quizLire(texte) {
+  const blocs = String(texte || '').replace(/\r/g, '').split(/\n\s*\n/).map(b => b.split('\n').map(l => l.trim()).filter(Boolean)).filter(b => b.length);
+  const ok = [], erreurs = [];
+  blocs.forEach((b, i) => {
+    const n = i + 1;
+    if (b.length !== 5) return erreurs.push(`Question ${n} : il faut une question et 4 réponses (${b.length - 1} trouvée${b.length - 1 > 1 ? 's' : ''}).`);
+    const bonnes = b.slice(1).filter(r => r.startsWith('*')).length;
+    if (bonnes !== 1) return erreurs.push(`Question ${n} : il faut exactement une bonne réponse marquée d'une étoile « * ».`);
+    ok.push(b[0]);
+  });
+  return { ok, erreurs };
+}
+function reglagesQuiz(c) {
+  const { ok, erreurs } = quizLire(c.questions);
+  return `<div class="box" style="gap:10px">
+    <p class="muted" style="margin:0;font-size:14px">Le jeu final : tout le monde joue. Chaque question a quatre réponses, une seule est bonne. Écris un bloc par question, séparés par une ligne vide. La 1re ligne est la question, les 4 suivantes sont les réponses, et la bonne réponse commence par une étoile <span class="mono">*</span>.</p>
+    <label class="field"><span class="label">Questions · ${ok.length} question${ok.length > 1 ? 's' : ''} valide${ok.length > 1 ? 's' : ''}</span>
+      <textarea class="in mono" rows="18" id="c-jeu-questions" data-cfg="questions" data-kind="area" data-scope="jeu" placeholder="Quelle est la capitale de la France ?&#10;Lyon&#10;*Paris&#10;Marseille&#10;Lille">${esc(c.questions)}</textarea>
+      ${erreurs.length ? `<div style="color:var(--danger);font-size:14px">${erreurs.map(esc).join('<br>')}</div>` : '<span class="muted" style="font-size:13px">Tout est bon.</span>'}</label>
+    <div class="grid-auto">${cfgInput('tempsQuestion', c.tempsQuestion, 'dur', { label: 'Temps pour répondre' })}${cfgInput('tempsRevelation', c.tempsRevelation, 'dur', { label: 'Affichage de la bonne réponse' })}</div>
+  </div>`;
+}
+function partieQuiz(e) {
+  if (!e) return `<div class="box"><p class="muted" style="margin:0">Le quiz n'a pas encore commencé.</p></div>`;
+  if (e.finished) return `<div class="box"><strong>Quiz terminé</strong><p style="margin:0">${e.classement.map(x => `${x.rang}. ${esc(x.name)} : ${x.score} / ${e.total}`).join(' · ')}</p></div>`;
+  const q = e.question, phase = e.phase === 'question' ? `Réponses en cours : ${e.repondus} / ${e.participants}` : 'Bonne réponse affichée';
+  return `<div class="box" style="background:var(--ink)"><div class="spread"><strong>Question ${e.k + 1} / ${e.total} · ${esc(q?.texte || '')}</strong>${e.phase === 'question' ? `<span class="pill accent"><span class="mono" data-until="${e.fin}"></span></span>` : ''}</div>
+    <p style="margin:0">Bonne réponse : <strong>${esc(e.bonne || '')}</strong> · ${phase}${e.manquants?.length ? ` · pas encore : ${e.manquants.map(esc).join(', ')}` : ''}</p>
+    <div class="scroll"><table><tbody>${e.classement.map(x => `<tr><td class="mono">${x.rang}</td><td>${esc(x.name)}</td><td class="mono">${x.score}</td></tr>`).join('')}</tbody></table></div>
+    <div><button class="btn sm" data-mj="suivant">${e.phase === 'question' ? 'Afficher la bonne réponse' : 'Question suivante'}</button></div></div>`;
+}
+
 function reglages() {
   const c = V.gameConfig;
   return `<p class="muted" style="margin:0">Réglages de : <strong>${esc(V.gameName)}</strong>. Pour régler un autre jeu, choisis-le dans l'onglet Soirée.</p>` +
-    (V.gameId === 'chemin' ? reglagesChemin(c) : V.gameId === 'grandpari' ? reglagesGrandPari(c) : V.gameId === 'minijeux' ? reglagesMiniJeux(c) : reglagesDuel(c));
+    (V.gameId === 'chemin' ? reglagesChemin(c) : V.gameId === 'grandpari' ? reglagesGrandPari(c) : V.gameId === 'minijeux' ? reglagesMiniJeux(c) : V.gameId === 'quiz' ? reglagesQuiz(c) : reglagesDuel(c));
 }
 
 // Alertes visibles dans tous les onglets.

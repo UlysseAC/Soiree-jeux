@@ -286,6 +286,29 @@ function mjSide(g, title = 'Classement de la journée') {
   return `<aside class="mj-side"><div class="label" style="font-size:clamp(13px,1.1vw,18px)">${esc(title)}</div>
     ${rows.length ? `<ol class="mj-rank">${rows.map(r => `<li><span class="r">${r.rang}.</span><span>${esc(r.nom)}</span><span class="p">${r.points}</span></li>`).join('')}</ol>` : '<p class="muted" style="margin:0">Pas encore de points.</p>'}</aside>`;
 }
+// Le Quiz : la question en grand avec ses 4 réponses, puis la bonne réponse et la répartition des réponses.
+function quiz(g) {
+  if (g.finished) {
+    const [a, b, c] = g.classement;
+    const top = (r, medal) => r ? `<div class="qz-top">${medal}<strong>${esc(r.name)}</strong><span>${r.score} / ${g.total}</span></div>` : '';
+    return `<header class="sc-head"><h1 class="sc-title">${esc(V.gameName)} · résultats</h1><div class="sc-sub muted">Le meilleur gagne. À égalité, le plus rapide.</div></header>
+      <div class="qz-podium">${top(b, '🥈')}${top(a, '🥇')}${top(c, '🥉')}</div>
+      <ol class="qz-classement">${g.classement.slice(0, 15).map(r => `<li><span>${r.rang}.</span><span>${esc(r.name)}</span><b>${r.score} / ${g.total}</b></li>`).join('')}</ol>`;
+  }
+  const q = g.question;
+  const head = `<div class="mj-kicker">Question ${g.k + 1} / ${g.total}</div>`;
+  if (!q) return `${head}<div class="mj-round">Bientôt…</div>`;
+  const cor = g.correction;
+  const tuiles = q.reponses.map((r, i) => {
+    const cls = !cor ? '' : i === cor.bonne ? 'bonne' : 'fausse';
+    const nb = cor ? ` <span class="qz-nb">${cor.compte[i]}</span>` : '';
+    return `<div class="qz-rep ${cls}"><span class="qz-lettre">${r.lettre}</span><span class="qz-txt">${esc(r.texte)}</span>${nb}</div>`;
+  }).join('');
+  const sub = g.phase === 'question'
+    ? `<div class="sc-sub">Réponds sur ton téléphone ! <strong class="mono" data-until="${g.fin}"></strong> · ${g.repondus} / ${g.participants} ont répondu</div>`
+    : `<div class="sc-sub">La bonne réponse : <strong>${esc(cor ? cor.lettre : '')}</strong></div>`;
+  return `${head}<div class="qz-question">${esc(q.texte)}</div>${sub}<div class="qz-grille">${tuiles}</div>`;
+}
 function minijeux(g) {
   const pos = `Round ${Math.min(g.faits + (g.actif ? 1 : 0), g.total) || 1} / ${g.total}`;
   if (g.finished) {
@@ -602,6 +625,7 @@ function draw() {
   let html, ov = '';
   if (g && (V.status === 'playing' || V.status === 'finished')) {
     if (V.gameId === 'minijeux') html = minijeux(g);
+    else if (V.gameId === 'quiz') html = quiz(g);
     else if (V.gameId === 'chemin') html = chemin(g);
     else if (V.gameId === 'grandpari') {
       trackBettors(g.richest);

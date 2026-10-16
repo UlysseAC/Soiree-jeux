@@ -70,7 +70,7 @@ export class Simulation {
         return { ok: true, msg: `Test de « ${MINI_NOMS[type]} » lancé avec ${MINI_TESTS[type].n} faux joueurs. Regarde l'écran public !` };
       }
       const n = Math.max(4, Math.min(60, Number(a.n) || 50));
-      const games = (a.games?.length ? a.games : ['chemin', 'grandpari', 'duel']).filter(g => ['chemin', 'grandpari', 'duel'].includes(g));
+      const games = (a.games?.length ? a.games : ['chemin', 'grandpari', 'duel']).filter(g => ['chemin', 'grandpari', 'duel', 'quiz'].includes(g));
       this.run(n, games).catch(e => { console.error('Simulation :', e); this.step = 'Erreur : ' + e.message; this.finish(); });
       return { ok: true, msg: `Simulation lancée avec ${n} faux joueurs. Regarde l'écran public !` };
     }
@@ -155,7 +155,7 @@ export class Simulation {
   }
 
   async game(id) {
-    const names = { chemin: 'Le Chemin', grandpari: 'Le Grand Pari', duel: 'Duel au Far West' };
+    const names = { chemin: 'Le Chemin', grandpari: 'Le Grand Pari', duel: 'Duel au Far West', quiz: 'Le Quiz' };
     this.step = `${names[id]} : inscriptions`;
     this.admin({ type: 'choisirJeu', gameId: id });
     await this.setup(id);
@@ -267,6 +267,11 @@ export class Simulation {
 
   async setup(id) {
     const c = (p, v) => this.cfg(p, v);
+    if (id === 'quiz') {
+      // quelques questions de test, avec des réponses bidon : la simulation ne cherche pas à être juste
+      c('questions', [1, 2, 3].map(k => `Question de test ${k} ?\nRéponse A\n*Réponse B\nRéponse C\nRéponse D`).join('\n\n'));
+      c('tempsQuestion', 10); c('tempsRevelation', 4);
+    }
     if (id === 'chemin') {
       for (const T of ['A', 'B']) for (let i = 0; i < 14; i++) { c(`teams.${T}.steps.${i}.code`, codeOf(T, i + 1)); c(`teams.${T}.steps.${i}.indice`, `Indice de l'étape ${i + 1} (simulation)`); }
       c('final.code', '9999'); c('final.indice', 'Dernière étape (simulation)');
@@ -296,6 +301,10 @@ export class Simulation {
 
   async turn(id, b, g) {
     if (g.finished) return;
+    if (id === 'quiz') {
+      if (g.phase === 'question' && g.maReponse == null && Math.random() < .8) this.act(b, { type: 'repondre', choix: Math.floor(Math.random() * 4) });
+      return;
+    }
     if (id === 'chemin') {
       if (g.block) {
         const codes = g.block.type === 'menottes' ? [0, 1, 2, 3, 4].map(i => `95${g.team === 'A' ? 1 : 2}${i}`) : [g.block.type === 'pistolet' ? '9401' : '9402'];

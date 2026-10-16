@@ -650,6 +650,22 @@ function miniJeux() {
   return h;
 }
 
+// Le Quiz sur le téléphone : une réponse par question (4 boutons), puis juste ou faux et le rang.
+function quizTel(e) {
+  if (e.spectator) return head() + `<div class="card"><p style="font-size:18px">Le quiz est en cours. Regarde l'écran !</p></div>`;
+  const head0 = `<span class="label" style="text-align:center">Question ${e.k + 1} / ${e.total}${e.phase === 'question' ? ` · <strong class="mono" data-until="${e.fin}"></strong>` : ''}</span>`;
+  if (e.finished) return head() + `<div class="card accent center"><p style="font-size:20px">Quiz terminé !</p><p>Ton score : <strong>${e.score} / ${e.total}</strong>${e.rang ? ` · ${e.rang}<sup>e</sup> sur ${e.participants}` : ''}</p></div>`;
+  if (!e.question) return head() + `<div class="card"><p style="font-size:18px">Bientôt la première question…</p></div>`;
+  if (e.phase === 'question' && e.maReponse == null) {
+    return head() + head0 + `<div class="card"><p style="font-size:20px;margin:0">${esc(e.question.texte)}</p></div>
+      <div class="qz-boutons">${e.question.reponses.map((r, i) => `<button class="btn qz-btn" data-act="quizRepondre" data-choix="${i}"><span class="qz-lettre">${r.lettre}</span>${esc(r.texte)}</button>`).join('')}</div>`;
+  }
+  if (e.phase === 'question') return head() + head0 + `<div class="card center"><p style="font-size:18px">✓ Réponse envoyée. On attend les autres…</p><p class="muted">Ton score : ${e.score}</p></div>`;
+  return head() + head0 + `<div class="card ${e.juste ? 'accent' : ''} center"><div class="huge" style="font-size:40px">${e.juste ? '✓' : e.maReponse == null ? '⏱️' : '✗'}</div>
+    <p style="font-size:20px">${e.juste ? 'Bonne réponse !' : e.maReponse == null ? 'Pas de réponse.' : 'Raté.'}</p>
+    <p class="muted">La bonne réponse : <strong>${esc(e.bonne?.lettre || '')} ${esc(e.bonne?.texte || '')}</strong></p><p>Ton score : <strong>${e.score}</strong></p></div>`;
+}
+
 // ---------- rendu ----------
 function draw() {
   if (!V) return;
@@ -657,7 +673,7 @@ function draw() {
   if (!V.me) { app.className = 'phone'; if (!document.getElementById('join')) SJ.render(app, joinScreen()); return; }
   let html;
   if (V.game && !V.game.spectator) {
-    html = V.gameId === 'chemin' ? chemin(V.game) : V.gameId === 'grandpari' ? grandpari(V.game) : duel(V.game);
+    html = V.gameId === 'quiz' ? quizTel(V.game) : V.gameId === 'chemin' ? chemin(V.game) : V.gameId === 'grandpari' ? grandpari(V.game) : duel(V.game);
   } else if (V.status === 'playing' || V.status === 'finished') {
     app.className = 'phone';
     html = head() + `<div class="card"><p style="font-size:18px">${V.status === 'playing' ? 'Partie en cours.' : 'Partie terminée.'}</p><p class="muted">Tu n'es pas inscrit à ce jeu. Regarde l'écran !</p></div>`;
@@ -719,6 +735,7 @@ app.addEventListener('click', e => {
   const a = t.dataset.act;
   if (a === 'mjCompris') { act({ type: 'compris' }); return; }
   if (a === 'meRepondre') { act({ type: 'repondre', choix: Number(t.dataset.choix) }); return; }
+  if (a === 'quizRepondre') { act({ type: 'repondre', choix: Number(t.dataset.choix) }); return; }
   if (a === 'drViser') { act({ type: 'viser' }); return; }
   if (a === 'drCible') { act({ type: 'cible', sens: Number(t.dataset.sens) }); return; }
   if (a === 'drTirer') { act({ type: 'tirer' }); navigator.vibrate?.(40); return; }

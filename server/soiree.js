@@ -3,10 +3,11 @@ import * as chemin from './games/chemin.js';
 import * as duel from './games/duel.js';
 import * as grandpari from './games/grandpari.js';
 import * as minijeux from './games/minijeux.js';
+import * as quiz from './games/quiz.js';
 import { uid, normName, setPath, mergeDefaults, cleanCode } from './util.js';
 import * as classement from './classement.js';
 
-export const GAMES = { chemin, duel, grandpari, minijeux };
+export const GAMES = { chemin, duel, grandpari, minijeux, quiz };
 // Jeux qui comptent dans le classement de la soirée (les Mini-Jeux ont leur propre classement de la journée).
 const inSoiree = id => GAMES[id]?.classementSoiree !== false;
 
