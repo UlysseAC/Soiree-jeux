@@ -325,11 +325,28 @@ function mjDefinition(a, e) {
   }
   return `${head}<div class="sc-sub">Les réponses !${A ? ' Le moins reconnu gagne.' : ''}</div>${cards}`;
 }
+// Changements de place au classement des mini-jeux : qui monte (vert) ou descend (rouge), pendant 4 s.
+const mjDeltas = {};
+let mjRangs = null;
+function mjSuivreRangs(classement) {
+  const rangs = Object.fromEntries(classement.map(r => [r.nom, r.rang]));
+  if (mjRangs) {
+    const until = Date.now() + 4000;
+    for (const [nom, rang] of Object.entries(rangs)) if (mjRangs[nom] && mjRangs[nom] !== rang) mjDeltas[nom] = { d: mjRangs[nom] - rang, until };
+  }
+  mjRangs = rangs;
+}
 function mjSide(g, title = 'Classement de la journée') {
+  mjSuivreRangs(g.classement);
+  const now = Date.now();
   const rows = g.classement.filter(r => r.points || g.faits).slice(0, 18);
+  const ligne = r => {
+    const d = mjDeltas[r.nom]?.until > now ? mjDeltas[r.nom].d : 0, cls = d > 0 ? 'up' : d < 0 ? 'down' : '';
+    return `<li class="${cls}" data-pid="mj:${esc(r.nom)}"><span class="r">${r.rang}.</span><span>${esc(r.nom)}</span><span class="dl ${cls}">${d > 0 ? `▲${d}` : d < 0 ? `▼${-d}` : ''}</span><span class="j" title="rounds joués">${r.joues} r.</span><span class="p">${r.points}</span></li>`;
+  };
   // à côté des points : le nombre de rounds joués (sans le quiz)
   return `<aside class="mj-side"><div class="label" style="font-size:clamp(13px,1.1vw,18px)">${esc(title)}</div>
-    ${rows.length ? `<ol class="mj-rank">${rows.map(r => `<li><span class="r">${r.rang}.</span><span>${esc(r.nom)}</span><span class="j" title="rounds joués">${r.joues} r.</span><span class="p">${r.points}</span></li>`).join('')}</ol>` : '<p class="muted" style="margin:0">Pas encore de points.</p>'}</aside>`;
+    ${rows.length ? `<ol class="mj-rank" id="mj-rank">${rows.map(ligne).join('')}</ol>` : '<p class="muted" style="margin:0">Pas encore de points.</p>'}</aside>`;
 }
 // Le Quiz (mini-jeu) : la question en grand avec ses 4 réponses, puis la bonne réponse et la répartition des réponses.
 function mjQuiz(a, e) {
@@ -775,7 +792,7 @@ function draw() {
   slotsMaj();
   premierRendu = false;
   const before = {};
-  document.querySelectorAll('#board li, #board-soiree li').forEach(li => { before[li.dataset.pid] = li.getBoundingClientRect().top; });
+  document.querySelectorAll('#board li, #board-soiree li, #mj-rank li').forEach(li => { before[li.dataset.pid] = li.getBoundingClientRect().top; });
   SJ.render(app, html);
   if (document.getElementById('tp-carte')) TempleCarte.demarrer();
   if (document.getElementById('dr-scene')) DragonScene.demarrer();
@@ -787,9 +804,9 @@ function draw() {
   if (showMini && !mini.innerHTML) mini.innerHTML = `<img src="${V.qr}" alt="QR code pour rejoindre"><span>Rejoindre</span>`;
   overlay.hidden = !ov;
   if (ov) SJ.render(overlay, ov);
-  // Classement des parieurs : les lignes glissent vers leur nouvelle place.
+  // Classements (parieurs, mini-jeux) : les lignes glissent vers leur nouvelle place.
   if (!matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    document.querySelectorAll('#board li, #board-soiree li').forEach(li => {
+    document.querySelectorAll('#board li, #board-soiree li, #mj-rank li').forEach(li => {
       const old = before[li.dataset.pid];
       if (old === undefined) return;
       const dy = old - li.getBoundingClientRect().top;
