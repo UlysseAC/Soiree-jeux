@@ -62,3 +62,13 @@ test('détective en avant-dernier sauté si tout le monde a déjà 3 rounds', ()
   for (const r of g.rounds.slice(0, -1)) jouer(r);
   assert.equal(g.rounds.at(-2).status, 'saute');
 });
+
+test('limite réglée à 2 rounds : personne ne dépasse 2, et le détective complète à 2 (×2 pour qui n\'a rien joué)', () => {
+  const { ctx, g, jouer } = setup('mj1,mj2,mj3,mj4,mj6,mj7', ['Léa', 'Hugo', 'Inès', 'Malik', 'Chloé']);
+  ctx.cfg.roundsParJoueur = 2;
+  for (const r of g.rounds.slice(0, 4)) jouer(r);
+  for (const n of ['Léa', 'Hugo', 'Inès', 'Malik', 'Chloé']) assert.ok(mj.joues(g, n) <= 2, `${n} : ${mj.joues(g, n)}`);
+  const det = g.rounds[4];
+  jouer(det);
+  for (const n of det.joueurs) assert.equal(det.multi[n], 2 - (mj.joues(g, n) - 1), n);
+});

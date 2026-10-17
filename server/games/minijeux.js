@@ -35,6 +35,7 @@ export function defaultConfig() {
     annonce: 300, // les joueurs sont tirés au sort et annoncés X secondes avant le round
     resultats: 45, // durée d'affichage des résultats d'un round sur l'écran
     rounds: 12,
+    roundsParJoueur: 3, // rounds au plus par joueur, sans le quiz ; le détective égalise à ce nombre
     programme: [...SLOTS, ...SLOTS].join(','), // mini-jeu de chaque round, dans l'ordre
     jeux: Object.fromEntries(SLOTS.map((s, i) => [s, {
       actif: true, // utilisé par « remplir automatiquement »
@@ -206,16 +207,16 @@ function count(g, r, d) {
   if (new Set(teams.map(t => t.length)).size > 1) for (const t of teams) if (t.length === 1) add(g.solo, key(t[0]));
 }
 
-// Chaque joueur joue au plus 3 rounds, sans compter le quiz.
-export const MAX_ROUNDS_JOUEUR = 3;
+// Chaque joueur joue au plus N rounds (3 par défaut, réglable), sans compter le quiz.
+export const maxRounds = cfg => Math.max(1, Math.min(10, Math.round(Number(cfg.roundsParJoueur)) || 3));
 // Rounds joués par un joueur, sans le quiz (avecAnnonce : compte aussi le round annoncé, pour le tirage au sort).
 export function joues(g, nom, avecAnnonce = false) {
   const ok = avecAnnonce ? ['annonce', 'jeu', 'fini'] : ['jeu', 'fini'];
   return g.rounds.filter(r => ok.includes(r.status) && r.type !== 'quiz' && r.joueurs.some(p => key(p) === key(nom))).length;
 }
 // Round d'égalisation : le détective (« Qu'est-ce qui a changé ? ») en avant-dernier round du programme. Il réunit
-// tous les joueurs connectés qui ont joué moins de 3 rounds ; leurs points sont multipliés (×2 pour 1 round joué,
-// ×3 pour aucun), comme s'ils avaient joué leurs 3 rounds.
+// tous les joueurs connectés qui ont joué moins que le maximum ; leurs points sont multipliés (avec 3 rounds :
+// ×2 pour 1 round joué, ×3 pour aucun), comme s'ils avaient joué tous leurs rounds.
 export function egalisation(g, r) {
   const prevus = g.rounds.filter(x => !x.hors).map(x => x.n);
   return r.type === 'disparu' && !r.hors && r.n === Math.max(...prevus) - 1;
@@ -226,12 +227,12 @@ function announce(ctx, g, r) {
   r.type = cfg.jeux[r.jeu]?.type || 'manuel';
   // Seuls les joueurs connectés (nom pris sur un téléphone) sont tirés au sort, et personne ne dépasse 3 rounds.
   const connectes = roster(cfg).filter(n => g.claims[key(n)]);
-  const libres = connectes.filter(n => joues(g, n, true) < MAX_ROUNDS_JOUEUR);
+  const max = maxRounds(cfg), libres = connectes.filter(n => joues(g, n, true) < max);
   const egal = egalisation(g, r);
   if (r.type === 'quiz') r.joueurs = connectes; // le quiz : tout le monde joue
   else if (egal) r.joueurs = libres;
   else r.joueurs = draw(g, libres, sizeOf(cfg, r.jeu, libres.length), prevPlayers(g, r));
-  r.multi = egal ? Object.fromEntries(libres.map(n => [n, MAX_ROUNDS_JOUEUR - joues(g, n, true)])) : null;
+  r.multi = egal ? Object.fromEntries(libres.map(n => [n, max - joues(g, n, true)])) : null;
   if (!r.joueurs.length) { r.status = 'saute'; r.finAt = ctx.now(); return; } // personne à faire jouer : round sauté
   r.format = egal ? null : formatOf(cfg, r.jeu);
   r.equipes = teamsFor(g, r.joueurs, r.format);
@@ -388,7 +389,7 @@ export function adminAction(ctx, g, a) {
       // Annoncé à la main : le round commence peu après (le temps que les joueurs arrivent), pas à son heure prévue.
       next.at = Math.min(next.at, now + Math.min(cfg.annonce * 1000, 120e3));
       announce(ctx, g, next);
-      if (next.status === 'saute') return err(`Round ${next.n} sauté : aucun joueur connecté sous la limite de ${MAX_ROUNDS_JOUEUR} rounds.`);
+      if (next.status === 'saute') return err(`Round ${next.n} sauté : aucun joueur connecté sous la limite de ${maxRounds(cfg)} rounds.`);
       return ok(`Round ${next.n} annoncé : il commence dans ${Math.round((startAtOf(cfg, next) - now) / 60000) || 1} min.`);
     }
     case 'lancerMaintenant': { // un mini-jeu choisi tout de suite, hors programme (test avec de vrais joueurs)
@@ -398,7 +399,7 @@ export function adminAction(ctx, g, a) {
       const r = { n: g.rounds.length + 1, jeu: a.slot, at: now, status: 'prevu', joueurs: [], places: null, points: null, annonceAt: 0, debutAt: 0, finAt: 0, hors: true };
       g.rounds.push(r);
       announce(ctx, g, r);
-      if (r.status === 'saute') { g.rounds.pop(); return err(`Aucun joueur connecté sous la limite de ${MAX_ROUNDS_JOUEUR} rounds pour ce mini-jeu.`); }
+      if (r.status === 'saute') { g.rounds.pop(); return err(`Aucun joueur connecté sous la limite de ${maxRounds(cfg)} rounds pour ce mini-jeu.`); }
       return ok(`${cfg.jeux[a.slot].nom} annoncé : il commence dès que tout le monde a compris.`);
     }
     case 'changerJeu': { // un round qui n'est pas encore annoncé peut changer de mini-jeu, pendant la soirée

@@ -353,7 +353,7 @@ function reglagesMiniJeux(c) {
       <textarea class="in" rows="10" id="c-jeu-joueurs" data-cfg="joueurs" data-kind="area" data-scope="jeu" placeholder="Léa&#10;Hugo&#10;Inès…">${esc(c.joueurs)}</textarea>
     </div>
     <div class="box"><h2>Journée</h2>
-      <div class="grid-auto">${cfgInput('premier', c.premier, 'num', { label: 'Premier round, X min après l\'ouverture' })}${cfgInput('intervalle', c.intervalle, 'num', { label: 'Puis un round toutes les (min)' })}${cfgInput('rounds', c.rounds, 'num', { label: 'Nombre de rounds' })}
+      <div class="grid-auto">${cfgInput('premier', c.premier, 'num', { label: 'Premier round, X min après l\'ouverture' })}${cfgInput('intervalle', c.intervalle, 'num', { label: 'Puis un round toutes les (min)' })}${cfgInput('rounds', c.rounds, 'num', { label: 'Nombre de rounds' })}${cfgInput('roundsParJoueur', c.roundsParJoueur, 'num', { label: 'Rounds au plus par joueur (sans le quiz)' })}
         ${cfgInput('annonce', c.annonce, 'dur', { label: 'Annonce des joueurs avant le round' })}${cfgInput('resultats', c.resultats, 'dur', { label: 'Résultats affichés pendant' })}</div>
       <p style="margin:0">→ Premier round <strong>${esc(c.premier)} min</strong> après l'ouverture, puis un toutes les <strong>${esc(c.intervalle)} min</strong>.${names.length ? ` Chaque participant jouera environ <strong>${Math.floor(per)}${Math.ceil(per) !== Math.floor(per) ? ` à ${Math.ceil(per)}` : ''} round${Math.ceil(per) > 1 ? 's' : ''}</strong>.` : ' Ajoute des participants pour voir combien de rounds chacun jouera.'}</p>
     </div>
@@ -838,7 +838,7 @@ function alerts() {
   if (V.gameId === 'minijeux' && V.gameConfig?.jeux) {
     const prog = V.game?.rounds ? V.game.rounds.filter(r => !r.hors).map(r => r.jeu) : mjProgram(V.gameConfig);
     const avant = prog[prog.length - 2];
-    if (prog.length >= 2 && V.gameConfig.jeux[avant]?.type !== 'disparu') out.push(`🕵️ <span><strong>L'avant-dernier round n'est pas le détective</strong> (« Qu'est-ce qui a changé ? »). Mets-le en avant-dernier : il fait jouer tous ceux qui ont moins de 3 rounds, avec des points doublés ou triplés, pour que tout le monde ait joué autant.</span>`);
+    if (prog.length >= 2 && V.gameConfig.jeux[avant]?.type !== 'disparu') out.push(`🕵️ <span><strong>L'avant-dernier round n'est pas le détective</strong> (« Qu'est-ce qui a changé ? »). Mets-le en avant-dernier : il fait jouer tous ceux qui ont moins de ${esc(V.gameConfig.roundsParJoueur ?? 3)} rounds, avec des points doublés ou triplés, pour que tout le monde ait joué autant.</span>`);
   }
   const copy = !V.reglagesMaj && localCopy();
   if (copy) out.push(`♻️ <span><strong>Le serveur a perdu tes réglages</strong> (codes, indices, durées, noms des jeux). Ce navigateur en garde une copie du ${esc(new Date(copy.at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }))}.</span>
