@@ -15,7 +15,10 @@ function celebrate(key, ms, extra) {
   extra?.();
 }
 
-SJ.sock.on('connect', () => SJ.emit('hello', { role: 'ecran' }));
+// /ecran?test : l'écran de test, qui montre la simulation lancée pendant une vraie partie.
+const ECRAN_TEST = new URLSearchParams(location.search).has('test');
+SJ.sock.on('connect', () => SJ.emit('hello', { role: 'ecran', test: ECRAN_TEST }));
+if (ECRAN_TEST) document.body.insertAdjacentHTML('beforeend', '<div class="badge-test">Écran de test · simulation</div>');
 SJ.sock.on('etat', v => {
   V = v; document.body.dataset.game = v.gameId;
   // Décor du mini-jeu pendant tout le round (annonce, partie, résultats), et celui du prochain round pendant l'attente.

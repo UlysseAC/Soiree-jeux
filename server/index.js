@@ -50,7 +50,7 @@ app.get('/ping', (_, res) => res.type('text').send('ok'));
 function viewFor(sock) {
   const d = sock.data;
   if (d.role === 'admin') return { ...soiree.adminView(), simulation: sim.status(), sauvegardeEnLigne: storage.remote, enLigne: !!process.env.RENDER };
-  if (d.role === 'ecran') return { ...soiree.screenView(), joinUrl: JOIN_URL, qr };
+  if (d.role === 'ecran') return { ...(d.test ? sim.ecran() : soiree).screenView(), joinUrl: JOIN_URL, qr, test: !!d.test };
   if (d.role === 'orga') return soiree.orgaView();
   return soiree.playerView(d.token);
 }
@@ -66,7 +66,9 @@ function broadcast(persist = true) {
   });
 }
 
-const sim = new Simulation(soiree, () => broadcast());
+// Pendant une vraie partie, la simulation tourne dans une soirée séparée (mêmes réglages, jamais sauvegardée),
+// visible sur l'écran de test /ecran?test.
+const sim = new Simulation(soiree, () => broadcast(), () => new Soiree(restore({ config: JSON.parse(JSON.stringify(soiree.s.config)) }), { onSfx: name => io.to('ecran-test').emit('sfx', name) }));
 
 // Une erreur imprévue ne doit jamais arrêter le serveur en pleine soirée.
 process.on('uncaughtException', e => console.error('Erreur imprévue :', e));
@@ -91,7 +93,8 @@ io.on('connection', sock => {
     if (!['admin', 'ecran', 'orga', 'joueur'].includes(role)) return cb({ ok: false, msg: 'Rôle inconnu.' });
     sock.data.role = role;
     sock.data.token = h.token;
-    if (role === 'ecran') sock.join('ecran');
+    sock.data.test = role === 'ecran' && !!h.test;
+    if (role === 'ecran') sock.join(sock.data.test ? 'ecran-test' : 'ecran');
     cb({ ok: true });
     sock.emit('etat', viewFor(sock));
   });
@@ -121,7 +124,7 @@ io.on('connection', sock => {
   };
   sock.on('jeuData', (q = {}, cb = () => {}) => {
     if (sock.data.role !== 'ecran' && sock.data.role !== 'admin') return cb(null);
-    cb(soiree.data(q));
+    cb((sock.data.test ? sim.ecran() : soiree).data(q));
   });
   sock.on('joueur', guard('joueur', a => soiree.player(sock.data.token, a)));
   sock.on('admin', guard('admin', a => (a.type === 'simulation' ? sim.handle(a) : soiree.admin(a))));
@@ -130,7 +133,7 @@ io.on('connection', sock => {
 
 // Tick rapide : le « FEU ! » du face-à-face doit partir au bon moment.
 setInterval(() => {
-  try { if (soiree.tick()) broadcast(); } catch (e) { console.error('Erreur pendant le jeu :', e); }
+  try { const vrai = soiree.tick(), test = sim.tick(); if (vrai || test) broadcast(); } catch (e) { console.error('Erreur pendant le jeu :', e); }
 }, 40);
 // Rafraîchit aussi les vues chaque seconde (disponibilités, recharges, résultats affichés).
 setInterval(() => broadcast(false), 1000);

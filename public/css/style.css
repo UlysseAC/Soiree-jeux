@@ -727,3 +727,6 @@ body[data-theme="detective"] .card, body[data-theme="detective"] .mj-rules { bac
   50% { transform: translate(calc(var(--dx) * .6), calc(var(--h) * -1)); opacity: 1; }
   100% { transform: translate(var(--dx), -2vh); opacity: 0; }
 }
+
+/* Écran de test (/ecran?test) : bien distinct de l'écran public */
+.badge-test { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 60; background: var(--danger); color: #fff; font: 700 14px var(--body); padding: 4px 12px; border-radius: 99px; pointer-events: none; }

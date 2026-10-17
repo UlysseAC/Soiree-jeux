@@ -34,6 +34,14 @@ Chaque mini-jeu a son décor sur l'écran et les téléphones : plateau télé (
 
 Petite animation sur l'écran public pour le dragon : la lueur de la lave (qu'on ne voit pas) bouge doucement sur le bas et, rarement, une braise s'envole et retombe. Rien ne bouge si l'appareil demande moins d'animations.
 
+## Simulation pendant une vraie partie
+
+La simulation peut se lancer même pendant une vraie partie : elle tourne alors dans une soirée à part (mêmes réglages, jamais sauvegardée), sans toucher aux vrais joueurs, au classement ni à l'écran public. On la regarde sur l'écran de test : adresse `/ecran?test` (bandeau rouge « Écran de test »). Sans partie en cours, elle se joue comme avant sur l'écran public.
+
+## Règles affichées
+
+Si le champ « Règles » d'un mini-jeu est vide, l'annonce affiche les règles de base de son type.
+
 ## Tirage au sort
 
 - **Seuls les joueurs connectés** (qui ont pris leur nom sur un téléphone) sont tirés au sort.

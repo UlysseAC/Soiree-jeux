@@ -507,6 +507,17 @@ export function expected(cfg, g) {
   return { min: Math.floor(slots / total), max: Math.ceil(slots / total) };
 }
 
+// Règles affichées à l'annonce quand le champ « Règles » du mini-jeu est vide.
+export const REGLES = {
+  definition: "Chaque joueur reçoit sur son téléphone un mot qui n'existe pas et le défend à voix haute avec une définition inventée. Les mots s'affichent à l'écran : les autres relient ensuite chaque mot au joueur qui l'avait. Celui qu'on a reconnu le plus souvent gagne ; les meilleurs devineurs gagnent un bonus.",
+  anecdote: "Chaque joueur écrit sur son téléphone une anecdote vraie sur lui. Les anecdotes s'affichent à l'écran (A, B, C…) et les autres devinent qui a vécu quoi. Celui qu'on a le moins reconnu gagne ; les meilleurs devineurs gagnent un bonus.",
+  temple: "À chaque étape, choisis un passage sur ton téléphone : un seul cache un piège, et il coûte une vie. Arrive au temple avec le plus de vies possible.",
+  mime: "En duo : l'un mime le mot affiché sur son téléphone, sans un bruit ; l'autre devine en écrivant ses essais sur son téléphone. Le duo qui trouve le plus de mots gagne.",
+  dragon: "Chacun est à l'abri derrière son muret, téléphone à l'horizontale. Viser pour se lever et choisir une cible (un adversaire ou le dragon), Tirer, Recharger, ou Se cacher. Debout, on peut être touché par les autres et par le souffle du dragon, annoncé 2 secondes avant. Les survivants gagnent, selon leurs dégâts sur le dragon.",
+  disparu: "Regarde bien les objets à l'écran. Ils disparaissent, puis reviennent avec un objet en moins : trouve lequel parmi les 4 propositions sur ton téléphone. Bonne réponse : 100 points, plus un bonus si tu es rapide.",
+  quiz: "Tout le monde joue. Une question, quatre réponses, une seule bonne : réponds sur ton téléphone. Le plus rapide à répondre juste gagne 2 points, les autres bonnes réponses 1 point. La dernière question vaut 5, 4, 3, 2, puis 1 point.",
+};
+
 function roundView(ctx, r, withRules = false) {
   const j = ctx.cfg.jeux[r.jeu] || {};
   const v = {
@@ -521,7 +532,7 @@ function roundView(ctx, r, withRules = false) {
     bonus: r.bonus || null,
     devineurs: r.def?.devineurs || null,
   };
-  if (withRules) v.regles = j.regles;
+  if (withRules) v.regles = j.regles || REGLES[r.type || j.type] || '';
   return v;
 }
 

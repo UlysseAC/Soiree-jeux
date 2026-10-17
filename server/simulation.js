@@ -26,8 +26,12 @@ const rnd = (a, b) => a + Math.random() * (b - a);
 const clone = o => JSON.parse(JSON.stringify(o));
 
 export class Simulation {
-  constructor(soiree, broadcast) {
+  // bacASable() crée une soirée séparée, jamais sauvegardée : la simulation y tourne quand une vraie partie est en cours.
+  constructor(soiree, broadcast, bacASable = null) {
+    this.reel = soiree;
     this.so = soiree;
+    this.bacASable = bacASable;
+    this.aPart = false;
     this.broadcast = broadcast;
     this.running = false;
     this.step = '';
@@ -45,8 +49,11 @@ export class Simulation {
   set backup(v) { if (v) this.so.s.simBackup = v; else delete this.so.s.simBackup; }
 
   status() {
-    return { running: this.running, step: this.step, bots: this.bots.length, canErase: !!this.backup && !this.running };
+    return { running: this.running, step: this.step, bots: this.bots.length, canErase: !!this.backup && !this.running && !this.aPart, aPart: this.aPart };
   }
+  // Soirée montrée sur l'écran de test (/ecran?test) : celle de la simulation à part, sinon la vraie.
+  ecran() { return this.aPart ? this.so : this.reel; }
+  tick() { return this.aPart ? this.so.tick() : false; }
 
   admin(a) {
     const r = this.so.admin(a);
@@ -63,17 +70,21 @@ export class Simulation {
   handle(a) {
     if (a.cmd === 'start') {
       if (this.running) return { ok: false, msg: 'Une simulation est déjà en cours.' };
-      if (this.so.sess.status === 'playing') return { ok: false, msg: 'Une vraie partie est en cours : arrête-la d\'abord.' };
+      // Vraie partie en cours : la simulation tourne à part, sans toucher à la soirée ni à l'écran public.
+      this.aPart = !!this.bacASable && ['playing', 'countdown'].includes(this.reel.sess.status);
+      this.so = this.aPart ? this.bacASable() : this.reel;
+      this.bots = [];
+      const ou = this.aPart ? 'Une vraie partie est en cours : la simulation tourne à part. Ouvre l\'écran de test (adresse /ecran?test).' : 'Regarde l\'écran public !';
       if (String(a.games?.[0] || '').startsWith('mini:')) {
         const type = a.games[0].slice(5);
         if (!MINI_TESTS[type]) return { ok: false, msg: 'Mini-jeu inconnu.' };
         this.runMini(type).catch(e => { console.error('Simulation :', e); this.step = 'Erreur : ' + e.message; this.finish(); });
-        return { ok: true, msg: `Test de « ${MINI_NOMS[type]} » lancé avec ${MINI_TESTS[type].n} faux joueurs. Regarde l'écran public !` };
+        return { ok: true, msg: `Test de « ${MINI_NOMS[type]} » lancé avec ${MINI_TESTS[type].n} faux joueurs. ${ou}` };
       }
       const n = Math.max(4, Math.min(60, Number(a.n) || 50));
       const games = (a.games?.length ? a.games : ['chemin', 'grandpari', 'duel']).filter(g => ['chemin', 'grandpari', 'duel'].includes(g));
       this.run(n, games).catch(e => { console.error('Simulation :', e); this.step = 'Erreur : ' + e.message; this.finish(); });
-      return { ok: true, msg: `Simulation lancée avec ${n} faux joueurs. Regarde l'écran public !` };
+      return { ok: true, msg: `Simulation lancée avec ${n} faux joueurs. ${ou}` };
     }
     if (a.cmd === 'stop') {
       if (!this.running) return { ok: false, msg: 'Pas de simulation en cours.' };
