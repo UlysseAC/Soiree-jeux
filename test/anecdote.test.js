@@ -56,5 +56,5 @@ test('le joueur le MOINS reconnu gagne ; les spectateurs ont leur classement et 
   assert.equal(r.points[b].place, 1);
   assert.equal(r.points[c].place, 3, 'c : reconnu par tout le monde');
   assert.equal(r.points[d].place, 3);
-  assert.deepEqual(r.bonus, Object.fromEntries(spect.slice(0, 3).map(s => [s, 1])));
+  assert.deepEqual(r.bonus, Object.fromEntries(spect.slice(0, 3).map(s => [s, 3])), "1ers ex æquo : 3 points chacun");
 });

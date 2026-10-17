@@ -319,12 +319,13 @@ function mjDefinition(a, e) {
   if (e.phase === 'ecriture') {
     return `${head}<div class="mj-round">${A ? 'Racontez une anecdote !' : 'Inventez une définition !'}</div>
       <div class="sc-sub">${A ? 'Chaque joueur écrit sur son téléphone une anecdote vraie sur lui.' : 'Chaque joueur a reçu un mot qui n\'existe pas.'} Encore <strong class="mono" data-until="${e.fin}"></strong></div>
-      <div class="mj-compris">${e.joueurs.map(p => `<span class="${e.ecrit.includes(p) ? 'on' : ''}">${e.ecrit.includes(p) ? '✓' : '✎'} ${esc(p)}</span>`).join('')}</div>
+      ${A ? `<div class="sc-sub"><strong>${e.ecrit.length} / ${e.joueurs.length}</strong> anecdotes écrites</div>` // L'Anecdote : aucun nom de joueur à l'écran
+        : `<div class="mj-compris">${e.joueurs.map(p => `<span class="${e.ecrit.includes(p) ? 'on' : ''}">${e.ecrit.includes(p) ? '✓' : '✎'} ${esc(p)}</span>`).join('')}</div>`}
       <p class="sc-sub muted">Les autres : préparez-vous à deviner ${A ? 'qui a vécu quoi' : 'qui avait quel mot'} !</p>`;
   }
-  const titre = c => (A ? `Anecdote ${esc(c.mot)}` : esc(c.mot));
+  const titre = c => (A ? `Anecdote ${esc(c.mot)} :` : esc(c.mot));
   const cards = `<div class="mj-cards ${A ? 'mj-anecdotes' : ''}">${e.cartes.map(c => `<div class="mj-card"><div class="mj-mot">${titre(c)}</div>${c.def ? `<div class="mj-def">${esc(c.def)}</div>` : ''}
-    ${c.auteur ? `<div class="mj-auteur">${esc(c.auteur)} · <span class="p">${c.trouves} ${A ? (c.trouves > 1 ? 'l\'ont reconnu' : 'l\'a reconnu') : (c.trouves > 1 ? 'ont trouvé' : 'a trouvé')}</span></div>` : ''}</div>`).join('')}</div>`;
+    ${c.auteur ? `<div class="mj-auteur">${A ? '' : `${esc(c.auteur)} · `}<span class="p">${c.trouves} ${A ? (c.trouves > 1 ? 'l\'ont reconnu' : 'l\'a reconnu') : (c.trouves > 1 ? 'ont trouvé' : 'a trouvé')}</span></div>` : ''}</div>`).join('')}</div>`;
   if (e.phase === 'oral') {
     return `${head}<div class="mj-round">Au tour de ${esc(e.parleur)} !</div>
       <div class="sc-sub">Définis ton mot à voix haute · <strong class="mono" data-until="${e.fin}"></strong></div>
@@ -332,9 +333,9 @@ function mjDefinition(a, e) {
       ${cards}<p class="sc-sub muted">Les autres : reliez chaque mot à celui qui l'a défini, sur votre téléphone · ${e.votants} / ${e.spectateurs} ont répondu</p>`;
   }
   if (e.phase === 'vote') {
-    return `${head}<div class="sc-sub">À vos téléphones : reliez chaque ${A ? 'anecdote' : 'mot'} à ${e.joueurs.map(esc).join(', ')} · <strong class="mono" data-until="${e.fin}"></strong> · ${e.votants} / ${e.spectateurs} ont répondu</div>${cards}`;
+    return `${head}<div class="sc-sub">À vos téléphones : reliez chaque ${A ? 'anecdote à un joueur' : `mot à ${e.joueurs.map(esc).join(', ')}`} · <strong class="mono" data-until="${e.fin}"></strong> · ${e.votants} / ${e.spectateurs} ont répondu</div>${cards}`;
   }
-  return `${head}<div class="sc-sub">Les réponses !${A ? ' Le moins reconnu gagne.' : ''}</div>${cards}`;
+  return `${head}<div class="sc-sub">${A ? 'Les réponses sont sur vos téléphones ! Le moins reconnu gagne.' : 'Les réponses !'}</div>${cards}`;
 }
 // Changements de place au classement des mini-jeux : qui monte (vert) ou descend (rouge), pendant 4 s.
 const mjDeltas = {};
@@ -393,15 +394,16 @@ function minijeux(g) {
   const a = g.actif;
   if (a && a.status === 'annonce') {
     // tirage au sort en machine à sous, sauf quand tout le monde joue (Le Quiz)
-    const tir = a.annonceAt && a.joueurs.length < g.participants.length ? { debut: a.annonceAt } : null;
+    const cache = a.type === 'anecdote'; // L'Anecdote : personne ne doit savoir qui joue, aucun nom à l'écran
+    const tir = a.annonceAt && a.joueurs.length < g.participants.length && !cache ? { debut: a.annonceAt } : null;
     const tirageFini = !tir || SJ.now() >= tir.debut + a.joueurs.length * TIRAGE_PAS;
     tiragePool = g.participants.map(x => x.nom);
-    main = `<div class="mj-kicker">Round ${a.n} · ${esc(a.format)} · ${tirageFini ? 'venez devant l\'écran !' : 'tirage au sort…'}</div><div class="mj-round">${esc(a.nom)}</div>
-      ${mjPlayers(a, tir)}
+    main = `<div class="mj-kicker">Round ${a.n} · ${esc(a.format)} · ${cache ? 'tirage en secret' : tirageFini ? 'venez devant l\'écran !' : 'tirage au sort…'}</div><div class="mj-round">${esc(a.nom)}</div>
+      ${cache ? `<div class="sc-sub">${a.joueurs.length} joueurs ont été tirés au sort en secret : ils sont prévenus sur leur téléphone.</div>` : mjPlayers(a, tir)}
       ${a.regles ? `<div class="mj-rules mj-rules-page">${esc(a.regles)}</div>` : ''}
       ${a.inscrits ? `<div class="sc-sub">Spectateurs : <strong>inscrivez-vous sur votre téléphone</strong> pour deviner ! Le jeu commence dans <strong class="mono" data-until="${a.inscriptionsFin}"></strong> · ${a.inscrits.length} inscrit${a.inscrits.length > 1 ? 's' : ''}</div>`
         : `<div class="sc-sub">Le jeu commence quand chaque joueur a appuyé sur <strong>« J'ai compris »</strong> : ${a.compris.length} / ${a.joueurs.length}</div>`}
-      ${tirageFini ? mjCompris(a) : ''}`;
+      ${tirageFini && !cache ? mjCompris(a) : ''}`;
   } else if (a && a.status === 'jeu' && (g.etat?.type === 'definition' || g.etat?.type === 'anecdote')) {
     main = mjDefinition(a, g.etat);
   } else if (a && a.status === 'jeu' && g.etat?.type === 'temple') {
@@ -424,8 +426,15 @@ function minijeux(g) {
     const who = x => r.equipesNommees ? `<span style="color:${MJ_TEAMS[x.i]?.[1] ?? 'var(--accent)'}">${esc(MJ_TEAMS[x.i]?.[0] ?? `Équipe ${x.i + 1}`)}</span> · ${x.t.map(esc).join(' + ')}` : esc(x.t[0]);
     main = `<div class="mj-kicker">Résultats du round ${r.n}</div><div class="mj-round">${esc(r.nom)}</div>
       <ol class="mj-results">${list.map(x => `<li><span>${x.place === 1 ? '🥇' : x.place === 2 ? '🥈' : x.place === 3 ? '🥉' : `${x.place}<sup>e</sup>`}</span><span>${who(x)}</span><span class="p">+${x.points ?? 0}</span></li>`).join('')}</ol>
-      ${r.devineurs?.length ? `<div class="label" style="font-size:clamp(13px,1.1vw,18px);margin-top:2vh">Meilleurs devineurs</div>
-        <ol class="mj-results mj-devineurs">${r.devineurs.slice(0, 5).map(x => `<li><span>${x.rang}<sup>${x.rang === 1 ? 'er' : 'e'}</sup></span><span>${esc(x.nom)} · ${x.bons} bonne${x.bons > 1 ? 's' : ''} réponse${x.bons > 1 ? 's' : ''}</span><span class="p">${r.bonus?.[x.nom] ? `+${r.bonus[x.nom]}` : ''}</span></li>`).join('')}</ol>` : ''}`;
+      ${r.devineurs?.some(x => x.bons > 0) ? `<div class="label" style="font-size:clamp(13px,1.1vw,18px);margin-top:2vh">Meilleurs devineurs</div>
+        <ol class="mj-results mj-devineurs">${r.devineurs.filter(x => x.bons > 0).slice(0, 5).map(x => `<li><span>${x.rang}<sup>${x.rang === 1 ? 'er' : 'e'}</sup></span><span>${esc(x.nom)} · ${x.bons} bonne${x.bons > 1 ? 's' : ''} réponse${x.bons > 1 ? 's' : ''}</span><span class="p">${r.bonus?.[x.nom] ? `+${r.bonus[x.nom]}` : ''}</span></li>`).join('')}</ol>` : ''}`;
+  } else if (g.attente) {
+    // le round attend : personne n'est connecté, ou tous les connectés ont atteint la limite de rounds
+    const at = g.attente;
+    main = `<div class="mj-kicker">Round ${at.n} · ${esc(at.nom)} · en attente</div>
+      <div class="mj-round">${at.raison === 'limite' ? 'Tout le monde a déjà joué !' : 'En attente des joueurs'}</div>
+      <div class="grid-auto" style="grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:3vw">
+        <p class="sc-sub" style="margin:0">${at.raison === 'limite' ? `Tous les joueurs connectés ont déjà joué ${at.max} rounds. L'organisateur décide de la suite… Nouveaux arrivants : scannez le QR code et touchez votre nom !` : 'Scannez le QR code et touchez votre nom : le round commence dès que des joueurs sont connectés.'}</p>${qrBlock(true)}</div>`;
   } else if (g.prochain) {
     const p = g.prochain;
     const first = g.faits === 0 && g.rounds.every(r => r.status === 'prevu' || r.status === 'saute');

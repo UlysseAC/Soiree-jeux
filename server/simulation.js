@@ -20,6 +20,10 @@ const MINI_TESTS = {
   disparu: { n: 5, reglages: { manchesMemo: 2, objetsDepart: 4, objetsPlus: 1, tempsMemo: 6, tempsReponse: 12, melangeDes: 2 } },
 };
 
+// Anecdotes des faux joueurs (sans leur nom : l'écran ne doit pas trahir qui a écrit quoi)
+const ANECDOTES = ["J'ai raté mon train parce que je regardais un pigeon.", "Je me suis endormi dans un cinéma et réveillé au générique du film suivant.",
+  "J'ai déjà gagné un concours de grimaces.", "Je suis resté coincé dans un ascenseur avec un clown.", "J'ai mangé un piment entier pour un pari.",
+  "J'ai appris à faire du vélo à 25 ans.", "Un chien m'a volé mon sandwich sur la plage.", "J'ai chanté devant 500 personnes sans le vouloir."];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -280,7 +284,7 @@ export class Simulation {
     const game = this.so.sess.game, round = game?.rounds?.find(x => x.status === 'jeu');
     const reponse = (a) => this.act(b, a);
     if (type === 'definition' || type === 'anecdote') {
-      if (e.phase === 'ecriture' && e.monMot !== undefined && !e.maDef) return reponse({ type: 'ecrire', texte: `Une histoire inventée par ${b.name}` });
+      if (e.phase === 'ecriture' && e.monMot !== undefined && !e.maDef) return reponse({ type: 'ecrire', texte: pick(ANECDOTES) });
       if (e.phase === 'vote' && e.monMot === undefined && !e.mesLiens) {
         const perm = shuffle(e.joueurs);
         return reponse({ type: 'voter', liens: Object.fromEntries(e.cartes.map((c, i) => [c.mot, perm[i % perm.length]])) });

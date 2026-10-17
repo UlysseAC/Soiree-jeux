@@ -17,6 +17,8 @@ function setup(programme, connectes = NAMES) {
   // joue un round tout de suite (annonce + commencer), places dans l'ordre
   const jouer = r => {
     mj.adminAction(ctx, g, { type: 'annoncer' });
+    // tout le monde à la limite : le round attend la décision de l'admin ; ici, il le saute
+    if (r.status === 'prevu' && g.attente?.raison === 'limite') mj.adminAction(ctx, g, { type: 'passer', n: r.n });
     if (r.status === 'saute') return;
     mj.adminAction(ctx, g, { type: 'commencer' });
     if (r.type === 'manuel' || r.type === 'disparu') mj.adminAction(ctx, g, { type: 'resultats', n: r.n, places: Object.fromEntries(r.equipes.map((_, i) => [i, i + 1])) });
@@ -73,13 +75,33 @@ test('limite réglée à 2 rounds : personne ne dépasse 2, et le détective com
   for (const n of det.joueurs) assert.equal(det.multi[n], 2 - (mj.joues(g, n) - 1), n);
 });
 
-test('Le Mime a toujours 4 joueurs : on complète avec des connectés déjà à la limite', () => {
+test('tout le monde à la limite : le round attend, l\'écran le dit, l\'admin peut jouer quand même (Le Mime à 4)', () => {
   const { ctx, g, jouer } = setup('mj1,mj2,mj3,mj4,mj5,mj1', ['Léa', 'Hugo', 'Inès', 'Malik']);
   Object.assign(ctx.cfg, { roundsParJoueur: 2 });
   Object.assign(ctx.cfg.jeux.mj1, { type: 'mime' });
   g.rounds[0].status = 'saute';
   for (const r of g.rounds.slice(1, 5)) jouer(r);
   for (const n of ['Léa', 'Hugo', 'Inès', 'Malik']) assert.equal(mj.joues(g, n), 2, 'tout le monde est à la limite');
-  jouer(g.rounds[5]);
-  assert.equal(g.rounds[5].joueurs.length, 4);
+  const r = g.rounds[5];
+  ctx.now = () => r.at + 3600e3; // l'heure du round est passée
+  mj.tick(ctx, g);
+  assert.equal(r.status, 'prevu', 'pas sauté : il attend');
+  assert.deepEqual(mj.screenView(ctx, g).attente, { n: 6, raison: 'limite', nom: ctx.cfg.jeux.mj1.nom, max: 2 });
+  assert.equal(mj.adminAction(ctx, g, { type: 'forcer' }).ok, true);
+  assert.equal(r.status, 'annonce');
+  assert.equal(r.joueurs.length, 4);
+  assert.equal(mj.screenView(ctx, g).attente, null);
+});
+
+test('aucun joueur connecté : le round attend au lieu d\'être sauté, puis part dès qu\'un joueur arrive', () => {
+  const { ctx, g } = setup('mj1,mj2', []);
+  const r = g.rounds[0];
+  mj.tick(ctx, g);
+  ctx.now = () => r.at;
+  mj.tick(ctx, g);
+  assert.equal(r.status, 'prevu');
+  assert.equal(mj.screenView(ctx, g).attente.raison, 'attente');
+  mj.claim(ctx, g, 'tel:Léa', 'Léa'); mj.claim(ctx, g, 'tel:Hugo', 'Hugo');
+  mj.tick(ctx, g);
+  assert.equal(r.status, 'annonce');
 });

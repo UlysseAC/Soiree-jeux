@@ -501,12 +501,12 @@ function mjDefinitionReglages(c, s) {
   const mots = String(j.mots || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
   const besoin = (Number(j.joueurs) || 4) * (Number(j.manches) || 3);
   return `<div class="box" style="gap:10px">
-    <p class="muted" style="margin:0;font-size:14px">Chaque joueur reçoit un de ces mots sur son téléphone et le définit à l'oral ; les mots s'affichent sur l'écran. Ensuite, ceux qui ne jouent pas relient chaque mot à son joueur. Celui qu'on a relié le plus souvent à son mot gagne ; les meilleurs devineurs gagnent un bonus. Format : chacun pour soi, avec le nombre de joueurs choisi.</p>
+    <p class="muted" style="margin:0;font-size:14px">Chaque joueur reçoit un de ces mots sur son téléphone et le définit à l'oral ; les mots s'affichent sur l'écran. Ensuite, ceux qui ne jouent pas relient chaque mot à son joueur. Celui qu'on a relié le plus souvent à son mot gagne ; les 3 meilleurs devineurs gagnent 3, 2 et 1 points. Format : chacun pour soi, avec le nombre de joueurs choisi.</p>
     <label class="field"><span class="label">Mots inventés (un par ligne) · ${mots.length} mot${mots.length > 1 ? 's' : ''}</span>
       <textarea class="in" rows="8" id="c-jeu-jeux-${s}-mots" data-cfg="jeux.${s}.mots" data-kind="area" data-scope="jeu" placeholder="Florpidoux&#10;Gramouille&#10;Zétrabule…">${esc(j.mots)}</textarea>
       ${mots.length < besoin ? `<span style="color:var(--danger);font-size:13px">Il faut au moins ${besoin} mots pour une partie (joueurs × manches) sans répéter de mot.</span>` : '<span class="muted" style="font-size:13px">Les mots déjà sortis dans la journée ne reviennent qu\'une fois tous les autres utilisés.</span>'}</label>
     <div class="grid-auto">${cfgInput(`jeux.${s}.manches`, j.manches, 'num', { label: 'Manches' })}
-      ${cfgInput(`jeux.${s}.tempsParole`, j.tempsParole, 'dur', { label: 'Temps de parole par joueur' })}${cfgInput(`jeux.${s}.tempsVote`, j.tempsVote, 'dur', { label: 'Temps pour deviner' })}${cfgInput(`jeux.${s}.tempsRevelation`, j.tempsRevelation, 'dur', { label: 'Affichage des réponses' })}${cfgInput(`jeux.${s}.pointsDevineurs`, j.pointsDevineurs, 'num', { label: 'Bonus des meilleurs devineurs' })}</div>
+      ${cfgInput(`jeux.${s}.tempsParole`, j.tempsParole, 'dur', { label: 'Temps de parole par joueur' })}${cfgInput(`jeux.${s}.tempsVote`, j.tempsVote, 'dur', { label: 'Temps pour deviner' })}${cfgInput(`jeux.${s}.tempsRevelation`, j.tempsRevelation, 'dur', { label: 'Affichage des réponses' })}${cfgInput(`jeux.${s}.bonusDevineurs`, j.bonusDevineurs ?? '3, 2, 1', 'text', { label: 'Points des meilleurs devineurs (1er, 2e, 3e…)', ph: '3, 2, 1' })}</div>
     <p class="muted" style="margin:0;font-size:13px">Les spectateurs sont classés selon leurs bonnes réponses : le premier tiers (ex æquo compris) gagne ce bonus. 0 = pas de bonus.</p>
   </div>`;
 }
@@ -537,9 +537,9 @@ function mjDisparuPartie(e) {
 function mjAnecdoteReglages(c, s) {
   const j = c.jeux[s];
   return `<div class="box" style="gap:10px">
-    <p class="muted" style="margin:0;font-size:14px">Chaque joueur écrit sur son téléphone une anecdote vraie sur lui. Les anecdotes s'affichent sur l'écran (A, B, C…) ; ceux qui ne jouent pas relient chaque anecdote à un joueur. Le joueur qu'on a le moins souvent reconnu gagne ; les meilleurs devineurs gagnent un bonus. Format : chacun pour soi, avec le nombre de joueurs choisi.</p>
+    <p class="muted" style="margin:0;font-size:14px">Chaque joueur écrit sur son téléphone une anecdote vraie sur lui. Les anecdotes s'affichent sur l'écran (A, B, C…) ; ceux qui ne jouent pas relient chaque anecdote à un joueur. Le joueur qu'on a le moins souvent reconnu gagne ; les 3 meilleurs devineurs gagnent 3, 2 et 1 points. Format : chacun pour soi, avec le nombre de joueurs choisi.</p>
     <div class="grid-auto">${cfgInput(`jeux.${s}.manches`, j.manches, 'num', { label: 'Manches' })}
-      ${cfgInput(`jeux.${s}.tempsEcriture`, j.tempsEcriture, 'dur', { label: 'Temps pour écrire' })}${cfgInput(`jeux.${s}.tempsVote`, j.tempsVote, 'dur', { label: 'Temps pour deviner' })}${cfgInput(`jeux.${s}.tempsRevelation`, j.tempsRevelation, 'dur', { label: 'Affichage des réponses' })}${cfgInput(`jeux.${s}.pointsDevineurs`, j.pointsDevineurs, 'num', { label: 'Bonus des meilleurs devineurs' })}</div>
+      ${cfgInput(`jeux.${s}.tempsEcriture`, j.tempsEcriture, 'dur', { label: 'Temps pour écrire' })}${cfgInput(`jeux.${s}.tempsVote`, j.tempsVote, 'dur', { label: 'Temps pour deviner' })}${cfgInput(`jeux.${s}.tempsRevelation`, j.tempsRevelation, 'dur', { label: 'Affichage des réponses' })}${cfgInput(`jeux.${s}.bonusDevineurs`, j.bonusDevineurs ?? '3, 2, 1', 'text', { label: 'Points des meilleurs devineurs (1er, 2e, 3e…)', ph: '3, 2, 1' })}</div>
     <p class="muted" style="margin:0;font-size:13px">Les spectateurs sont classés selon leurs bonnes réponses : le premier tiers (ex æquo compris) gagne ce bonus. 0 = pas de bonus.</p>
   </div>`;
 }
@@ -597,6 +597,13 @@ function partieMiniJeux(g) {
         <button class="btn sm danger" data-mj="passer" data-n="${a.n}" data-confirm="Sauter ce round ? Personne ne marque de points.">Sauter ce round</button></div>
       ${a.status === 'jeu' && a.type === 'manuel' ? `<p class="muted" style="margin:0;font-size:14px">Donne une place à chaque ${a.equipesNommees ? 'équipe' : 'joueur'} (ex æquo possibles), puis valide : les points sont ajoutés et le round suivant sera annoncé à son heure.</p>` : ''}
     </div>`;
+  } else if (g.attente?.raison === 'limite') {
+    // tous les connectés ont atteint la limite : l'admin décide
+    now = `<div class="box accent"><h2>⏳ Round ${g.attente.n} · ${esc(g.attente.nom)} en attente</h2>
+      <p style="margin:0">Tous les joueurs connectés ont déjà joué <strong>${g.attente.max} rounds</strong> (la limite). Le round partira tout seul si de nouveaux joueurs se connectent. Sinon, à toi de décider :</p>
+      <div class="row" style="flex-wrap:wrap"><button class="btn primary" data-mj="forcer">Jouer quand même (au-delà de la limite)</button>
+        <button class="btn danger" data-mj="passer" data-n="${g.attente.n}" data-confirm="Sauter ce round ?">Sauter ce round</button></div>
+      <p class="muted" style="margin:0;font-size:14px">Tu peux aussi monter « Rounds au plus par joueur » dans les réglages : le round partira alors tout seul.</p></div>`;
   } else if (g.prochain) {
     const p = g.prochain;
     now = `<div class="box"><div class="spread"><h2>Prochain : round ${p.n} · ${esc(p.nom)}</h2><span class="pill">${hhmm(p.at)} · annonce à ${hhmm(p.at - V.gameConfig.annonce * 1000)}</span></div>

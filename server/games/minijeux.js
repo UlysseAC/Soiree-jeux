@@ -238,9 +238,10 @@ function count(g, r, d) {
 // Chaque joueur joue au plus N rounds (3 par défaut, réglable), sans compter le quiz.
 export const maxRounds = cfg => Math.max(1, Math.min(10, Math.round(Number(cfg.roundsParJoueur)) || 3));
 // Rounds joués par un joueur, sans le quiz (avecAnnonce : compte aussi le round annoncé, pour le tirage au sort).
+// Pour l'affichage, L'Anecdote en cours ne compte pas encore : le classement de l'écran ne doit pas trahir qui y joue.
 export function joues(g, nom, avecAnnonce = false) {
   const ok = avecAnnonce ? ['annonce', 'jeu', 'fini'] : ['jeu', 'fini'];
-  return g.rounds.filter(r => ok.includes(r.status) && r.type !== 'quiz' && r.joueurs.some(p => key(p) === key(nom))).length;
+  return g.rounds.filter(r => ok.includes(r.status) && r.type !== 'quiz' && (avecAnnonce || r.type !== 'anecdote' || r.status === 'fini') && r.joueurs.some(p => key(p) === key(nom))).length;
 }
 // Round d'égalisation : le détective (« Qu'est-ce qui a changé ? ») en avant-dernier round du programme. Il réunit
 // tous les joueurs connectés qui ont joué moins que le maximum ; leurs points sont multipliés (avec 3 rounds :
@@ -250,13 +251,18 @@ export function egalisation(g, r) {
   return r.type === 'disparu' && !r.hors && r.n === Math.max(...prevus) - 1;
 }
 
-function announce(ctx, g, r) {
+// Tire au sort et annonce un round. Renvoie 'attente' (aucun joueur connecté) ou 'limite' (tous les connectés ont atteint
+// la limite de rounds) sans rien changer : le round reste prévu. forcer : on tire parmi tous les connectés, limite ou pas.
+function announce(ctx, g, r, forcer = false) {
   const cfg = ctx.cfg;
   r.type = cfg.jeux[r.jeu]?.type || 'manuel';
   // Seuls les joueurs connectés (nom pris sur un téléphone) sont tirés au sort, et personne ne dépasse 3 rounds.
   const connectes = roster(cfg).filter(n => g.claims[key(n)]);
   const max = maxRounds(cfg), libres = connectes.filter(n => joues(g, n, true) < max);
   const egal = egalisation(g, r);
+  if (!connectes.length) return 'attente';
+  if (r.type !== 'quiz' && !egal && !libres.length && !forcer) return 'limite';
+  if (forcer && !libres.length) libres.push(...connectes);
   if (r.type === 'quiz') r.joueurs = connectes; // le quiz : tout le monde joue
   else if (egal) r.joueurs = libres;
   else r.joueurs = draw(g, libres, sizeOf(cfg, r.jeu, libres.length), prevPlayers(g, r));
@@ -269,6 +275,7 @@ function announce(ctx, g, r) {
   r.compris = [];
   r.status = 'annonce';
   r.annonceAt = ctx.now();
+  if (g.attente?.n === r.n) g.attente = null;
   // Jeux avec spectateurs (ils devinent) : ils s'inscrivent pendant 2 min après le tirage, puis le jeu commence.
   if (TYPES[r.type]?.spectateurs) {
     r.inscrits = [];
@@ -356,11 +363,21 @@ export function tick(ctx, g) {
   if (salvesOf(cfg).length && !next.hors) {
     const fin = Math.max(0, ...g.rounds.filter(r => r.status === 'fini' || r.status === 'saute').map(r => r.finAt || 0));
     if (fin && g.planDepuis !== fin) { planSalves(cfg, g, fin); g.planDepuis = fin; }
-    if (now >= next.at) { announce(ctx, g, next); return true; }
-    return false;
+    return now >= next.at ? tenter(ctx, g, next) : false;
   }
-  if (now >= next.at - cfg.annonce * 1000) { announce(ctx, g, next); return true; }
-  return false;
+  return now >= next.at - cfg.annonce * 1000 ? tenter(ctx, g, next) : false;
+}
+
+// Annonce automatique d'un round. S'il n'y a personne à faire jouer, le round attend (g.attente) : les joueurs qui se
+// connectent le débloquent, ou l'admin décide (« Jouer quand même » ou « Sauter ») quand tout le monde a atteint la limite.
+function tenter(ctx, g, next) {
+  const res = announce(ctx, g, next);
+  if (res === 'attente' || res === 'limite') {
+    if (g.attente?.n === next.n && g.attente.raison === res) return false;
+    g.attente = { n: next.n, raison: res };
+    return true;
+  }
+  return true;
 }
 
 // ---------- téléphones ----------
@@ -441,8 +458,10 @@ export function adminAction(ctx, g, a) {
       if (!roster(cfg).length) return err('Ajoute d\'abord des participants dans les réglages.');
       // Annoncé à la main : le round commence peu après (le temps que les joueurs arrivent), pas à son heure prévue.
       next.at = Math.min(next.at, now + Math.min(cfg.annonce * 1000, 120e3));
-      announce(ctx, g, next);
-      if (next.status === 'saute') return err(`Round ${next.n} sauté : aucun joueur connecté sous la limite de ${maxRounds(cfg)} rounds.`);
+      const res = announce(ctx, g, next);
+      if (res === 'attente') return err('Aucun joueur connecté : le round attend que des joueurs prennent leur nom.');
+      if (res === 'limite') { g.attente = { n: next.n, raison: res }; return err(`Tous les joueurs connectés ont atteint la limite de ${maxRounds(cfg)} rounds : choisis « Jouer quand même » ou « Sauter ».`); }
+      if (next.status === 'saute') return err(`Round ${next.n} sauté : tout le monde a déjà ${maxRounds(cfg)} rounds.`);
       return ok(`Round ${next.n} annoncé : il commence dans ${Math.round((startAtOf(cfg, next) - now) / 60000) || 1} min.`);
     }
     case 'lancerMaintenant': { // un mini-jeu choisi tout de suite, hors programme (test avec de vrais joueurs)
@@ -451,9 +470,20 @@ export function adminAction(ctx, g, a) {
       if (!roster(cfg).length) return err('Ajoute d\'abord des participants dans les réglages.');
       const r = { n: g.rounds.length + 1, jeu: a.slot, at: now, status: 'prevu', joueurs: [], places: null, points: null, annonceAt: 0, debutAt: 0, finAt: 0, hors: true };
       g.rounds.push(r);
-      announce(ctx, g, r);
-      if (r.status === 'saute') { g.rounds.pop(); return err(`Aucun joueur connecté sous la limite de ${maxRounds(cfg)} rounds pour ce mini-jeu.`); }
+      const res = announce(ctx, g, r, !!a.forcer);
+      if (res === 'attente') { g.rounds.pop(); return err('Aucun joueur connecté.'); }
+      if (res === 'limite') { g.rounds.pop(); return err(`Tous les joueurs connectés ont atteint la limite de ${maxRounds(cfg)} rounds.`); }
+      if (r.status === 'saute') { g.rounds.pop(); return err('Personne à faire jouer pour ce mini-jeu.'); }
       return ok(`${cfg.jeux[a.slot].nom} annoncé : il commence dès que tout le monde a compris.`);
+    }
+    case 'forcer': { // tous les connectés ont atteint la limite : on joue quand même le round en attente
+      if (activeRound(g)) return err('Un round est déjà en cours.');
+      const next = nextRound(g);
+      if (!next) return err('Plus de round prévu.');
+      const res = announce(ctx, g, next, true);
+      if (res === 'attente') return err('Aucun joueur connecté.');
+      g.attente = null;
+      return ok(`Round ${next.n} annoncé, au-delà de la limite de ${maxRounds(cfg)} rounds.`);
     }
     case 'changerJeu': { // un round qui n'est pas encore annoncé peut changer de mini-jeu, pendant la soirée
       if (!r || r.status !== 'prevu') return err('Seuls les rounds à venir peuvent changer de mini-jeu.');
@@ -514,6 +544,7 @@ export function adminAction(ctx, g, a) {
       annulerDirect(g, r);
       r.status = 'saute';
       r.finAt = now;
+      if (g.attente?.n === r.n) g.attente = null;
       return ok(`Round ${r.n} sauté.`);
     }
     case 'decaler': { // décale tous les rounds pas encore commencés
@@ -562,8 +593,8 @@ export function expected(cfg, g) {
 
 // Règles affichées à l'annonce quand le champ « Règles » du mini-jeu est vide.
 export const REGLES = {
-  definition: "Chaque joueur reçoit sur son téléphone un mot qui n'existe pas et le défend à voix haute avec une définition inventée. Les mots s'affichent à l'écran : les autres relient ensuite chaque mot au joueur qui l'avait. Celui qu'on a reconnu le plus souvent gagne ; les meilleurs devineurs gagnent un bonus.",
-  anecdote: "Chaque joueur écrit sur son téléphone une anecdote vraie sur lui. Les anecdotes s'affichent à l'écran (A, B, C…) et les autres devinent qui a vécu quoi. Celui qu'on a le moins reconnu gagne ; les meilleurs devineurs gagnent un bonus.",
+  definition: "Chaque joueur reçoit sur son téléphone un mot qui n'existe pas et le défend à voix haute avec une définition inventée. Les mots s'affichent à l'écran : les autres relient ensuite chaque mot au joueur qui l'avait. Celui qu'on a reconnu le plus souvent gagne ; les 3 meilleurs devineurs gagnent 3, 2 et 1 points.",
+  anecdote: "Chaque joueur écrit sur son téléphone une anecdote vraie sur lui. Les anecdotes s'affichent à l'écran (A, B, C…) et les autres devinent qui a vécu quoi. Celui qu'on a le moins reconnu gagne ; les 3 meilleurs devineurs gagnent 3, 2 et 1 points.",
   temple: "À chaque étape, choisis un passage sur ton téléphone : un seul cache un piège, et il coûte une vie. Arrive au temple avec le plus de vies possible.",
   mime: "En duo : l'un mime le mot affiché sur son téléphone, sans un bruit ; l'autre devine en écrivant ses essais sur son téléphone. Le duo qui trouve le plus de mots gagne.",
   dragon: "Chacun est à l'abri derrière son muret, téléphone à l'horizontale. Viser pour se lever et choisir une cible (un adversaire ou le dragon), Tirer, Recharger, ou Se cacher. Debout, on peut être touché par les autres et par le souffle du dragon, annoncé 2 secondes avant. Les survivants gagnent, selon leurs dégâts sur le dragon.",
@@ -599,6 +630,7 @@ function common(ctx, g) {
     actif: act ? roundView(ctx, act, true) : null,
     prochain: next ? roundView(ctx, next, true) : null,
     recent: recent ? roundView(ctx, recent) : null,
+    attente: g.attente && !act ? { ...g.attente, nom: ctx.cfg.jeux[g.rounds[g.attente.n - 1]?.jeu]?.nom, max: maxRounds(ctx.cfg) } : null,
     total: g.rounds.length,
     faits: g.rounds.filter(r => r.status === 'fini').length,
   };

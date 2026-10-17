@@ -50,7 +50,9 @@ Si le champ « Règles » d'un mini-jeu est vide, l'annonce affiche les règles 
 ## Tirage au sort
 
 - **Seuls les joueurs connectés** (qui ont pris leur nom sur un téléphone) sont tirés au sort.
-- **3 rounds au plus par joueur** (réglable dans l'admin, par exemple 2 si on manque de temps, même pendant la journée), sans compter le quiz. Si un round n'a pas assez de joueurs libres, il se joue avec moins de joueurs ; s'il n'y en a aucun, il est sauté.
+- **3 rounds au plus par joueur** (réglable dans l'admin, par exemple 2 si on manque de temps, même pendant la journée), sans compter le quiz. Si un round n'a pas assez de joueurs libres, il se joue avec moins de joueurs (les jeux à 4 complètent avec d'autres connectés).
+- **Aucun joueur connecté** : le round **attend** (il n'est plus sauté) ; l'écran affiche « En attente des joueurs » avec le QR code, et le round part dès que des joueurs prennent leur nom.
+- **Tous les connectés ont atteint la limite** : le round attend aussi ; l'écran affiche « Tout le monde a déjà joué ! L'organisateur décide de la suite… ». Dans l'admin (onglet Partie), deux boutons : **« Jouer quand même »** (tirage parmi tous les connectés, au-delà de la limite) ou **« Sauter ce round »**. Le round part aussi tout seul si de nouveaux joueurs se connectent, ou si on monte la limite.
 - **Le détective en avant-dernier round** (« Qu'est-ce qui a changé ? ») égalise : il fait jouer tous les connectés qui ont moins que le maximum, quel que soit leur nombre. Leurs points de ce round sont multipliés pour compléter jusqu'au maximum : avec 3 rounds, ×2 pour qui n'avait joué qu'un round et ×3 pour qui n'en avait joué aucun ; avec 2 rounds, ×2 pour qui n'en avait joué aucun. Si tout le monde a déjà le maximum, il est sauté. L'admin affiche une alerte si l'avant-dernier round n'est pas le détective.
 - **Toujours 4 joueurs** pour La Définition, L'Anecdote, Le Temple, Le Mime (2 duos) et La Chasse au dragon. S'il manque des joueurs sous la limite de rounds, le tirage complète avec d'autres connectés. Le détective et le quiz gardent leurs propres règles.
 - **Spectateurs** (La Définition, L'Anecdote) : après le tirage, ceux qui ne jouent pas ont **2 min** (réglable : « Inscription des spectateurs ») pour s'inscrire sur leur téléphone (« Je m'inscris pour deviner »). Seuls les inscrits devinent et peuvent gagner le bonus. Le jeu commence à la fin des inscriptions (les joueurs lisent les règles et appuient sur « J'ai compris » en attendant).
@@ -74,12 +76,12 @@ Sur l'écran, l'annonce d'un round commence par une machine à sous, à la place
 
 ## La Définition
 
-- **Réglages** : la liste des **mots inventés** (un par ligne, écrite par l'organisateur), le nombre de joueurs, le nombre de manches (3 par défaut), le temps pour les définitions à l'oral, de vote et d'affichage des réponses, le bonus des meilleurs devineurs (1 point par défaut).
+- **Réglages** : la liste des **mots inventés** (un par ligne, écrite par l'organisateur), le nombre de joueurs, le nombre de manches (3 par défaut), le temps pour les définitions à l'oral, de vote et d'affichage des réponses, les points des meilleurs devineurs (3, 2, 1 par défaut).
 - **Chaque manche** : chaque joueur reçoit sur son téléphone un mot tiré au hasard dans la liste (les mots déjà sortis dans la journée ne reviennent qu'après les autres). Les **mots s'affichent sur l'écran**, et chaque joueur **définit son mot à l'oral**, à voix haute, **chacun son tour : 30 s par joueur** (réglable : « Temps de parole par joueur »), dans un ordre tiré au hasard. L'écran affiche « Au tour de … » avec le chrono ; le téléphone de celui qui parle affiche « À toi de parler ! ». L'admin peut passer au joueur suivant (« Étape suivante »). Pas de texte à écrire sur le téléphone.
 - **Relier les mots** : dès le début de l'oral, les spectateurs (participants connectés qui ne jouent pas ce round) voient sur leur téléphone les mots de l'écran et relient chacun au joueur qui l'a défini, en écoutant. L'écran affiche les mots et les noms des joueurs, sans dire qui avait quel mot. À la fin du temps à l'oral (ou quand l'admin passe à l'étape suivante) vient le vote : on peut encore compléter ou corriger.
 - **Réponses** : l'écran montre à qui était chaque mot et combien de personnes l'ont trouvé. Puis manche suivante, avec un nouveau mot pour chacun.
 - **Gagnant** : le joueur dont le mot a été relié à lui le plus de fois, sur toutes les manches (ex æquo possibles). Les points du mini-jeu sont donnés selon cette place.
-- **Meilleurs devineurs** : les spectateurs sont classés selon leurs bonnes réponses sur toutes les manches. Le premier tiers (arrondi au-dessus : 1 sur 2 ou 3, 2 sur 4 à 6…), ex æquo compris, gagne le bonus, à condition d'avoir au moins une bonne réponse. Ce classement s'affiche sur l'écran avec les résultats et sur le téléphone de chaque spectateur.
+- **Meilleurs devineurs** : les spectateurs sont classés selon leurs bonnes réponses sur toutes les manches. **3 points au 1er, 2 au 2e, 1 au 3e**, rien pour les autres (réglable : « Points des meilleurs devineurs »). Les ex æquo ont le même rang (deux 1ers à 3 points, puis un 3e à 1 point). Il faut au moins une bonne réponse. Ce classement s'affiche sur l'écran avec les résultats et sur le téléphone de chaque spectateur.
 - **Admin** : voit qui a quel mot et les définitions en direct, peut « Passer à l'étape suivante ». Un joueur absent peut être remplacé (le remplaçant reprend son mot) ; retirer ou ajouter un joueur n'est pas possible une fois le jeu lancé.
 - Sans spectateur connecté, le vote est sauté.
 - **L'Anecdote** garde son écriture sur les téléphones (voir sa section).
@@ -93,10 +95,11 @@ Sur l'écran, l'annonce d'un round commence par une machine à sous, à la place
 
 ## L'Anecdote
 
-- Même déroulement que La Définition, sans liste à écrire à l'avance. **Réglages** : nombre de joueurs, manches (3), temps pour écrire, pour deviner, d'affichage des réponses, bonus des meilleurs devineurs (1).
+- Même déroulement que La Définition, sans liste à écrire à l'avance. **Réglages** : nombre de joueurs, manches (3), temps pour écrire, pour deviner, d'affichage des réponses, points des meilleurs devineurs (3, 2, 1).
 - **Chaque manche** : chaque joueur écrit sur son téléphone une anecdote vraie sur lui. Les anecdotes s'affichent sur l'écran sous forme de cartes A, B, C… (l'ordre ne dit rien de leur auteur).
 - **Vote** : les spectateurs relient chaque anecdote à un joueur sur leur téléphone. **Réponses** : l'écran montre à qui était chaque anecdote et combien l'ont reconnue.
-- **Gagnant** : le joueur qu'on a le **moins** souvent reconnu, sur toutes les manches (ex æquo possibles). Les spectateurs sont classés comme dans La Définition : le premier tiers gagne le bonus.
+- **Gagnant** : le joueur qu'on a le **moins** souvent reconnu, sur toutes les manches (ex æquo possibles). Les spectateurs sont classés comme dans La Définition (3, 2, 1 points).
+- **Aucun nom de joueur sur l'écran** pendant L'Anecdote : le tirage se fait en secret (« 4 joueurs ont été tirés au sort en secret »), pendant l'écriture seul le nombre d'anecdotes écrites s'affiche, puis « Anecdote A : … », « Anecdote B : … ». Les spectateurs relient chaque anecdote à un joueur sur leur téléphone. Aux réponses, l'écran montre seulement combien ont reconnu chaque anecdote ; chacun voit son score sur son téléphone. Les joueurs tirés voient sur leur téléphone « Ne dis à personne que tu joues ! ». Les résultats du round (places et points) s'affichent ensuite comme pour les autres jeux.
 
 ## Le Temple aztèque
 

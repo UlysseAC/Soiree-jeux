@@ -14,7 +14,7 @@ export const id = 'definition';
 export const label = 'La Définition';
 export const spectateurs = true; // des spectateurs s'inscrivent pour deviner
 
-export const defaults = { mots: '', manches: 3, tempsParole: 30, tempsEcriture: 120, tempsVote: 90, tempsRevelation: 25, pointsDevineurs: 1 }; // tempsEcriture : L'Anecdote
+export const defaults = { mots: '', manches: 3, tempsParole: 30, tempsEcriture: 120, tempsVote: 90, tempsRevelation: 25, bonusDevineurs: '3, 2, 1' }; // tempsEcriture : L'Anecdote
 
 const clip = (s, n) => String(s ?? '').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').trim().slice(0, n);
 
@@ -93,11 +93,11 @@ export function devineurs(r) {
   return rows;
 }
 
-// Le premier tiers des spectateurs (arrondi au-dessus) gagne le bonus ; les ex æquo avec le dernier qualifié aussi. Il faut au moins une bonne réponse.
-export function gagnantsDevineurs(rows) {
-  if (!rows.length) return [];
-  const seuil = rows[Math.ceil(rows.length / 3) - 1].bons;
-  return rows.filter(x => x.bons >= seuil && x.bons > 0).map(x => x.nom);
+// Bonus des meilleurs devineurs selon leur rang : 3 points au 1er, 2 au 2e, 1 au 3e (réglable), rien pour les autres.
+// Les ex æquo ont le même rang (deux 1ers, puis un 3e). Il faut au moins une bonne réponse.
+export const baremeDevineurs = sc => String(sc?.bonusDevineurs ?? '3, 2, 1').split(/[,;\s]+/).map(Number).filter(n => Number.isFinite(n) && n >= 0);
+export function bonusDevineurs(rows, bareme = [3, 2, 1]) {
+  return Object.fromEntries(rows.filter(x => x.bons > 0 && bareme[x.rang - 1] > 0).map(x => [x.nom, bareme[x.rang - 1]]));
 }
 
 // Appelé régulièrement. Renvoie { changed, places? } ; places = { indexÉquipe: place } quand le mini-jeu est fini.
@@ -134,8 +134,7 @@ export function tick(ctx, g, r, sc, spectateurs) {
       places[i] = 1 + r.equipes.filter(o => mieux(o.reduce((s, p) => s + (t[p] || 0), 0), score)).length;
     });
     d.devineurs = devineurs(r);
-    const pts = Math.max(0, Math.round(Number(sc.pointsDevineurs) || 0));
-    const bonus = pts ? Object.fromEntries(gagnantsDevineurs(d.devineurs).map(n => [n, pts])) : {};
+    const bonus = bonusDevineurs(d.devineurs, baremeDevineurs(sc));
     return { changed: true, places, bonus };
   }
   return { changed: false };

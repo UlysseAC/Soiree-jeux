@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as mj from '../server/games/minijeux.js';
-import { wordsOf, gagnantsDevineurs } from '../server/games/minijeux/definition.js';
+import { wordsOf, bonusDevineurs } from '../server/games/minijeux/definition.js';
 
 const NAMES = ['Léa', 'Hugo', 'Inès', 'Malik', 'Chloé', 'Tom', 'Sarah', 'Nico'];
 const MOTS = ['Florpidoux', 'Gramouille', 'Zétrabule', 'Pinchaflor', 'Brouscaille', 'Tirlipote', 'Mazabouc', 'Quenouflet'];
@@ -82,24 +82,23 @@ test('une manche complète : oral, vote des spectateurs, révélation, points', 
   assert.equal(r.points[a].place, 3);
   assert.equal(r.points[b].place, 3);
   assert.equal(mj.screenView(ctx, g).classement.find(x => x.nom === c).points, 10);
-  // Spectateurs : 3 ont tout trouvé (4), 1 en a trouvé 2. Le premier tiers (2 sur 4), ex æquo compris, gagne 1 point.
-  assert.deepEqual(r.bonus, Object.fromEntries(spect.slice(0, 3).map(s => [s, 1])));
-  assert.equal(mj.screenView(ctx, g).classement.find(x => x.nom === spect[0]).points, 1);
+  // Spectateurs : 3 ont tout trouvé (4, 1ers ex æquo : 3 points chacun), le 4e en a trouvé 2 (4e : rien).
+  assert.deepEqual(r.bonus, Object.fromEntries(spect.slice(0, 3).map(s => [s, 3])));
+  assert.equal(mj.screenView(ctx, g).classement.find(x => x.nom === spect[0]).points, 3);
   assert.equal(mj.screenView(ctx, g).classement.find(x => x.nom === spect[3]).points, 0);
-  assert.deepEqual(mj.playerView(ctx, g, pid(spect[0])).devine, { n: 1, nom: spect[0], bons: 4, rang: 1, sur: 4, bonus: 1 });
+  assert.deepEqual(mj.playerView(ctx, g, pid(spect[0])).devine, { n: 1, nom: spect[0], bons: 4, rang: 1, sur: 4, bonus: 3 });
   assert.equal(mj.playerView(ctx, g, pid(spect[3])).devine.bonus, 0);
   // Corriger les places du round ne redonne pas le bonus.
   mj.adminAction(ctx, g, { type: 'resultats', n: 1, places: { 0: 1, 1: 2, 2: 3, 3: 4 } });
-  assert.equal(mj.screenView(ctx, g).classement.find(x => x.nom === spect[0]).points, 1);
+  assert.equal(mj.screenView(ctx, g).classement.find(x => x.nom === spect[0]).points, 3);
 });
 
-test('bonus des devineurs : le premier tiers, arrondi au-dessus, ex æquo compris, au moins une bonne réponse', () => {
-  const rows = l => l.map((bons, i) => ({ nom: `s${i}`, bons }));
-  assert.deepEqual(gagnantsDevineurs(rows([5, 4, 3, 2, 1, 0])), ['s0', 's1']);
-  assert.deepEqual(gagnantsDevineurs(rows([5, 4, 4, 2, 1, 0])), ['s0', 's1', 's2']);
-  assert.deepEqual(gagnantsDevineurs(rows([3, 1])), ['s0']);
-  assert.deepEqual(gagnantsDevineurs(rows([0, 0, 0])), []);
-  assert.deepEqual(gagnantsDevineurs([]), []);
+test('bonus des devineurs : 3 points au 1er, 2 au 2e, 1 au 3e, rien pour les autres ; ex æquo au même rang', () => {
+  const rows = l => l.map(([bons, rang], i) => ({ nom: `s${i}`, bons, rang }));
+  assert.deepEqual(bonusDevineurs(rows([[5, 1], [4, 2], [3, 3], [2, 4]])), { s0: 3, s1: 2, s2: 1 });
+  assert.deepEqual(bonusDevineurs(rows([[5, 1], [5, 1], [3, 3], [2, 4]])), { s0: 3, s1: 3, s2: 1 });
+  assert.deepEqual(bonusDevineurs(rows([[2, 1], [0, 2]])), { s0: 3 }, 'au moins une bonne réponse');
+  assert.deepEqual(bonusDevineurs([]), {});
 });
 
 test('plusieurs manches : un nouveau mot par joueur, jamais déjà utilisé quand la liste suffit', () => {

@@ -564,7 +564,7 @@ function mjDefinition(e, t) {
       ${e.mesLiens ? '<p class="muted center" style="margin:0">✓ Envoyées. Tu peux encore les modifier.</p>' : ''}`;
     return h;
   }
-  return h + (e.bons != null ? `<div class="card accent center"><p style="font-size:20px">Tu as trouvé <strong>${e.bons}</strong> / ${e.cartes.length}</p><p class="muted">Total : ${e.mesBons} bonne${e.mesBons > 1 ? 's' : ''} réponse${e.mesBons > 1 ? 's' : ''}. Les meilleurs devineurs gagnent un bonus !</p></div>` : '<div class="card"><p>Regarde les réponses sur l\'écran !</p></div>');
+  return h + (e.bons != null ? `<div class="card accent center"><p style="font-size:20px">Tu as trouvé <strong>${e.bons}</strong> / ${e.cartes.length}</p><p class="muted">Total : ${e.mesBons} bonne${e.mesBons > 1 ? 's' : ''} réponse${e.mesBons > 1 ? 's' : ''}. Les 3 meilleurs devineurs gagnent 3, 2 et 1 points !</p></div>` : '<div class="card"><p>Regarde les réponses sur l\'écran !</p></div>');
 }
 
 // Le Quiz (mini-jeu) sur le téléphone : une réponse par question (4 boutons), puis juste ou faux.
@@ -623,7 +623,7 @@ function mjAnecdote(e) {
       <button class="btn primary big" data-act="mjVoter">${e.mesLiens ? 'Modifier mes réponses' : 'Envoyer mes réponses'}</button>
       ${e.mesLiens ? '<p class="muted center" style="margin:0">✓ Envoyées. Tu peux encore les modifier.</p>' : ''}`;
   }
-  return e.bons != null ? `<div class="card accent center"><p style="font-size:20px">Tu as trouvé <strong>${e.bons}</strong> / ${e.cartes.length}</p><p class="muted">Total : ${e.mesBons} bonne${e.mesBons > 1 ? 's' : ''} réponse${e.mesBons > 1 ? 's' : ''}. Les meilleurs devineurs gagnent un bonus !</p></div>` : '<div class="card"><p>Regarde les réponses sur l\'écran !</p></div>';
+  return e.bons != null ? `<div class="card accent center"><p style="font-size:20px">Tu as trouvé <strong>${e.bons}</strong> / ${e.cartes.length}</p><p class="muted">Total : ${e.mesBons} bonne${e.mesBons > 1 ? 's' : ''} réponse${e.mesBons > 1 ? 's' : ''}. Les 3 meilleurs devineurs gagnent 3, 2 et 1 points !</p></div>` : '<div class="card"><p>Regarde les réponses sur l\'écran !</p></div>';
 }
 
 function miniJeux() {
@@ -649,7 +649,7 @@ function miniJeux() {
   if (t && t.status === 'annonce') {
     const ok = t.compris.includes(g.nom);
     h += `<div class="card turn center"><span class="label">Round ${t.n} · ${esc(t.nom)}</span><div class="huge">C'est ton tour !</div>
-      <p style="font-size:18px">Viens devant l'écran et lis les règles.</p><p class="muted">${esc(t.format)}</p><p>${mjAvecQui(t)}</p></div>`;
+      ${t.type === 'anecdote' ? '<p style="font-size:18px">🤫 Ne dis à personne que tu joues ! Lis les règles ci-dessous.</p>' : `<p style="font-size:18px">Viens devant l'écran et lis les règles.</p><p class="muted">${esc(t.format)}</p><p>${mjAvecQui(t)}</p>`}</div>`;
     if (t.regles) h += `<div class="card"><span class="label">Règles</span><p style="white-space:pre-wrap">${esc(t.regles)}</p></div>`;
     const fin = t.inscrits ? `Le jeu commence à la fin des inscriptions des spectateurs, dans <strong class="mono" data-until="${t.inscriptionsFin}"></strong>.` : '';
     h += ok ? `<div class="card center"><p style="font-size:18px">✓ Compris !</p><p class="muted">${fin || `On attend les autres : ${t.compris.length} / ${t.joueurs.length}`}</p></div>`
