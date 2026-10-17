@@ -21,7 +21,9 @@ function setup({ manches = 2, joueurs = 3, connectes = NAMES } = {}) {
   // les spectateurs s'inscrivent pendant le tirage, puis le jeu commence à la fin des inscriptions
   for (const n of connectes) if (!r.joueurs.includes(n)) mj.playerAction(ctx, g, pid(n), { type: 'inscrire' });
   if (r.status === 'annonce') at(r.inscriptionsFin);
-  return { g, ctx, r, pid, at, now: () => t };
+  // fin de l'oral : chaque joueur parle 30 s, l'un après l'autre
+  const oral = () => { for (let i = 0; i < 10 && r.def?.phase === 'oral'; i++) at(t + 30e3); };
+  return { g, ctx, r, pid, at, oral, now: () => t };
 }
 
 test('liste de mots : un par ligne, sans doublon', () => {
@@ -52,12 +54,12 @@ test('les mots s\'affichent, mais personne ne voit qui a quel mot avant la rév�
 });
 
 test('une manche complète : oral, vote des spectateurs, révélation, points', () => {
-  const { g, ctx, r, pid, at, now } = setup({ manches: 1 });
+  const { g, ctx, r, pid, at, oral, now } = setup({ manches: 1 });
   const [a, b, c, d] = r.joueurs;
   const spect = NAMES.filter(n => !r.joueurs.includes(n));
   assert.equal(mj.playerAction(ctx, g, pid(a), { type: 'ecrire', texte: 'Une définition' }).ok, false, "la définition se dit à l'oral");
   assert.equal(r.def.phase, 'oral');
-  at(now() + 90e3); // fin du temps à l'oral
+  oral(); // fin du temps à l'oral
   assert.equal(r.def.phase, 'vote', 'le temps à l\'oral est écoulé : on passe au vote');
   const mot = p => r.def.cur.mots[p];
   const juste = { [mot(a)]: a, [mot(b)]: b, [mot(c)]: c, [mot(d)]: d };
@@ -101,24 +103,24 @@ test('bonus des devineurs : le premier tiers, arrondi au-dessus, ex æquo compri
 });
 
 test('plusieurs manches : un nouveau mot par joueur, jamais déjà utilisé quand la liste suffit', () => {
-  const { g, ctx, r, at, now } = setup({ manches: 2 });
+  const { g, ctx, r, at, oral, now } = setup({ manches: 2 });
   const m1 = Object.values(r.def.cur.mots);
-  at(now() + 90e3); // fin de l'oral
+  oral(); // fin de l'oral
   at(now() + 90e3); // fin du vote
   at(now() + 20e3); // fin de la révélation
   assert.equal(r.def.manche, 2);
   const m2 = Object.values(r.def.cur.mots);
   assert.ok(m2.every(m => !m1.includes(m)));
-  at(now() + 90e3); at(now() + 90e3); at(now() + 20e3);
+  oral(); at(now() + 90e3); at(now() + 20e3);
   assert.equal(r.status, 'fini');
   assert.ok(Object.values(r.points).every(p => p.place === 1), 'personne n\'a été trouvé : égalité');
 });
 
 test('sans spectateur connecté, on passe directement à la révélation', () => {
-  const { ctx, g, r, at, now } = setup({ manches: 1, connectes: NAMES.slice(0, 8) });
+  const { ctx, g, r, oral } = setup({ manches: 1, connectes: NAMES.slice(0, 8) });
   // on ne garde connectés que les joueurs
   for (const n of NAMES) if (!r.joueurs.includes(n)) mj.adminAction(ctx, g, { type: 'liberer', nom: n });
-  at(now() + 90e3);
+  oral();
   assert.equal(r.def.phase, 'revelation');
 });
 
@@ -132,20 +134,37 @@ test('remplacer un joueur en pleine partie : le remplaçant reprend son mot', ()
   assert.equal(mj.adminAction(ctx, g, { type: 'retirer', n: 1, ancien: neu }).ok, false);
 });
 
-test('l\'admin peut passer à l\'étape suivante', () => {
+test('l\'admin peut passer au joueur suivant, puis au vote', () => {
   const { g, ctx, r } = setup();
-  assert.equal(mj.adminAction(ctx, g, { type: 'suivant' }).ok, true);
+  for (let i = 0; i < 3; i++) { assert.equal(mj.adminAction(ctx, g, { type: 'suivant' }).ok, true); mj.tick(ctx, g); }
+  assert.equal(r.def.cur.tour, 3);
+  mj.adminAction(ctx, g, { type: 'suivant' }); mj.tick(ctx, g);
   assert.equal(r.def.phase, 'vote');
 });
 
+test('à l\'oral, chacun parle 30 s à son tour, dans un ordre sans rapport avec les mots', () => {
+  const { g, ctx, r, at, now } = setup({ manches: 1 });
+  assert.deepEqual([...r.def.cur.parole].sort(), [...r.joueurs].sort());
+  const v = () => mj.screenView(ctx, g).etat;
+  assert.equal(v().parleur, r.def.cur.parole[0]);
+  at(now() + 29e3);
+  assert.equal(v().tour, 0);
+  at(now() + 1e3);
+  assert.equal(v().parleur, r.def.cur.parole[1], 'au bout de 30 s, au suivant');
+  at(now() + 30e3); at(now() + 30e3);
+  assert.equal(v().tour, 3);
+  at(now() + 30e3);
+  assert.equal(r.def.phase, 'vote', 'tout le monde a parlé');
+});
+
 test('les spectateurs peuvent relier les mots dès l\'oral, en écoutant ; leurs réponses restent pour le vote', () => {
-  const { g, ctx, r, pid, at, now } = setup({ manches: 1 });
+  const { g, ctx, r, pid, oral } = setup({ manches: 1 });
   const spect = NAMES.find(n => !r.joueurs.includes(n));
   assert.equal(r.def.phase, 'oral');
   const liens = Object.fromEntries(r.joueurs.map(p => [r.def.cur.mots[p], p]));
   assert.equal(mj.playerAction(ctx, g, pid(spect), { type: 'voter', liens }).ok, true);
   assert.equal(r.def.phase, 'oral', "l'oral continue jusqu'au bout du temps");
-  at(now() + 90e3);
+  oral();
   assert.equal(r.def.phase, 'vote');
   assert.deepEqual(mj.playerView(ctx, g, pid(spect)).etat.mesLiens, liens);
 });

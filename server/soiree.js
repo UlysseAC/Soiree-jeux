@@ -72,6 +72,17 @@ export function restore(saved) {
   return out;
 }
 
+// Reprise après une pause : décale de « delta » ms toutes les heures (horodatages) de l'état d'un jeu proches du début de la pause.
+// Les durées, points et compteurs sont bien plus petits qu'un horodatage : ils ne bougent pas.
+export function decaler(o, delta, depuis) {
+  if (!o || typeof o !== 'object') return;
+  for (const k of Object.keys(o)) {
+    const v = o[k];
+    if (typeof v === 'number' && v > 1e12 && Math.abs(v - depuis) < 2 * 864e5) o[k] = v + delta;
+    else if (v && typeof v === 'object') decaler(v, delta, depuis);
+  }
+}
+
 export class Soiree {
   constructor(state, { now = Date.now, onSfx } = {}) {
     this.s = state;
@@ -161,6 +172,12 @@ export class Soiree {
         Object.assign(this.sess.countdown, { startedAt: now, adjust: 0, pausedAt: 0, pausedTotal: 0 });
         return { ok: true };
       case 'pause':
+        // Pendant une partie : le temps du jeu s'arrête ; à la reprise, toutes ses échéances sont décalées d'autant.
+        if (sess.status === 'playing') {
+          if (sess.jeuPause) { decaler(sess.game, now - sess.jeuPause, sess.jeuPause); sess.jeuPause = 0; return { ok: true, msg: 'Le jeu reprend.' }; }
+          sess.jeuPause = now;
+          return { ok: true, msg: 'Jeu en pause.' };
+        }
         if (sess.status !== 'countdown') return { ok: false, msg: 'Pas de décompte en cours.' };
         if (c.pausedAt) { c.pausedTotal += now - c.pausedAt; c.pausedAt = 0; } else c.pausedAt = now;
         return { ok: true };
@@ -281,6 +298,7 @@ export class Soiree {
     if (pids.length < this.module.minPlayers) return { ok: false, msg: `Il faut au moins ${this.module.minPlayers} inscrits.` };
     sess.game = this.module.start(this.ctx(), pids);
     sess.status = 'playing';
+    sess.jeuPause = 0;
     sess.regOverride = null;
     this.s.show = null; // un nouveau jeu masque le classement de la soirée affiché à l'écran
     // Duel : si tout le monde a son numéro de maillot, les duels commencent tout de suite.
@@ -293,6 +311,7 @@ export class Soiree {
   }
 
   finishGame() {
+    this.sess.jeuPause = 0;
     this.sess.status = 'finished';
     this.sess.finishedAt = this.now();
   }
@@ -321,6 +340,7 @@ export class Soiree {
       return true;
     }
     if (sess.status === 'playing' && sess.game) {
+      if (sess.jeuPause) return false; // jeu en pause : le temps est arrêté
       const changed = this.module.tick(this.ctx(), sess.game);
       if (sess.game.finished) { this.finishGame(); return true; }
       return changed;
@@ -334,6 +354,7 @@ export class Soiree {
     if (a.type === 'inscription') return this.register(me.id, a.on !== false);
     const g = this.sess.game;
     if (!g || this.sess.status !== 'playing') return { ok: false, msg: 'Aucune partie en cours.' };
+    if (this.sess.jeuPause) return { ok: false, msg: 'Le jeu est en pause.' };
     return this.module.playerAction(this.ctx(), g, me.id, a);
   }
 
@@ -378,7 +399,8 @@ export class Soiree {
       gameName: this.gameName(),
       games: Object.values(GAMES).map(m => ({ id: m.id, name: this.gameName(m.id) })),
       status: sess.status,
-      paused: !!sess.countdown.pausedAt,
+      paused: !!sess.countdown.pausedAt || (sess.status === 'playing' && !!sess.jeuPause),
+      jeuPause: sess.status === 'playing' ? sess.jeuPause || 0 : 0,
       remaining: this.remaining(),
       endsAt: this.endsAt(),
       inscriptionsAt: sess.status === 'countdown' ? this.endsAt() - this.s.config.inscriptions * 1000 : 0,

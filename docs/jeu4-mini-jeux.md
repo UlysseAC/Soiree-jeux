@@ -66,6 +66,8 @@ Sur l'écran, l'annonce d'un round commence par une machine à sous, à la place
 
 ## Commandes de l'admin
 
+- **Pause** (onglet Partie, ou bouton Pause de l'onglet Soirée) : pour tous les jeux. Le temps du jeu s'arrête (chronos, tours de parole, attaques, horaires des rounds suivants) et l'écran et les téléphones affichent « ⏸ Pause » ; les actions des joueurs sont refusées. « Reprendre » repart exactement où on en était.
+
 - Tirer au sort et annoncer maintenant, commencer maintenant (sans attendre les « J'ai compris »).
 - **Absents : remplacement manuel**. Remplacer un joueur (la liste propose d'abord ceux qui ont le moins joué), retirer ou ajouter un joueur.
 - Sauter un round, corriger les résultats d'un round terminé, décaler le planning de ±5 min, terminer la journée.
@@ -73,7 +75,7 @@ Sur l'écran, l'annonce d'un round commence par une machine à sous, à la place
 ## La Définition
 
 - **Réglages** : la liste des **mots inventés** (un par ligne, écrite par l'organisateur), le nombre de joueurs, le nombre de manches (3 par défaut), le temps pour les définitions à l'oral, de vote et d'affichage des réponses, le bonus des meilleurs devineurs (1 point par défaut).
-- **Chaque manche** : chaque joueur reçoit sur son téléphone un mot tiré au hasard dans la liste (les mots déjà sortis dans la journée ne reviennent qu'après les autres). Les **mots s'affichent sur l'écran**, et chaque joueur **définit son mot à l'oral**, à voix haute. Pas de texte à écrire sur le téléphone.
+- **Chaque manche** : chaque joueur reçoit sur son téléphone un mot tiré au hasard dans la liste (les mots déjà sortis dans la journée ne reviennent qu'après les autres). Les **mots s'affichent sur l'écran**, et chaque joueur **définit son mot à l'oral**, à voix haute, **chacun son tour : 30 s par joueur** (réglable : « Temps de parole par joueur »), dans un ordre tiré au hasard. L'écran affiche « Au tour de … » avec le chrono ; le téléphone de celui qui parle affiche « À toi de parler ! ». L'admin peut passer au joueur suivant (« Étape suivante »). Pas de texte à écrire sur le téléphone.
 - **Relier les mots** : dès le début de l'oral, les spectateurs (participants connectés qui ne jouent pas ce round) voient sur leur téléphone les mots de l'écran et relient chacun au joueur qui l'a défini, en écoutant. L'écran affiche les mots et les noms des joueurs, sans dire qui avait quel mot. À la fin du temps à l'oral (ou quand l'admin passe à l'étape suivante) vient le vote : on peut encore compléter ou corriger.
 - **Réponses** : l'écran montre à qui était chaque mot et combien de personnes l'ont trouvé. Puis manche suivante, avec un nouveau mot pour chacun.
 - **Gagnant** : le joueur dont le mot a été relié à lui le plus de fois, sur toutes les manches (ex æquo possibles). Les points du mini-jeu sont donnés selon cette place.

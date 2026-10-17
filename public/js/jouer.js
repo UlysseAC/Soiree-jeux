@@ -11,6 +11,12 @@ const ui = { weapon: null, target: null, alloc: {}, showArme: false, tab: 'parie
 const TEL_TEST = new URLSearchParams(location.search).has('test');
 const CLE_TOKEN = TEL_TEST ? 'sj-token-test' : 'sj-token';
 if (TEL_TEST) document.body.insertAdjacentHTML('beforeend', '<div class="badge-test">Téléphone de test · simulation</div>');
+// Jeu en pause (depuis l'admin) : grand panneau par-dessus tout.
+SJ.sock.on('etat', v => {
+  const el = document.getElementById('pause-jeu'), on = v.status === 'playing' && v.paused;
+  if (on && !el) document.body.insertAdjacentHTML('beforeend', '<div id="pause-jeu" class="pause-jeu"><div class="pause-jeu-t">⏸ Pause</div><p>Le jeu reprend dans un instant.</p></div>');
+  if (!on && el) el.remove();
+});
 function hello() {
   SJ.emit('hello', { role: 'joueur', token: SJ.store(CLE_TOKEN), test: TEL_TEST });
 }
@@ -534,7 +540,10 @@ function mjDefinition(e, t) {
   if (e.type === 'anecdote') return h + mjAnecdote(e);
   if (e.monMot !== undefined) { // je joue
     if (e.phase === 'oral') {
-      h += `<div class="card turn center"><span class="label">Ton mot</span><div class="huge" style="font-size:40px;word-break:break-word">${esc(e.monMot)}</div><p class="muted">Ce mot n'existe pas : invente sa définition et dis-la à voix haute !</p></div>`;
+      const aMoi = e.parleur === V.game.nom, passe = e.parole.indexOf(V.game.nom) < e.tour;
+      h += `<div class="card ${aMoi ? 'turn' : ''} center"><span class="label">Ton mot</span><div class="huge" style="font-size:40px;word-break:break-word">${esc(e.monMot)}</div>
+        <p style="font-size:20px">${aMoi ? `🎤 <strong>À toi de parler !</strong> <span class="mono" data-until="${e.fin}"></span>` : passe ? '✓ Tu as parlé.' : `${esc(e.parleur)} parle… Prépare ta définition.`}</p>
+        <p class="muted">Ce mot n'existe pas : invente sa définition et dis-la à voix haute quand c'est ton tour.</p></div>`;
     } else if (e.phase === 'vote') {
       h += `<div class="card center"><p style="font-size:18px">Les autres essaient de deviner qui avait quel mot…</p><p class="muted">Ton mot : <strong>${esc(e.monMot)}</strong></p></div>`;
     } else {
@@ -546,7 +555,7 @@ function mjDefinition(e, t) {
   // je ne joue pas : je devine
   if (e.phase === 'oral' || e.phase === 'vote') {
     const pris = Object.values({ ...(e.mesLiens || {}), ...ui.mjLiens }).filter(Boolean);
-    h += `<div class="card"><p style="font-size:18px">${e.phase === 'oral' ? 'Écoute les définitions et relie chaque mot (affiché à l\'écran) au joueur qui l\'a défini.' : 'Relie chaque mot au joueur qui l\'avait.'}</p>${e.phase === 'oral' ? '<p class="muted" style="margin:0">Tu pourras encore corriger pendant le vote.</p>' : ''}</div><div class="mj-vote">${e.cartes.map(c => {
+    h += `<div class="card"><p style="font-size:18px">${e.phase === 'oral' ? 'Écoute les définitions et relie chaque mot (affiché à l\'écran) au joueur qui l\'a défini.' : 'Relie chaque mot au joueur qui l\'avait.'}</p>${e.phase === 'oral' ? `<p style="margin:0">🎤 <strong>${esc(e.parleur)}</strong> parle · <span class="mono" data-until="${e.fin}"></span></p><p class="muted" style="margin:0">Tu pourras encore corriger pendant le vote.</p>` : ''}</div><div class="mj-vote">${e.cartes.map(c => {
       const v = ui.mjLiens[c.mot] ?? e.mesLiens?.[c.mot] ?? '';
       return `<div class="card"><strong style="font-size:20px;color:var(--accent)">${esc(c.mot)}</strong>
         <select class="in" data-mj-lien="${esc(c.mot)}"><option value="">Qui avait ce mot ?</option>${e.joueurs.map(p => `<option value="${esc(p)}" ${v === p ? 'selected' : ''} ${v !== p && pris.includes(p) ? 'disabled' : ''}>${esc(p)}</option>`).join('')}</select></div>`;

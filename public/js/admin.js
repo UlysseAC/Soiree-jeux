@@ -128,8 +128,8 @@ function changerProgramme(action, id) {
 
 // ---------- onglet Soirée ----------
 function soiree() {
-  const statusLabel = { idle: 'En attente', countdown: V.paused ? 'Décompte en pause' : 'Décompte en cours', playing: 'Partie en cours', finished: 'Partie terminée' }[V.status];
-  const clock = V.status === 'countdown' ? (V.paused ? fmt(V.remaining) : `<span data-until="${V.endsAt}"></span>`) : V.status === 'playing' ? '▶' : '—';
+  const statusLabel = { idle: 'En attente', countdown: V.paused ? 'Décompte en pause' : 'Décompte en cours', playing: V.paused ? 'Jeu en pause' : 'Partie en cours', finished: 'Partie terminée' }[V.status];
+  const clock = V.status === 'countdown' ? (V.paused ? fmt(V.remaining) : `<span data-until="${V.endsAt}"></span>`) : V.status === 'playing' ? (V.paused ? '⏸' : '▶') : '—';
   return `<div class="grid-2">
     <div class="box">
       ${programme()}
@@ -143,7 +143,7 @@ function soiree() {
       </div>
       <div class="row">
         <button class="btn primary" data-act="demarrer">▶ Démarrer le décompte</button>
-        <button class="btn" data-act="pause" ${V.status === 'countdown' ? '' : 'disabled'}>${V.paused ? '▶ Reprendre' : '⏸ Pause'}</button>
+        <button class="btn" data-act="pause" ${V.status === 'countdown' || V.status === 'playing' ? '' : 'disabled'}>${V.paused ? '▶ Reprendre' : '⏸ Pause'}</button>
 ${[[-300, '−5 min'], [-60, '−1 min'], [60, '+1 min'], [300, '+5 min']].map(([sec, l]) => `<button class="btn sm" data-act="ajuster" data-sec="${sec}" ${V.status === 'countdown' ? '' : 'disabled'}>${l}</button>`).join('')}
       </div>
       <div class="row">
@@ -287,6 +287,12 @@ function partieGrandPari(g) {
 }
 
 function partie() {
+  // Pause de n'importe quel jeu en cours : le temps s'arrête (chronos, tours, attaques…), puis reprend où il en était.
+  const pause = V.status === 'playing' ? `<div class="box${V.paused ? ' accent' : ''}"><div class="spread"><strong>${V.paused ? '⏸ Jeu en pause : le temps est arrêté' : 'Partie en cours'}</strong>
+    <button class="btn ${V.paused ? 'primary' : ''}" data-act="pause">${V.paused ? '▶ Reprendre' : '⏸ Pause'}</button></div></div>` : '';
+  return pause + partieJeu();
+}
+function partieJeu() {
   if (V.gameId === 'minijeux') return partieMiniJeux(V.game);
   if (!V.game) return `<div class="box"><p class="muted" style="margin:0">Aucune partie en cours. Lance le décompte dans l'onglet Soirée.</p></div>`;
   return V.gameId === 'chemin' ? partieChemin(V.game) : V.gameId === 'grandpari' ? partieGrandPari(V.game) : partieDuel(V.game);
@@ -500,7 +506,7 @@ function mjDefinitionReglages(c, s) {
       <textarea class="in" rows="8" id="c-jeu-jeux-${s}-mots" data-cfg="jeux.${s}.mots" data-kind="area" data-scope="jeu" placeholder="Florpidoux&#10;Gramouille&#10;Zétrabule…">${esc(j.mots)}</textarea>
       ${mots.length < besoin ? `<span style="color:var(--danger);font-size:13px">Il faut au moins ${besoin} mots pour une partie (joueurs × manches) sans répéter de mot.</span>` : '<span class="muted" style="font-size:13px">Les mots déjà sortis dans la journée ne reviennent qu\'une fois tous les autres utilisés.</span>'}</label>
     <div class="grid-auto">${cfgInput(`jeux.${s}.manches`, j.manches, 'num', { label: 'Manches' })}
-      ${cfgInput(`jeux.${s}.tempsOral`, j.tempsOral, 'dur', { label: 'Temps pour les définitions (oral)' })}${cfgInput(`jeux.${s}.tempsVote`, j.tempsVote, 'dur', { label: 'Temps pour deviner' })}${cfgInput(`jeux.${s}.tempsRevelation`, j.tempsRevelation, 'dur', { label: 'Affichage des réponses' })}${cfgInput(`jeux.${s}.pointsDevineurs`, j.pointsDevineurs, 'num', { label: 'Bonus des meilleurs devineurs' })}</div>
+      ${cfgInput(`jeux.${s}.tempsParole`, j.tempsParole, 'dur', { label: 'Temps de parole par joueur' })}${cfgInput(`jeux.${s}.tempsVote`, j.tempsVote, 'dur', { label: 'Temps pour deviner' })}${cfgInput(`jeux.${s}.tempsRevelation`, j.tempsRevelation, 'dur', { label: 'Affichage des réponses' })}${cfgInput(`jeux.${s}.pointsDevineurs`, j.pointsDevineurs, 'num', { label: 'Bonus des meilleurs devineurs' })}</div>
     <p class="muted" style="margin:0;font-size:13px">Les spectateurs sont classés selon leurs bonnes réponses : le premier tiers (ex æquo compris) gagne ce bonus. 0 = pas de bonus.</p>
   </div>`;
 }

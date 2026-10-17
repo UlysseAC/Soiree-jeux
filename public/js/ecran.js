@@ -19,6 +19,12 @@ function celebrate(key, ms, extra) {
 const ECRAN_TEST = new URLSearchParams(location.search).has('test');
 SJ.sock.on('connect', () => SJ.emit('hello', { role: 'ecran', test: ECRAN_TEST }));
 if (ECRAN_TEST) document.body.insertAdjacentHTML('beforeend', '<div class="badge-test">Écran de test · simulation</div>');
+// Jeu en pause (depuis l'admin) : grand panneau par-dessus tout.
+SJ.sock.on('etat', v => {
+  const el = document.getElementById('pause-jeu'), on = v.status === 'playing' && v.paused;
+  if (on && !el) document.body.insertAdjacentHTML('beforeend', '<div id="pause-jeu" class="pause-jeu"><div class="pause-jeu-t">⏸ Pause</div><p>Le jeu reprend dans un instant.</p></div>');
+  if (!on && el) el.remove();
+});
 SJ.sock.on('etat', v => {
   V = v; document.body.dataset.game = v.gameId;
   // Décor du mini-jeu pendant tout le round (annonce, partie, résultats), et celui du prochain round pendant l'attente.
@@ -320,8 +326,9 @@ function mjDefinition(a, e) {
   const cards = `<div class="mj-cards ${A ? 'mj-anecdotes' : ''}">${e.cartes.map(c => `<div class="mj-card"><div class="mj-mot">${titre(c)}</div>${c.def ? `<div class="mj-def">${esc(c.def)}</div>` : ''}
     ${c.auteur ? `<div class="mj-auteur">${esc(c.auteur)} · <span class="p">${c.trouves} ${A ? (c.trouves > 1 ? 'l\'ont reconnu' : 'l\'a reconnu') : (c.trouves > 1 ? 'ont trouvé' : 'a trouvé')}</span></div>` : ''}</div>`).join('')}</div>`;
   if (e.phase === 'oral') {
-    return `${head}<div class="mj-round">Définissez vos mots à l'oral !</div>
-      <div class="sc-sub">Chacun défend son mot à voix haute : ${e.joueurs.map(esc).join(', ')}. Encore <strong class="mono" data-until="${e.fin}"></strong></div>
+    return `${head}<div class="mj-round">Au tour de ${esc(e.parleur)} !</div>
+      <div class="sc-sub">Définis ton mot à voix haute · <strong class="mono" data-until="${e.fin}"></strong></div>
+      <div class="mj-compris">${e.parole.map((p, i) => `<span class="${i < e.tour ? 'on' : ''}">${i < e.tour ? '✓' : i === e.tour ? '🎤' : '…'} ${esc(p)}</span>`).join('')}</div>
       ${cards}<p class="sc-sub muted">Les autres : reliez chaque mot à celui qui l'a défini, sur votre téléphone · ${e.votants} / ${e.spectateurs} ont répondu</p>`;
   }
   if (e.phase === 'vote') {

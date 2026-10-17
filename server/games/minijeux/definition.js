@@ -1,5 +1,6 @@
 // Mini-jeu « La Définition ».
-// Chaque joueur reçoit un mot inventé (pris au hasard dans la liste écrite par l'organisateur) et le définit À L'ORAL.
+// Chaque joueur reçoit un mot inventé (pris au hasard dans la liste écrite par l'organisateur) et le définit À L'ORAL,
+// chacun son tour (30 s chacun par défaut, dans un ordre tiré au hasard).
 // Les mots s'affichent sur l'écran. Ceux qui ne jouent pas ce round relient, sur leur téléphone, chaque mot au joueur qui l'avait
 // (dès l'oral, en écoutant, puis pendant le vote).
 // Un joueur marque un point chaque fois que quelqu'un relie son mot à lui. Celui qui en a le plus gagne.
@@ -13,7 +14,7 @@ export const id = 'definition';
 export const label = 'La Définition';
 export const spectateurs = true; // des spectateurs s'inscrivent pour deviner
 
-export const defaults = { mots: '', manches: 3, tempsOral: 90, tempsEcriture: 120, tempsVote: 90, tempsRevelation: 25, pointsDevineurs: 1 }; // tempsEcriture : L'Anecdote
+export const defaults = { mots: '', manches: 3, tempsParole: 30, tempsEcriture: 120, tempsVote: 90, tempsRevelation: 25, pointsDevineurs: 1 }; // tempsEcriture : L'Anecdote
 
 const clip = (s, n) => String(s ?? '').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').trim().slice(0, n);
 
@@ -49,10 +50,14 @@ function nextManche(ctx, g, r, sc) {
   const w = anecdote ? shuffle(r.joueurs.map((_, i) => String.fromCharCode(65 + i))) : pickWords(g, sc, r.joueurs.length);
   const mots = Object.fromEntries(r.joueurs.map((p, i) => [p, w[i]]));
   d.cur = { mots, defs: {}, votes: {}, ordre: anecdote ? [...w].sort() : shuffle(r.joueurs).map(p => mots[p]), trouves: null };
-  // La Définition se dit à l'oral (pas d'écriture) ; L'Anecdote s'écrit sur les téléphones.
+  // La Définition se dit à l'oral (pas d'écriture), chacun son tour : « parole » = ordre de passage (sans rapport avec l'ordre des mots).
+  // L'Anecdote s'écrit sur les téléphones.
+  if (!anecdote) Object.assign(d.cur, { parole: shuffle(r.joueurs), tour: 0 });
   d.phase = anecdote ? 'ecriture' : 'oral';
-  d.fin = ctx.now() + (anecdote ? sc.tempsEcriture : sc.tempsOral) * 1000;
+  d.fin = ctx.now() + (anecdote ? sc.tempsEcriture : tempsParole(sc)) * 1000;
 }
+
+const tempsParole = sc => Math.max(5, Number(sc.tempsParole) || 30);
 
 export function start(ctx, g, r, sc) {
   r.def = { manche: 0, total: manchesOf(sc), phase: null, fin: 0, cur: null, passees: [] };
@@ -99,6 +104,12 @@ export function gagnantsDevineurs(rows) {
 export function tick(ctx, g, r, sc, spectateurs) {
   const d = r.def, now = ctx.now();
   if (!d) return { changed: false };
+  // à l'oral, chacun son tour : quand le temps du joueur est écoulé, on passe au suivant
+  if (d.phase === 'oral' && now >= d.fin && d.cur.tour < d.cur.parole.length - 1) {
+    d.cur.tour++;
+    d.fin = now + tempsParole(sc) * 1000;
+    return { changed: true };
+  }
   if (d.phase === 'ecriture' || d.phase === 'oral') {
     const tousOntEcrit = d.phase === 'ecriture' && r.joueurs.every(p => d.cur.defs[p]);
     if (now >= d.fin || tousOntEcrit) {
@@ -183,6 +194,7 @@ export function view(ctx, g, r, as, nom, spectateurs) {
   const cards = cur.ordre.map(mot => ({ mot, ...(anecdote ? { def: cur.defs[authorOf(cur, mot)] || '(pas d\'anecdote)' } : {}) }));
   const reveled = d.phase === 'revelation' || d.phase === 'fini';
   if (d.phase === 'oral' || d.phase === 'vote' || reveled) base.cartes = cards;
+  if (d.phase === 'oral') Object.assign(base, { parole: cur.parole, tour: cur.tour, parleur: cur.parole[cur.tour] });
   if (reveled) {
     base.cartes = cards.map(c => { const p = authorOf(cur, c.mot); return { ...c, auteur: p, trouves: cur.trouves?.[p] ?? 0 }; });
     base.totaux = totals(r);
