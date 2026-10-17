@@ -46,6 +46,8 @@ const SJ = (() => {
       childrenOnly: true,
       onBeforeElUpdated(from, to) {
         if (from === document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(from.tagName)) return false;
+        // data-keep : élément animé par la page (ex. bobine du tirage), laissé tel quel tant que la clé ne change pas
+        if (from.dataset?.keep && from.dataset.keep === to.dataset?.keep) return false;
         if (from.isEqualNode(to)) return false;
         return true;
       },

@@ -240,6 +240,10 @@ td.nowrap { white-space: nowrap; }
 .mj-names { display: flex; flex-wrap: wrap; gap: 1vh 1.2vw; }
 .mj-names span { font: 800 clamp(26px, 3.4vw, 60px)/1.1 var(--display); text-transform: uppercase; background: var(--accent-soft); color: var(--accent); border: 2px solid var(--accent); border-radius: 14px; padding: .6vh 1.2vw; }
 .mj-teams { display: flex; flex-wrap: wrap; align-items: center; gap: 1.4vh 1.6vw; }
+/* bobine du tirage au sort : une fenêtre d'un nom de haut, la bande défile dedans */
+.mj-fen { display: block; height: 1.1em; overflow: hidden; font-weight: inherit; }
+.mj-bande { display: block; font-weight: inherit; will-change: transform; }
+.mj-bande i { display: block; height: 1.1em; font-style: normal; white-space: nowrap; }
 .mj-team { border: 2px solid var(--t); border-radius: 16px; padding: 1.2vh 1.2vw; display: flex; flex-direction: column; gap: .8vh; background: color-mix(in srgb, var(--t) 12%, transparent); }
 .mj-team-n { font: 700 clamp(14px, 1.3vw, 22px) var(--body); text-transform: uppercase; letter-spacing: .12em; color: var(--t); }
 .mj-team .mj-names span { background: transparent; border-color: var(--t); color: var(--text); font-size: clamp(22px, 2.8vw, 48px); }
@@ -551,9 +555,6 @@ body[data-theme="temple"] .tp-choix .btn.choisi { border-color: var(--accent); b
 .rl-box { text-align: center; display: grid; gap: 3vh; padding: 0 16px; }
 .rl-win { height: 140px; width: min(70vw, 640px); margin: 0 auto; overflow: hidden; border: 3px solid var(--accent); border-radius: 16px; background: var(--ink); }
 .rl-item { height: 140px; line-height: 140px; padding: 0 20px; font-size: clamp(40px, 7vw, 96px); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#tirage.rl { background: var(--ink); } /* opaque : l'annonce derrière ne dévoile pas les noms avant le tirage */
-.rl-tires { display: flex; flex-wrap: wrap; justify-content: center; gap: 1vh 1.4vw; min-height: 1.5em; max-width: 80vw; font-size: clamp(22px, 2.6vw, 40px); font-weight: 700; }
-.rl-tires span { color: var(--accent); animation: mm-pop .3s ease-out; }
 .rl-nom { min-height: 1.4em; font-size: clamp(28px, 4vw, 56px); font-weight: 700; color: var(--accent); }
 
 /* Chasse au dragon sur le téléphone, à l'horizontale : cibles à gauche (pouce gauche), actions à droite (pouce droit) */

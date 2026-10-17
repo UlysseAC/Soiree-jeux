@@ -83,10 +83,49 @@ function waiting() {
 const hm = ts => new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 const MJ_TEAMS = [['Rouges', '#e7584f'], ['Bleus', '#5b9bf5'], ['Verts', '#43b8a6'], ['Jaunes', '#e5c13b'], ['Violets', '#a58cff'], ['Orange', '#f08a3c'], ['Roses', '#ec6fb5'], ['Gris', '#9aa1ae']];
 // Joueurs d'un round : en équipes (« Rouges : Léa + Hugo  VS  Bleus : … ») ou en noms (chacun pour soi).
-function mjPlayers(r) {
-  if (!r.equipesNommees) return `<div class="mj-names">${r.joueurs.map(p => `<span>${esc(p)}</span>`).join('')}</div>`;
-  return `<div class="mj-teams">${r.equipes.map((t, i) => { const [nom, c] = MJ_TEAMS[i] ?? [`Équipe ${i + 1}`, 'var(--accent)'];
-    return `${i ? '<div class="mj-vs">VS</div>' : ''}<div class="mj-team" style="--t:${c}"><div class="mj-team-n">${esc(nom)}</div><div class="mj-names">${t.map(p => `<span>${esc(p)}</span>`).join('')}</div></div>`; }).join('')}</div>`;
+// tir = { debut } pendant le tirage au sort : chaque nom est une bobine qui tourne jusqu'à son tour (voir slotsMaj).
+function mjPlayers(r, tir = null) {
+  // pendant le tirage, toutes les cases ont la même largeur (celle du plus long nom) : rien ne bouge quand une bobine s'arrête
+  const enCours = tir && SJ.now() < tir.debut + r.joueurs.length * TIRAGE_PAS;
+  const fixe = enCours ? ` style="width:calc(${Math.max(4, ...tiragePool.map(x => x.length))} * .72em);text-align:center;overflow:hidden;white-space:nowrap"` : '';
+  const nom = p => {
+    const k = r.joueurs.indexOf(p), stop = tir ? tir.debut + (k + 1) * TIRAGE_PAS : 0;
+    if (!stop || SJ.now() >= stop) return `<span${fixe}>${esc(p)}</span>`;
+    return `<span class="mj-slot"${fixe} data-keep="tirage:${r.n}:${tir.debut}:${k}" data-stop="${stop}" data-nom="${esc(p)}"><b class="mj-fen"><b class="mj-bande"></b></b></span>`;
+  };
+  if (!r.equipesNommees) return `<div class="mj-names">${r.joueurs.map(nom).join('')}</div>`;
+  return `<div class="mj-teams">${r.equipes.map((t, i) => { const [n, c] = MJ_TEAMS[i] ?? [`Équipe ${i + 1}`, 'var(--accent)'];
+    return `${i ? '<div class="mj-vs">VS</div>' : ''}<div class="mj-team" style="--t:${c}"><div class="mj-team-n">${esc(n)}</div><div class="mj-names">${t.map(nom).join('')}</div></div>`; }).join('')}</div>`;
+}
+
+// ---------- tirage au sort d'un round : machine à sous, une bobine par joueur ----------
+// Toutes les bobines tournent dès l'annonce et s'arrêtent l'une après l'autre, toutes les 2 secondes ; le nom
+// n'est écrit qu'à l'arrêt. Calé sur l'heure d'annonce du serveur : tous les écrans montrent le même tirage.
+const TIRAGE_PAS = 2000;
+let tiragePool = [], slotsRaf = 0;
+function slotsMaj() {
+  const slots = [...document.querySelectorAll('.mj-slot')];
+  if (!slots.length) return;
+  for (const s of slots) {
+    if (s.dataset.pret) continue;
+    const stop = Number(s.dataset.stop), n = Math.max(8, Math.round((stop - SJ.now()) / 120));
+    s.querySelector('.mj-bande').innerHTML = [...Array(n)].map(() => `<i>${esc(tiragePool[Math.floor(Math.random() * tiragePool.length)] || '?')}</i>`).join('') + `<i>${esc(s.dataset.nom)}</i>`;
+    Object.assign(s.dataset, { pret: '1', n, debut: SJ.now() });
+    // à l'arrêt : un petit son, puis le vrai nom remplace la bobine
+    setTimeout(() => { Sons.coup(.5); draw(); }, Math.max(0, stop - SJ.now()) + 30);
+  }
+  cancelAnimationFrame(slotsRaf);
+  const frame = () => {
+    let encore = false;
+    for (const s of document.querySelectorAll('.mj-slot[data-pret]')) {
+      const debut = Number(s.dataset.debut), stop = Number(s.dataset.stop);
+      const p = Math.min(1, Math.max(0, (SJ.now() - debut) / Math.max(1, stop - debut)));
+      s.querySelector('.mj-bande').style.transform = `translateY(${-(1 - Math.pow(1 - p, 3)) * Number(s.dataset.n) * 1.1}em)`;
+      if (p < 1) encore = true;
+    }
+    if (encore) slotsRaf = requestAnimationFrame(frame);
+  };
+  frame();
 }
 // Joueurs du round avec leur « J'ai compris ».
 function mjCompris(a) {
@@ -323,11 +362,15 @@ function minijeux(g) {
   let main;
   const a = g.actif;
   if (a && a.status === 'annonce') {
-    main = `<div class="mj-kicker">Round ${a.n} · ${esc(a.format)} · venez devant l'écran !</div><div class="mj-round">${esc(a.nom)}</div>
-      ${mjPlayers(a)}
+    // tirage au sort en machine à sous, sauf quand tout le monde joue (Le Quiz)
+    const tir = a.annonceAt && a.joueurs.length < g.participants.length ? { debut: a.annonceAt } : null;
+    const tirageFini = !tir || SJ.now() >= tir.debut + a.joueurs.length * TIRAGE_PAS;
+    tiragePool = g.participants.map(x => x.nom);
+    main = `<div class="mj-kicker">Round ${a.n} · ${esc(a.format)} · ${tirageFini ? 'venez devant l\'écran !' : 'tirage au sort…'}</div><div class="mj-round">${esc(a.nom)}</div>
+      ${mjPlayers(a, tir)}
       ${a.regles ? `<div class="mj-rules mj-rules-page">${esc(a.regles)}</div>` : ''}
       <div class="sc-sub">Le jeu commence quand chaque joueur a appuyé sur <strong>« J'ai compris »</strong> : ${a.compris.length} / ${a.joueurs.length}</div>
-      ${mjCompris(a)}`;
+      ${tirageFini ? mjCompris(a) : ''}`;
   } else if (a && a.status === 'jeu' && (g.etat?.type === 'definition' || g.etat?.type === 'anecdote')) {
     main = mjDefinition(a, g.etat);
   } else if (a && a.status === 'jeu' && g.etat?.type === 'temple') {
@@ -641,60 +684,6 @@ function rouletteMaj(r) {
   setTimeout(() => rouletteMaj(V.roulette), Math.max(0, r.startAt + r.duree + 6000 - SJ.now()) + 50);
 }
 
-// ---------- tirage au sort d'un round : machine à sous, un nom toutes les 2 secondes ----------
-// Calé sur l'heure d'annonce du serveur : tous les écrans montrent le même tirage, même ouverts en retard.
-const TIRAGE_PAS = 2000, TIRAGE_ROULE = 1500, TIRAGE_FIN = 3000;
-let tirageEtat = null, tirageRaf = 0;
-function tirageEl() {
-  let el = document.getElementById('tirage');
-  if (!el) {
-    el = document.createElement('div');
-    el.id = 'tirage';
-    el.className = 'rl';
-    el.hidden = true;
-    el.innerHTML = '<div class="rl-box"><div class="label rl-titre"></div><div class="rl-win"><div class="rl-reel"></div></div><div class="rl-tires"></div></div>';
-    document.body.appendChild(el);
-  }
-  return el;
-}
-function tirageMaj() {
-  const g = V?.gameId === 'minijeux' ? V.game : null, a = g?.actif;
-  const noms = (g?.participants || []).map(x => x.nom);
-  // pas de tirage quand tout le monde joue (Le Quiz)
-  const ok = a && a.status === 'annonce' && a.annonceAt && a.joueurs.length && a.joueurs.length < noms.length
-    && SJ.now() < a.annonceAt + a.joueurs.length * TIRAGE_PAS + TIRAGE_FIN;
-  const el = tirageEl();
-  if (!ok) { el.hidden = true; tirageEtat = null; cancelAnimationFrame(tirageRaf); return; }
-  const cle = `${a.n}:${a.annonceAt}`;
-  if (tirageEtat?.cle === cle) return;
-  tirageEtat = { cle, k: -1, pose: -1 };
-  el.hidden = false;
-  el.querySelector('.rl-titre').textContent = `Tirage au sort · Round ${a.n} · ${a.nom}`;
-  const reel = el.querySelector('.rl-reel'), tires = el.querySelector('.rl-tires');
-  const frame = () => {
-    const t = SJ.now() - a.annonceAt, n = a.joueurs.length;
-    if (t >= n * TIRAGE_PAS + TIRAGE_FIN) { el.hidden = true; return; }
-    const k = Math.min(n - 1, Math.floor(Math.max(0, t) / TIRAGE_PAS));
-    if (k !== tirageEtat.k) { // nouveau nom à tirer : une nouvelle bande qui finit sur lui
-      tirageEtat.k = k;
-      const bande = [...Array(18)].map(() => noms[Math.floor(Math.random() * noms.length)]).concat([a.joueurs[k]]);
-      reel.innerHTML = bande.map(x => `<div class="rl-item">${esc(x)}</div>`).join('');
-      reel.dataset.n = bande.length;
-    }
-    const p = Math.min(1, Math.max(0, (t - k * TIRAGE_PAS) / TIRAGE_ROULE));
-    reel.style.transform = `translateY(${(1 - Math.pow(1 - p, 3)) * -(Number(reel.dataset.n) - 1) * RL_ITEM}px)`;
-    const poses = p >= 1 ? k : k - 1;
-    if (poses !== tirageEtat.pose) {
-      if (poses > tirageEtat.pose && poses >= 0 && t - (poses * TIRAGE_PAS + TIRAGE_ROULE) < 400) Sons.coup(.5); // pas de rafale si l'écran arrive en retard
-      tirageEtat.pose = poses;
-      tires.innerHTML = a.joueurs.slice(0, poses + 1).map(x => `<span>${esc(x)}</span>`).join('');
-    }
-    tirageRaf = requestAnimationFrame(frame);
-  };
-  cancelAnimationFrame(tirageRaf);
-  frame();
-}
-
 // ---------- classement de la soirée ----------
 function soireeView(c, final) {
   const rows = c.rows;
@@ -750,7 +739,7 @@ function draw() {
     if (mode === 'final') celebrate(`final:${V.classement.held?.length ?? 0}`, 9000, () => Sons.fanfare());
   }
   rouletteMaj(V.roulette);
-  tirageMaj();
+  slotsMaj();
   premierRendu = false;
   const before = {};
   document.querySelectorAll('#board li, #board-soiree li').forEach(li => { before[li.dataset.pid] = li.getBoundingClientRect().top; });

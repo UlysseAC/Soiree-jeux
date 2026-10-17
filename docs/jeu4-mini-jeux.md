@@ -34,7 +34,7 @@ Chaque mini-jeu a son décor sur l'écran et les téléphones : plateau télé (
 
 ## Tirage au sort
 
-Sur l'écran, l'annonce d'un round commence par une machine à sous : les joueurs tirés apparaissent un par un, un nom toutes les 2 secondes, puis l'annonce s'affiche. Pas de machine à sous quand tout le monde joue (Le Quiz).
+Sur l'écran, l'annonce d'un round commence par une machine à sous, à la place des noms : une bobine par joueur, qui tournent toutes et s'arrêtent l'une après l'autre, toutes les 2 secondes. Un nom n'est écrit qu'à l'arrêt de sa bobine. Pas de machine à sous quand tout le monde joue (Le Quiz).
 
 - On prend d'abord ceux qui ont **le moins joué** : tout le monde joue autant, à un round près.
 - Puis ceux qui **n'ont pas joué le round d'avant**, puis ceux qui ont **un téléphone connecté**, puis ceux qui ont **le moins joué ensemble** ; le hasard départage.
