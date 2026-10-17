@@ -21,6 +21,7 @@ SJ.sock.on('etat', v => {
   // Décor du mini-jeu pendant tout le round (annonce, partie, résultats), et celui du prochain round pendant l'attente.
   const mjr = v.gameId === 'minijeux' && v.game ? v.game.actif || v.game.recent || (v.game.finished ? null : v.game.prochain) : null;
   document.body.dataset.theme = MJ_THEMES[mjr?.type] || '';
+  decorAnim(document.body.dataset.theme);
   if (v.gameId === 'minijeux' && v.game) { tpSons(v.game); mimeSons(v.game); dragonSons(v.game); memoSons(v.game); }
   TempleCarte.maj(v.gameId === 'minijeux' ? v.game?.etat : null);
   DragonScene.maj(v.gameId === 'minijeux' ? v.game?.etat : null);
@@ -682,6 +683,79 @@ function rouletteMaj(r) {
   frame();
   // Masquage automatique, même si aucune nouvelle diffusion ne suit.
   setTimeout(() => rouletteMaj(V.roulette), Math.max(0, r.startAt + r.duree + 6000 - SJ.now()) + 50);
+}
+
+// ---------- petites animations des décors (écran public seulement) ----------
+// Dragon : la lueur de la lave, qu'on ne voit pas, bouge doucement sur le bas ; de temps en temps une braise s'envole et retombe.
+// Temple : de temps en temps un petit singe traverse l'écran sans se presser, en sautant sur les cadres de l'écran.
+const decorCalme = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const auHasard = (a, b) => a + Math.random() * (b - a);
+let decorTheme = null, decorTimer = 0;
+function decorEl() {
+  let el = document.getElementById('mj-anim');
+  if (!el) { el = document.createElement('div'); el.id = 'mj-anim'; el.setAttribute('aria-hidden', 'true'); document.body.appendChild(el); }
+  return el;
+}
+function decorAnim(theme) {
+  if (theme === decorTheme) return;
+  decorTheme = theme;
+  clearTimeout(decorTimer);
+  decorEl().innerHTML = theme === 'dragon' && !decorCalme ? '<div class="lave"></div>' : '';
+  document.querySelectorAll('.singe').forEach(x => x.remove());
+  if (decorCalme) return;
+  if (theme === 'dragon') prochaineBraise();
+  if (theme === 'temple') prochainSinge(auHasard(8000, 15000));
+}
+function prochaineBraise() {
+  decorTimer = setTimeout(() => {
+    if (decorTheme !== 'dragon') return;
+    const b = document.createElement('span');
+    b.className = 'braise';
+    b.style.left = `${auHasard(5, 95)}vw`;
+    b.style.setProperty('--h', `${auHasard(12, 30)}vh`);
+    b.style.setProperty('--dx', `${auHasard(-6, 6)}vw`);
+    b.addEventListener('animationend', () => b.remove());
+    decorEl().appendChild(b);
+    prochaineBraise();
+  }, auHasard(9000, 20000)); // rarement
+}
+function prochainSinge(delai) {
+  decorTimer = setTimeout(() => {
+    if (decorTheme !== 'temple') return;
+    singe();
+    prochainSinge(auHasard(25000, 50000));
+  }, delai);
+}
+function singe() {
+  if (document.querySelector('.singe')) return; // un seul singe à la fois
+  const W = innerWidth, H = innerHeight, T = 44, sol = H - 20 - T; // il marche juste au-dessus de la frise du bas
+  const dir = Math.random() < .5 ? 1 : -1, x0 = dir > 0 ? -T - 10 : W + 10, x1 = dir > 0 ? W + 10 : -T - 10;
+  // plateformes : le haut des cadres visibles (carte du temple, cartes, règles, noms…), au plus deux, dans le sens de la marche
+  const plats = [...document.querySelectorAll('.screen canvas, .screen .card, .screen .mj-rules, .screen .mj-names, .screen .mj-next, .screen .mj-results')]
+    .map(e => e.getBoundingClientRect()).filter(r => r.width > 140 && r.top > 100 && r.top < sol - 80 && r.left > 0 && r.right < W)
+    .sort((a, b) => dir * (a.left - b.left));
+  const choisies = [];
+  for (const r of plats) if (choisies.length < 2 && !choisies.some(c => r.left < c.right + 80 && r.right > c.left - 80)) choisies.push(r);
+  const pts = [{ x: x0, y: sol, t: 0 }], v = 0.075; // 75 px par seconde : il prend son temps
+  const aller = x => { const p = pts.at(-1); pts.push({ x, y: p.y, t: p.t + Math.abs(x - p.x) / v }); };
+  const sauter = (x, y) => { const p = pts.at(-1); pts.push({ x: (p.x + x) / 2, y: Math.min(p.y, y) - 70, t: p.t + 350 }, { x, y, t: p.t + 700 }); };
+  const pause = ms => { const p = pts.at(-1); pts.push({ ...p, t: p.t + ms }); };
+  for (const r of choisies) {
+    const debut = dir > 0 ? r.left : r.right - T, fin = dir > 0 ? r.right - T : r.left;
+    aller(debut - dir * 50);
+    sauter(debut + dir * 8, r.top - T + 4);
+    aller((debut + fin) / 2);
+    if (Math.random() < .6) pause(auHasard(800, 1800));
+    aller(fin - dir * 8);
+    sauter(fin + dir * 50, sol);
+  }
+  aller(x1);
+  const el = document.createElement('div');
+  el.className = 'singe';
+  el.innerHTML = `<span style="transform:scaleX(${-dir})">🐒</span>`;
+  document.body.appendChild(el);
+  const duree = pts.at(-1).t;
+  el.animate(pts.map(p => ({ transform: `translate(${p.x}px, ${p.y}px)`, offset: p.t / duree })), { duration: duree, easing: 'linear' }).onfinish = () => el.remove();
 }
 
 // ---------- classement de la soirée ----------
