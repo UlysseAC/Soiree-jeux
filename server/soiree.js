@@ -139,6 +139,7 @@ export class Soiree {
         if (sess.status === 'playing') return { ok: false, msg: 'Termine d\'abord la partie en cours.' };
         this.archive();
         this.s.session = newSession(a.gameId);
+        this.s.show = null; // la nouvelle soirée ne reprend pas l'affichage du classement de la précédente
         return { ok: true };
       case 'demarrer':
         if (sess.status === 'playing') return { ok: false, msg: 'Partie déjà en cours.' };
