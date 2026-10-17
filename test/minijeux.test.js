@@ -22,27 +22,6 @@ test('liste des participants : un nom par ligne, sans doublon ni ligne vide', ()
   assert.deepEqual(mj.roster({ joueurs: ' Léa \n\nHugo\nléa\n  Inès   Martin ' }), ['Léa', 'Hugo', 'Inès Martin']);
 });
 
-test('heure du jour dans le fuseau de l\'admin', () => {
-  assert.equal(mj.tsAt('10:00', -120, clock(9)), clock(10));
-  assert.equal(new Date(mj.tsAt('18:30', -120, clock(9))).getUTCHours(), 16);
-});
-
-test('rounds répartis à intervalles égaux entre début et fin', () => {
-  const { g } = setup();
-  assert.equal(g.rounds.length, 12);
-  assert.equal(g.rounds[0].at, clock(10));
-  assert.equal(g.spacing, 40 * 60e3); // 8 h / 12 rounds
-  assert.equal(g.rounds[11].at, clock(10) + 11 * 40 * 60e3);
-  assert.equal(g.late, false);
-});
-
-test('journée lancée en retard : elle part de maintenant', () => {
-  const { g } = setup(c => c, clock(12));
-  assert.equal(g.late, true);
-  assert.equal(g.rounds[0].at, clock(12) + 600e3, 'annonce dans 5 min, début dans 10 min');
-  assert.ok(g.rounds[11].at < clock(18));
-});
-
 test('programme : celui choisi, complété en boucle avec les mini-jeux utilisés', () => {
   const cfg = mj.defaultConfig();
   cfg.rounds = 5; cfg.programme = 'mj3,mj1';
@@ -51,13 +30,14 @@ test('programme : celui choisi, complété en boucle avec les mini-jeux utilisé
 });
 
 test('annonce 5 min avant ; le round commence quand tous les joueurs ont compris', () => {
-  const { g, ctx, at } = setup();
-  at(clock(10) - 301e3);
+  const { g, ctx, at } = setup(c => ({ ...c, premier: 10 }), clock(10));
+  const r0 = clock(10) + 10 * 60e3;
+  at(r0 - 301e3);
   assert.equal(g.rounds[0].status, 'prevu');
-  at(clock(10) - 299e3);
+  at(r0 - 299e3);
   assert.equal(g.rounds[0].status, 'annonce');
   assert.equal(g.rounds[0].joueurs.length, 2);
-  at(clock(10) + 60e3);
+  at(r0 + 60e3);
   assert.equal(g.rounds[0].status, 'annonce', 'pas de départ automatique à l\'heure');
   const [a, b] = g.rounds[0].joueurs;
   mj.claim(ctx, g, 'pa', a); mj.claim(ctx, g, 'pb', b); mj.claim(ctx, g, 'px', NAMES.find(n => n !== a && n !== b));
@@ -179,13 +159,12 @@ test('nombre de rounds attendu par personne', () => {
 });
 
 test('annoncer à la main, puis commencer sans attendre les « Compris »', () => {
-  const { g, ctx, at } = setup();
-  at(clock(9)); // une heure avant le premier round
+  const { g, ctx } = setup(c => c, clock(9)); // le premier round est à 9 h 05 : pas encore annoncé
   assert.equal(mj.adminAction(ctx, g, { type: 'annoncer' }).ok, true);
   assert.equal(g.rounds[0].status, 'annonce');
   assert.equal(mj.adminAction(ctx, g, { type: 'commencer' }).ok, true);
   assert.equal(g.rounds[0].status, 'jeu');
-  assert.equal(g.rounds[1].at, clock(10) + 40 * 60e3, 'les rounds suivants gardent leur heure');
+  assert.equal(g.rounds[1].at, clock(9) + 5 * 60e3 + 15 * 60e3, 'les rounds suivants gardent leur heure');
 });
 
 test('formats : lecture de « 2v2 », « 3v1 », « 1v1v1v1 »', () => {
@@ -261,8 +240,10 @@ test('le téléphone connaît ses coéquipiers et ses adversaires', () => {
   assert.equal(v.format, '3 contre 1');
 });
 
-test('journée ouverte la veille au soir : elle a lieu le lendemain', () => {
-  const { g } = setup(c => c, clock(23));
-  assert.equal(g.late, false);
-  assert.equal(g.rounds[0].at, clock(10) + 24 * 3600e3);
+test("rounds : le premier X min après l'ouverture, puis un toutes les Y min", () => {
+  const { g } = setup(c => ({ ...c, premier: 5, intervalle: 15 }), clock(10));
+  assert.equal(g.rounds.length, 12);
+  assert.equal(g.rounds[0].at, clock(10) + 5 * 60e3);
+  assert.equal(g.spacing, 15 * 60e3);
+  assert.equal(g.rounds[11].at, clock(10) + 5 * 60e3 + 11 * 15 * 60e3);
 });

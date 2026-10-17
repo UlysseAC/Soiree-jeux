@@ -30,9 +30,8 @@ const MAX_ROUNDS = 60;
 export function defaultConfig() {
   return {
     joueurs: '', // un nom par ligne
-    debut: '10:00',
-    fin: '18:00',
-    decalage: 0, // fuseau horaire du navigateur de l'admin (getTimezoneOffset, en minutes)
+    premier: 5, // minutes entre l'ouverture de la journée et le premier round
+    intervalle: 15, // minutes entre deux rounds
     annonce: 300, // les joueurs sont tirés au sort et annoncés X secondes avant le round
     resultats: 45, // durée d'affichage des résultats d'un round sur l'écran
     rounds: 12,
@@ -103,26 +102,12 @@ const sizeOf = (cfg, slot, total) => {
   return j > 0 ? Math.min(j, total) : total;
 };
 
-// Heure « HH:MM » du jour, dans le fuseau de l'admin, en millisecondes.
-export function tsAt(hhmm, decalage, now) {
-  const [h, m] = String(hhmm || '0:0').split(':').map(Number);
-  const local = new Date(now - decalage * 60000);
-  return Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()) + ((h || 0) * 60 + (m || 0)) * 60000 + decalage * 60000;
-}
-
-// Heures des rounds : réparties à intervalles égaux entre le début et la fin de la journée.
-// Si l'heure de début est déjà passée (ou trop proche), la journée part de maintenant, en laissant 5 min aux joueurs
-// pour prendre leur nom avant l'annonce du premier round.
+// Rounds à intervalle régulier, à partir de l'ouverture de la journée : le premier après « premier » minutes,
+// puis un round toutes les « intervalle » minutes.
 export function schedule(cfg, now, count) {
-  const lead = cfg.annonce * 1000;
-  let debut = tsAt(cfg.debut, cfg.decalage, now);
-  let fin = tsAt(cfg.fin, cfg.decalage, now);
-  if (fin <= debut) fin += 24 * 3600e3;
-  // Journée déjà finie aujourd'hui : c'est celle de demain (journée ouverte la veille au soir).
-  if (fin <= now) { debut += 24 * 3600e3; fin += 24 * 3600e3; }
-  const start = Math.max(debut, now + lead + 5 * 60e3);
-  const spacing = fin - start >= count * 60e3 ? (fin - start) / count : 15 * 60e3;
-  return { at: Array.from({ length: count }, (_, i) => Math.round(start + i * spacing)), spacing, late: start > debut };
+  const premier = Math.max(0, Number(cfg.premier) || 0) * 60e3;
+  const spacing = Math.max(1, Number(cfg.intervalle) || 15) * 60e3;
+  return { at: Array.from({ length: count }, (_, k) => Math.round(now + premier + k * spacing)), spacing };
 }
 
 const activeRound = g => g.rounds.find(r => r.status === 'annonce' || r.status === 'jeu');
@@ -133,11 +118,10 @@ const startAtOf = (cfg, r) => Math.max(r.at, r.annonceAt + Math.min(cfg.annonce 
 export function start(ctx) {
   const now = ctx.now(), cfg = ctx.cfg;
   const prog = program(cfg);
-  const { at, spacing, late } = schedule(cfg, now, prog.length);
+  const { at, spacing } = schedule(cfg, now, prog.length);
   return {
     startedAt: now,
     spacing,
-    late,
     claims: {}, // nom (normalisé) -> pid du téléphone
     rounds: prog.map((jeu, i) => ({ n: i + 1, jeu, at: at[i], status: 'prevu', joueurs: [], places: null, points: null, annonceAt: 0, debutAt: 0, finAt: 0 })),
     played: {}, // nom normalisé -> rounds joués
@@ -493,7 +477,6 @@ function common(ctx, g) {
   return {
     finished: g.finished,
     spacing: g.spacing,
-    late: g.late,
     actif: act ? roundView(ctx, act, true) : null,
     prochain: next ? roundView(ctx, next, true) : null,
     recent: recent ? roundView(ctx, recent) : null,

@@ -68,7 +68,6 @@ async function saveCfg(el) {
   cur.classList.remove('saving');
   if (r.ok) { cur.classList.add('saved'); setTimeout(() => cur.classList.remove('saved'), 1500); }
   // Mini-Jeux : les heures sont celles du fuseau de ce navigateur.
-  if (r.ok && V.gameId === 'minijeux' && /^(debut|fin)$/.test(el.dataset.cfg)) admin({ type: 'config', scope: 'jeu', path: 'decalage', value: new Date().getTimezoneOffset() });
 }
 app.addEventListener('change', e => { if (e.target.dataset.cfg) saveCfg(e.target); });
 app.addEventListener('input', e => {
@@ -292,6 +291,7 @@ function partie() {
 
 // ---------- jeu 4 : Les Mini-Jeux ----------
 const MJ_SLOTS = ['mj1', 'mj2', 'mj3', 'mj4', 'mj5', 'mj6'];
+const MJ_TYPE_NOMS = { manuel: 'Manuel', definition: 'La Définition', temple: 'Le Temple aztèque', mime: 'Le Mime', dragon: 'La Chasse au dragon', anecdote: 'L\'Anecdote', disparu: 'Qu\'est-ce qui a changé ?', quiz: 'Le Quiz' };
 const hhmm = ts => new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 // Même logique que le serveur (server/games/minijeux.js) pour prévisualiser avant d'ouvrir la journée.
 function mjRoster(c) {
@@ -327,17 +327,12 @@ const mjSize = (c, s, total) => {
   if (f) return Math.min(f.reduce((a, b) => a + b, 0), total);
   return Number(c.jeux[s]?.joueurs) > 0 ? Math.min(Number(c.jeux[s].joueurs), total) : total;
 };
-const mjMinutes = t => { const [h, m] = String(t || '0:0').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
 
 function reglagesMiniJeux(c) {
   const names = mjRoster(c), prog = mjProgram(c);
   const slots = prog.reduce((t, s) => t + mjSize(c, s, names.length), 0);
   const per = names.length ? slots / names.length : 0;
-  let minutes = mjMinutes(c.fin) - mjMinutes(c.debut);
-  if (minutes <= 0) minutes += 1440;
-  const every = minutes / prog.length;
-  const at = i => { const t = mjMinutes(c.debut) + i * every; return `${String(Math.floor(t / 60) % 24).padStart(2, '0')}:${String(Math.round(t % 60) % 60).padStart(2, '0')}`; };
-  const timeInput = (path, label) => `<label class="field"><span class="label">${label}</span><input class="in" type="time" id="c-jeu-${path}" data-cfg="${path}" data-kind="text" data-scope="jeu" value="${esc(c[path])}"></label>`;
+  const at = i => `+${Math.round(Number(c.premier) + i * Number(c.intervalle))} min`;
   const rows = prog.map((s, i) => `<tr><td class="mono">${i + 1}</td><td class="mono">${at(i)}</td>
     <td><select class="in" data-mj-prog="${i}" style="width:auto;min-width:200px">${MJ_SLOTS.map(x => `<option value="${x}" ${x === s ? 'selected' : ''}>${esc(c.jeux[x].nom)}${c.jeux[x].actif ? '' : ' (non utilisé)'}</option>`).join('')}</select></td>
     <td>${mjFmt(c, s) ? mjFormatLabel(mjFmt(c, s)) : Number(c.jeux[s].joueurs) > 0 ? `${mjSize(c, s, names.length)} joueur${mjSize(c, s, names.length) > 1 ? 's' : ''}` : 'Tout le monde'}</td></tr>`).join('');
@@ -358,9 +353,9 @@ function reglagesMiniJeux(c) {
       <textarea class="in" rows="10" id="c-jeu-joueurs" data-cfg="joueurs" data-kind="area" data-scope="jeu" placeholder="Léa&#10;Hugo&#10;Inès…">${esc(c.joueurs)}</textarea>
     </div>
     <div class="box"><h2>Journée</h2>
-      <div class="grid-auto">${timeInput('debut', 'Début')}${timeInput('fin', 'Fin')}${cfgInput('rounds', c.rounds, 'num', { label: 'Nombre de rounds' })}
+      <div class="grid-auto">${cfgInput('premier', c.premier, 'num', { label: 'Premier round, X min après l\'ouverture' })}${cfgInput('intervalle', c.intervalle, 'num', { label: 'Puis un round toutes les (min)' })}${cfgInput('rounds', c.rounds, 'num', { label: 'Nombre de rounds' })}
         ${cfgInput('annonce', c.annonce, 'dur', { label: 'Annonce des joueurs avant le round' })}${cfgInput('resultats', c.resultats, 'dur', { label: 'Résultats affichés pendant' })}</div>
-      <p style="margin:0">→ Un round toutes les <strong>${Math.round(every)} min</strong>.${names.length ? ` Chaque participant jouera environ <strong>${Math.floor(per)}${Math.ceil(per) !== Math.floor(per) ? ` à ${Math.ceil(per)}` : ''} round${Math.ceil(per) > 1 ? 's' : ''}</strong>.` : ' Ajoute des participants pour voir combien de rounds chacun jouera.'}</p>
+      <p style="margin:0">→ Premier round <strong>${esc(c.premier)} min</strong> après l'ouverture, puis un toutes les <strong>${esc(c.intervalle)} min</strong>.${names.length ? ` Chaque participant jouera environ <strong>${Math.floor(per)}${Math.ceil(per) !== Math.floor(per) ? ` à ${Math.ceil(per)}` : ''} round${Math.ceil(per) > 1 ? 's' : ''}</strong>.` : ' Ajoute des participants pour voir combien de rounds chacun jouera.'}</p>
     </div>
     <div class="box"><div class="spread"><h2>Programme des rounds</h2><button class="btn sm" data-mj="auto" data-confirm="Remplacer le programme par les mini-jeux utilisés, en boucle ?">Remplir automatiquement</button></div>
       <div class="scroll"><table><thead><tr><th>Round</th><th>Heure prévue</th><th>Mini-jeu</th><th>Joueurs</th></tr></thead><tbody>${rows}</tbody></table></div>
@@ -548,7 +543,7 @@ function partieMiniJeux(g) {
   if (!g) {
     const c = V.gameConfig, names = mjRoster(c);
     return `<div class="box"><h2>La journée n'est pas encore ouverte</h2>
-      <p style="margin:0">${names.length} participant${names.length > 1 ? 's' : ''} · ${mjProgram(c).length} rounds de ${esc(c.debut)} à ${esc(c.fin)}.</p>
+      <p style="margin:0">${names.length} participant${names.length > 1 ? 's' : ''} · ${mjProgram(c).length} rounds, le premier ${esc(c.premier)} min après l'ouverture.</p>
       <p class="muted" style="margin:0;font-size:14px">Ouvre la journée dès que les participants arrivent : ils pourront choisir leur nom sur leur téléphone. Le premier round est annoncé ${Math.round(c.annonce / 60)} min avant ${esc(c.debut)}.</p>
       <button class="btn primary" data-mj="ouvrir" ${names.length ? '' : 'disabled'}>Ouvrir la journée</button>
       ${names.length ? '' : '<p class="muted" style="margin:0">Ajoute d\'abord les participants dans l\'onglet « Réglages du jeu ».</p>'}</div>`;
@@ -601,11 +596,10 @@ function partieMiniJeux(g) {
   const joueurs = g.joueurs.map(p => `<tr><td class="mono">${p.rang}</td><td>${esc(p.nom)}</td><td>${p.connecte ? `<span class="pill ok">📱 connecté</span> <button class="btn sm" data-mj="liberer" data-nom="${esc(p.nom)}" data-confirm="Libérer le nom de ${esc(p.nom)} ? Il pourra le reprendre sur un autre téléphone.">Libérer</button>` : '<span class="pill">pas encore</span>'}</td><td class="mono">${p.joues}</td><td class="mono">${p.points}</td></tr>`).join('');
   return `<div class="spread"><div class="row"><span class="pill accent">${g.finished ? 'Journée terminée' : `${g.faits} / ${g.total} rounds joués`}</span><span class="muted">un round toutes les ${Math.round(g.spacing / 60000)} min · ${g.inscrits} / ${g.participants.length} téléphones connectés</span></div>
       ${g.finished ? '' : `<div class="row"><button class="btn sm" data-mj="decaler" data-sec="-300">−5 min</button><button class="btn sm" data-mj="decaler" data-sec="300">+5 min</button><button class="btn sm danger" data-mj="terminer" data-confirm="Terminer la journée maintenant ? Les rounds restants sont annulés.">Terminer la journée</button></div>`}</div>
-    ${g.late ? '<div class="card danger"><p>La journée a été ouverte après l\'heure de début : les rounds sont répartis à partir de l\'ouverture.</p></div>' : ''}
     ${now}
     ${a ? '' : `<div class="box"><div class="spread"><h2>Lancer un mini-jeu maintenant</h2><span class="muted">hors programme</span></div>
       <p class="muted" style="margin:0;font-size:14px">Les joueurs inscrits sur leur téléphone sont tirés au sort. Pas besoin d'attendre l'ordre du programme.</p>
-      <div class="row" style="flex-wrap:wrap"><select class="in" style="width:auto" id="mj-lancer">${MJ_SLOTS.map(s => `<option value="${s}">${esc(V.gameConfig.jeux[s]?.nom || s)}</option>`).join('')}</select>
+      <div class="row" style="flex-wrap:wrap"><select class="in" style="width:auto" id="mj-lancer">${MJ_SLOTS.map(s => `<option value="${s}">${esc(V.gameConfig.jeux[s]?.nom || s)} · ${MJ_TYPE_NOMS[V.gameConfig.jeux[s]?.type] || 'Manuel'}</option>`).join('')}</select>
         <button class="btn primary" data-mj="lancerMaintenant" ${g.finished ? 'disabled' : ''}>▶ Lancer maintenant</button></div></div>`}
     <div class="box"><h2>Programme</h2><div class="scroll"><table><thead><tr><th>Round</th><th>Heure</th><th>Mini-jeu</th><th>Joueurs</th><th>État</th></tr></thead><tbody>${rounds}</tbody></table></div></div>
     <div class="box"><div class="spread"><h2>Participants</h2><span class="muted">Chacun devrait jouer ${g.attendu.min}${g.attendu.max !== g.attendu.min ? ` à ${g.attendu.max}` : ''} rounds</span></div>
@@ -619,7 +613,7 @@ app.addEventListener('click', async e => {
   if (!confirmed(t)) return;
   const a = t.dataset.mj, n = Number(t.dataset.n);
   if (a === 'auto') return admin({ type: 'config', scope: 'jeu', path: 'programme', value: '' });
-  if (a === 'ouvrir') { await admin({ type: 'config', scope: 'jeu', path: 'decalage', value: new Date().getTimezoneOffset() }); return admin({ type: 'lancerJeu' }); }
+  if (a === 'ouvrir') return admin({ type: 'lancerJeu' });
   if (a === 'corriger') { ui.mjEdit = n; if (ui.places) delete ui.places[n]; return draw(); }
   if (a === 'remplacer') {
     const nouveau = document.getElementById(`mj-rempl-${n}-${t.dataset.i}`)?.value;
