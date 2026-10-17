@@ -76,7 +76,7 @@ export class Simulation {
       this.bots = [];
       // joueurs incarnés (test d'un mini-jeu seulement) : de vrais téléphones (/jouer?test) prennent la place de faux joueurs
       this.incarnes = String(a.games?.[0] || '').startsWith('mini:') ? Math.max(0, Math.min(10, Math.round(Number(a.moi)) || 0)) : 0;
-      const ou = this.aPart ? 'Une vraie partie est en cours : la simulation tourne à part. Ouvre l\'écran de test (adresse /ecran?test).' : 'Regarde l\'écran public !';
+      const ou = a.aPart ? 'Test indépendant de la soirée : suis-le sur l\'écran de test (adresse /ecran?test).' : this.aPart ? 'Une vraie partie est en cours : la simulation tourne à part. Ouvre l\'écran de test (adresse /ecran?test).' : 'Regarde l\'écran public !';
       if (String(a.games?.[0] || '').startsWith('mini:')) {
         const type = a.games[0].slice(5);
         if (!MINI_TESTS[type]) return { ok: false, msg: 'Mini-jeu inconnu.' };

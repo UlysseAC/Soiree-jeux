@@ -52,13 +52,13 @@ app.get('/ping', (_, res) => res.type('text').send('ok'));
 function viewFor(sock) {
   const d = sock.data;
   if (d.role === 'admin') return { ...soiree.adminView(), simulation: sim.status(), sauvegardeEnLigne: storage.remote, enLigne: !!process.env.RENDER };
-  if (d.role === 'ecran') return { ...(d.test ? sim.ecran() : soiree).screenView(), joinUrl: d.test ? `${JOIN_URL}?test` : JOIN_URL, qr: d.test ? qrTest : qr, test: !!d.test };
+  if (d.role === 'ecran') return { ...src(sock).screenView(), joinUrl: d.test ? `${JOIN_URL}?test` : JOIN_URL, qr: d.test ? qrTest : qr, test: !!d.test };
   if (d.role === 'orga') return soiree.orgaView();
-  return d.test ? { ...src(sock).playerView(d.token), simulation: sim.status() } : soiree.playerView(d.token);
+  return d.test ? { ...src(sock).playerView(d.token), simulation: testeur.status() } : soiree.playerView(d.token);
 }
 
-// Écran et téléphones de test (?test) : ils suivent la soirée de la simulation quand elle tourne à part.
-const src = sock => (sock.data.test ? sim.ecran() : soiree);
+// Écran et téléphones de test (?test) : ils suivent le testeur, ou la simulation de l'admin quand elle tourne à part.
+const src = sock => (!sock.data.test ? soiree : !testeur.running && sim.aPart ? sim.ecran() : testeur.ecran());
 
 let pending = false;
 function broadcast(persist = true) {
@@ -74,6 +74,9 @@ function broadcast(persist = true) {
 // Pendant une vraie partie, la simulation tourne dans une soirée séparée (mêmes réglages, jamais sauvegardée),
 // visible sur l'écran de test /ecran?test.
 const sim = new Simulation(soiree, () => broadcast(), () => new Soiree(restore({ config: JSON.parse(JSON.stringify(soiree.s.config)) }), { onSfx: name => io.to('ecran-test').emit('sfx', name) }));
+// Testeur des téléphones de test : complètement indépendant de la soirée (soirée vierge, aucun joueur ni réglage repris).
+const soireeVierge = () => new Soiree(restore({}), { onSfx: name => io.to('ecran-test').emit('sfx', name) });
+const testeur = new Simulation(soireeVierge(), () => broadcast(false), soireeVierge);
 
 // Une erreur imprévue ne doit jamais arrêter le serveur en pleine soirée.
 process.on('uncaughtException', e => console.error('Erreur imprévue :', e));
@@ -129,7 +132,7 @@ io.on('connection', sock => {
   };
   sock.on('jeuData', (q = {}, cb = () => {}) => {
     if (sock.data.role !== 'ecran' && sock.data.role !== 'admin') return cb(null);
-    cb((sock.data.test ? sim.ecran() : soiree).data(q));
+    cb(src(sock).data(q));
   });
   sock.on('joueur', guard('joueur', a => src(sock).player(sock.data.token, a)));
   sock.on('admin', guard('admin', a => (a.type === 'simulation' ? sim.handle(a) : soiree.admin(a))));
@@ -138,14 +141,14 @@ io.on('connection', sock => {
   sock.on('testMiniJeu', (h = {}, cb = () => {}) => {
     if (typeof cb !== 'function') return;
     if (h.password !== ADMIN_PASSWORD) return cb({ ok: false, msg: 'Mot de passe admin incorrect.' });
-    cb(h.cmd === 'stop' ? sim.handle({ cmd: 'stop' }) : sim.handle({ cmd: 'start', games: [`mini:${h.type}`], moi: 1, aPart: true }));
+    cb(h.cmd === 'stop' ? testeur.handle({ cmd: 'stop' }) : testeur.handle({ cmd: 'start', games: [`mini:${h.type}`], moi: 1, aPart: true }));
     broadcast();
   });
 });
 
 // Tick rapide : le « FEU ! » du face-à-face doit partir au bon moment.
 setInterval(() => {
-  try { const vrai = soiree.tick(), test = sim.tick(); if (vrai || test) broadcast(); } catch (e) { console.error('Erreur pendant le jeu :', e); }
+  try { const vrai = soiree.tick(), test = sim.tick() | testeur.tick(); if (vrai || test) broadcast(); } catch (e) { console.error('Erreur pendant le jeu :', e); }
 }, 40);
 // Rafraîchit aussi les vues chaque seconde (disponibilités, recharges, résultats affichés).
 setInterval(() => broadcast(false), 1000);
