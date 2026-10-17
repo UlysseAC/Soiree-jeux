@@ -788,6 +788,7 @@ function quizLire(texte) {
     const n = i + 1;
     if (b.length !== 5) return erreurs.push(`Question ${n} : il faut une question et 4 réponses (${b.length - 1} trouvée${b.length - 1 > 1 ? 's' : ''}).`);
     if (b.slice(1).filter(r => r.startsWith('*')).length !== 1) return erreurs.push(`Question ${n} : il faut exactement une bonne réponse marquée d'une étoile « * ».`);
+    if (ok.some(q => q.toLocaleLowerCase('fr') === b[0].toLocaleLowerCase('fr'))) return erreurs.push(`Question ${n} : déjà écrite plus haut, elle ne compte qu'une fois.`);
     ok.push(b[0]);
   });
   return { ok, erreurs };
@@ -800,7 +801,7 @@ function mjQuizReglages(c, s) {
     <label class="field"><span class="label">Questions · ${ok.length} question${ok.length > 1 ? 's' : ''} valide${ok.length > 1 ? 's' : ''}</span>
       <textarea class="in mono" rows="16" id="c-jeu-jeux-${s}-questions" data-cfg="jeux.${s}.questions" data-kind="area" data-scope="jeu" placeholder="Quelle est la capitale de la France ?&#10;Lyon&#10;*Paris&#10;Marseille&#10;Lille">${esc(j.questions)}</textarea>
       ${erreurs.length ? `<div style="color:var(--danger);font-size:14px">${erreurs.map(esc).join('<br>')}</div>` : '<span class="muted" style="font-size:13px">Tout est bon.</span>'}</label>
-    <div class="grid-auto">${cfgInput(`jeux.${s}.tempsQuestion`, j.tempsQuestion, 'dur', { label: 'Temps pour répondre' })}${cfgInput(`jeux.${s}.tempsRevelation`, j.tempsRevelation, 'dur', { label: 'Affichage de la bonne réponse' })}</div>
+    <div class="grid-auto">${cfgInput(`jeux.${s}.nombreQuestions`, j.nombreQuestions, 'num', { label: `Nombre de questions (sur ${ok.length}, 0 = toutes)` })}${cfgInput(`jeux.${s}.tempsQuestion`, j.tempsQuestion, 'dur', { label: 'Temps pour répondre' })}${cfgInput(`jeux.${s}.tempsRevelation`, j.tempsRevelation, 'dur', { label: 'Affichage de la bonne réponse' })}</div>
   </div>`;
 }
 function mjQuizPartie(e) {

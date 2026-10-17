@@ -121,3 +121,24 @@ test('temps écoulé : la correction passe sans réponse ; l\'admin peut passer 
   at(now());
   assert.equal(r.qz.k, 1, 'question suivante');
 });
+
+test('nombre de questions : tirées au hasard dans la liste, chacune une seule fois ; doublons écrits ignorés', () => {
+  const texte = [1, 2, 3, 4, 5, 3].map(k => `Question ${k} ?\nA\n*B\nC\nD`).join('\n\n');
+  assert.equal(parseQuestions(texte).questions.length, 5, 'la question 3 écrite deux fois compte une fois');
+  const ordres = new Set();
+  for (let i = 0; i < 20; i++) {
+    let t = Date.UTC(2026, 9, 13, 7, 0);
+    const cfg = { ...mj.defaultConfig(), joueurs: NAMES.join('\n'), programme: 'mj1' };
+    Object.assign(cfg.jeux.mj1, { type: 'quiz', questions: texte, nombreQuestions: 3 });
+    const ctx = { now: () => t, cfg, sfx: () => {} };
+    const g = mj.start(ctx);
+    NAMES.forEach((n, k) => mj.claim(ctx, g, `p${k}`, n));
+    mj.adminAction(ctx, g, { type: 'annoncer' });
+    mj.adminAction(ctx, g, { type: 'commencer' });
+    const qs = g.rounds[0].qz.questions.map(q => q.question);
+    assert.equal(qs.length, 3);
+    assert.equal(new Set(qs).size, 3, 'pas deux fois la même question');
+    ordres.add(qs.join('|'));
+  }
+  assert.ok(ordres.size > 1, 'l\'ordre et le choix changent d\'un quiz à l\'autre');
+});
