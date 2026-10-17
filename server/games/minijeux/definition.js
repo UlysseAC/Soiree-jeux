@@ -11,6 +11,7 @@ import { shuffle } from '../../util.js';
 
 export const id = 'definition';
 export const label = 'La Définition';
+export const spectateurs = true; // des spectateurs s'inscrivent pour deviner
 
 export const defaults = { mots: '', manches: 3, tempsOral: 90, tempsEcriture: 120, tempsVote: 90, tempsRevelation: 25, pointsDevineurs: 1 }; // tempsEcriture : L'Anecdote
 

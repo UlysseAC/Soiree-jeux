@@ -11,8 +11,8 @@ const codeOf = (T, label) => (label === 15 ? '9999' : `9${T === 'A' ? 1 : 2}${St
 // Tests des mini-jeux : nombre de faux joueurs et réglages courts (quelques minutes au total).
 const MINI_NOMS = { definition: 'La Définition', anecdote: "L'Anecdote", temple: 'Le Temple aztèque', mime: 'Le Mime', dragon: 'La Chasse au dragon', disparu: "Qu'est-ce qui a changé ?", quiz: 'Le Quiz' };
 const MINI_TESTS = {
-  definition: { n: 6, joueurs: 3, reglages: { mots: 'Florpidoux\nGramouille\nZétrabule\nPinchaflor\nBrouscaille\nTirlipote', manches: 1, tempsOral: 40, tempsVote: 25, tempsRevelation: 8 } },
-  anecdote: { n: 6, joueurs: 3, reglages: { manches: 1, tempsEcriture: 25, tempsVote: 25, tempsRevelation: 8 } },
+  definition: { n: 6, reglages: { mots: 'Florpidoux\nGramouille\nZétrabule\nPinchaflor\nBrouscaille\nTirlipote', manches: 1, tempsOral: 40, tempsVote: 25, tempsRevelation: 8 } },
+  anecdote: { n: 6, reglages: { manches: 1, tempsEcriture: 25, tempsVote: 25, tempsRevelation: 8 } },
   temple: { n: 5, reglages: { etapes: 3, tempsChoix: 12, tempsPiege: 5, cheminsEtapes: '2:1,3:1,4:2' } },
   mime: { n: 4, reglages: { tempsMime: 15, tempsPret: 3 } },
   dragon: { n: 4, reglages: { attaqueMin: 8, attaqueMax: 10, dureeTir: 90, pvDragon: 6 } },
@@ -225,7 +225,8 @@ export class Simulation {
     c('programme', 'mj1');
     c('jeux.mj1.type', type);
     c('jeux.mj1.nom', MINI_NOMS[type]);
-    c('jeux.mj1.joueurs', T.joueurs || 0); // 0 = tout le monde ; sinon les autres devinent
+    c('jeux.mj1.joueurs', 0);
+    c('inscriptions', 20); // inscription des spectateurs : 20 s dans un test
     for (const [k, v] of Object.entries(T.reglages)) c(`jeux.mj1.${k}`, v);
     this.admin({ type: 'lancerJeu' });
     // Chaque faux joueur prend son nom sur la liste, comme un vrai téléphone
@@ -243,6 +244,15 @@ export class Simulation {
     this.admin({ type: 'jeu', action: { type: 'annoncer' } });
     this.step = `${MINI_NOMS[type]} : partie en cours`;
     const r = this.so.sess.game?.rounds?.[0];
+    // « Incarné 1 » joue toujours : il prend la place d'un faux joueur tiré au sort
+    if (incarnes.length && r?.joueurs && !r.joueurs.includes(incarnes[0])) {
+      const bot = [...r.joueurs].reverse().find(n => this.bots.some(b => b.name === n));
+      if (bot) {
+        r.joueurs = r.joueurs.map(n => (n === bot ? incarnes[0] : n));
+        r.equipes = r.equipes?.map(t => t.map(n => (n === bot ? incarnes[0] : n)));
+        this.broadcast();
+      }
+    }
     const fini = () => r?.status === 'fini';
     // les faux joueurs jouent jusqu'à la fin du round, puis on attend la révélation
     await Promise.all([this.play((b, g) => this.miniTurn(type, b, g), fini), this.wait(240000, fini)]);
@@ -256,6 +266,7 @@ export class Simulation {
   miniTurn(type, b, g) {
     const now = Date.now(), e = g?.etat, m = g?.monTour;
     if (m?.status === 'annonce' && !m.compris?.includes(b.name)) return this.act(b, { type: 'compris' });
+    if (!m && g?.actif?.status === 'annonce' && g.actif.inscrits && !g.inscrit) return this.act(b, { type: 'inscrire' }); // spectateur : s'inscrit pour deviner
     if (!e) return;
     const game = this.so.sess.game, round = game?.rounds?.find(x => x.status === 'jeu');
     const reponse = (a) => this.act(b, a);

@@ -49,7 +49,7 @@ test('décor : choisi en fin de ligne, sinon deviné d\'après le nom', () => {
 test('le jeu commence après « J\'ai compris » : chacun pour soi même si un format d\'équipes traîne dans les réglages', () => {
   const { r } = setup();
   assert.equal(r.status, 'jeu');
-  assert.equal(r.joueurs.length, 3);
+  assert.equal(r.joueurs.length, 4, 'toujours 4 joueurs');
   assert.equal(r.format, null);
   assert.equal(r.tp.phase, 'choix');
   assert.equal(r.tp.cur.chemins.length, 2);
@@ -74,11 +74,11 @@ test('personne ne voit le piège ni le choix des autres avant la révélation', 
 
 test('une partie : le piège fait perdre une vie, à 0 on est éliminé, le plus de vies au temple gagne', () => {
   const { g, ctx, r, pid, at, now } = setup({ etapes: 3, vies: 2 });
-  const [a, b, c] = r.joueurs;
+  const [a, b, c, d] = r.joueurs;
   assert.equal(mj.playerAction(ctx, g, pid(NAMES.find(n => !r.joueurs.includes(n))), { type: 'choisir', chemin: 0 }).ok, false, 'un spectateur ne joue pas');
-  etape(ctx, g, r, pid, [b, c]);
+  etape(ctx, g, r, pid, [b, c, d]);
   assert.equal(r.tp.phase, 'resultat', 'tout le monde a choisi : révélation');
-  assert.deepEqual(r.tp.vies, { [a]: 2, [b]: 1, [c]: 1 });
+  assert.deepEqual(r.tp.vies, { [a]: 2, [b]: 1, [c]: 1, [d]: 1 });
   assert.equal(mj.screenView(ctx, g).etat.joueurs.find(p => p.nom === b).perdu, true);
   assert.equal(mj.playerAction(ctx, g, pid(a), { type: 'choisir', chemin: 0 }).ok, false, 'trop tard');
   at(now() + 5e3);
@@ -93,10 +93,11 @@ test('une partie : le piège fait perdre une vie, à 0 on est éliminé, le plus
   assert.equal(r.tp.phase, 'arrivee');
   at(now() + 5e3);
   assert.equal(r.status, 'fini');
-  // a : 1 vie, b : 1 vie (ex æquo), c : éliminé
+  // a, b, d : 1 vie (ex æquo), c : éliminé
   assert.equal(r.points[a].place, 1);
   assert.equal(r.points[b].place, 1);
-  assert.equal(r.points[c].place, 3);
+  assert.equal(r.points[d].place, 1);
+  assert.equal(r.points[c].place, 4);
 });
 
 test('sans choix à temps, le hasard choisit ; tous éliminés : on va directement au temple', () => {
@@ -105,7 +106,7 @@ test('sans choix à temps, le hasard choisit ; tous éliminés : on va directeme
   while (r.status === 'jeu' && n++ < 50) at(now() + 21e3);
   assert.equal(r.status, 'fini');
   assert.ok(r.tp.passees.every(e => Object.keys(e.choix).length > 0));
-  assert.ok(r.tp.passees[0].auto.length === 3, 'personne n\'a choisi : 3 choix au hasard');
+  assert.ok(r.tp.passees[0].auto.length === 4, 'personne n\'a choisi : 4 choix au hasard');
   const vivants = r.joueurs.filter(p => r.tp.vies[p] > 0);
   if (!vivants.length) assert.ok(r.tp.etape <= 5);
   else assert.equal(r.tp.etape, 5);

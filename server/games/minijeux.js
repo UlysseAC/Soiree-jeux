@@ -35,6 +35,10 @@ export function defaultConfig() {
     annonce: 300, // les joueurs sont tirés au sort et annoncés X secondes avant le round
     resultats: 45, // durée d'affichage des résultats d'un round sur l'écran
     rounds: 12,
+    salves: '', // rounds par salve, ex. « 3, 3 » ; vide = un round toutes les « intervalle » minutes
+    battement: 2, // salves : minutes entre la fin d'un round et le tirage du suivant
+    pause: 20, // salves : minutes de pause entre deux salves
+    inscriptions: 120, // secondes pour que les spectateurs s'inscrivent après le tirage (La Définition, L'Anecdote)
     roundsParJoueur: 3, // rounds au plus par joueur, sans le quiz ; le détective égalise à ce nombre
     programme: [...SLOTS, ...SLOTS].join(','), // mini-jeu de chaque round, dans l'ordre
     jeux: Object.fromEntries(SLOTS.map((s, i) => [s, {
@@ -76,8 +80,12 @@ export function roster(cfg) {
 const activeSlots = cfg => { const a = SLOTS.filter(s => cfg.jeux[s]?.actif); return a.length ? a : SLOTS; };
 
 // Programme des rounds : celui saisi par l'admin, complété en boucle avec les mini-jeux utilisés.
+// Salves : « 3, 3 » -> [3, 3]. Vide ou invalide : pas de salves.
+export const salvesOf = cfg => String(cfg.salves || '').split(/[,;\s]+/).map(x => Math.round(Number(x))).filter(x => x > 0).slice(0, 20);
+
 export function program(cfg) {
-  const n = Math.max(1, Math.min(MAX_ROUNDS, Math.round(Number(cfg.rounds) || 1)));
+  const sv = salvesOf(cfg);
+  const n = Math.max(1, Math.min(MAX_ROUNDS, sv.length ? sv.reduce((a, b) => a + b, 0) : Math.round(Number(cfg.rounds) || 1)));
   const chosen = String(cfg.programme || '').split(',').map(s => s.trim()).filter(s => SLOTS.includes(s));
   const fill = activeSlots(cfg);
   return Array.from({ length: n }, (_, i) => chosen[i] ?? fill[i % fill.length]);
@@ -95,8 +103,11 @@ export function parseFormat(f) {
 export const formatLabel = sizes => (!sizes ? 'Chacun pour soi' : sizes.every(n => n === 1) ? `Chacun pour soi (${sizes.length})` : sizes.join(' contre '));
 export const TEAM_NAMES = ['Rouges', 'Bleus', 'Verts', 'Jaunes', 'Violets', 'Orange', 'Roses', 'Gris'];
 
+// Ces mini-jeux se jouent toujours à 4 (le détective et le quiz non).
+export const A_QUATRE = ['definition', 'anecdote', 'temple', 'mime', 'dragon'];
 const sizeOf = (cfg, slot, total) => {
   if (cfg.jeux[slot]?.type === 'quiz') return total; // le quiz : tout le monde joue
+  if (A_QUATRE.includes(cfg.jeux[slot]?.type)) return Math.min(4, total);
   const sizes = formatOf(cfg, slot);
   if (sizes) return Math.min(sizes.reduce((a, b) => a + b, 0), total);
   const j = Math.round(Number(cfg.jeux[slot]?.joueurs) || 0);
@@ -111,6 +122,21 @@ export function schedule(cfg, now, count) {
   return { at: Array.from({ length: count }, (_, k) => Math.round(now + premier + k * spacing)), spacing };
 }
 
+// Salves : le round d'indice i ouvre-t-il une nouvelle salve (sauf la première) ?
+const debutSalve = (cfg, i) => { let c = 0; for (const x of salvesOf(cfg)) { c += x; if (i === c) return true; if (i < c) return false; } return false; };
+// Salves : heures prévues des rounds à venir, à partir de la fin du dernier round (durée indicative de chaque mini-jeu).
+// premierEcart : écart avant le premier round à planifier (en ms), au lieu du battement ou de la pause.
+function planSalves(cfg, g, depuis, premierEcart = null) {
+  let t = depuis;
+  for (const [i, r] of g.rounds.entries()) {
+    if (r.status !== 'prevu' || r.hors) continue;
+    t += premierEcart ?? (debutSalve(cfg, i) ? Number(cfg.pause) || 0 : Number(cfg.battement) || 0) * 60e3;
+    premierEcart = null;
+    r.at = Math.round(t);
+    t += (Number(cfg.jeux[r.jeu]?.duree) || 600) * 1000 + (Number(cfg.inscriptions) || 0) * 1000;
+  }
+}
+
 const activeRound = g => g.rounds.find(r => r.status === 'annonce' || r.status === 'jeu');
 const nextRound = g => g.rounds.find(r => r.status === 'prevu');
 const startAtOf = (cfg, r) => Math.max(r.at, r.annonceAt + Math.min(cfg.annonce * 1000, 120e3));
@@ -120,7 +146,7 @@ export function start(ctx) {
   const now = ctx.now(), cfg = ctx.cfg;
   const prog = program(cfg);
   const { at, spacing } = schedule(cfg, now, prog.length);
-  return {
+  const g = {
     startedAt: now,
     spacing,
     claims: {}, // nom (normalisé) -> pid du téléphone
@@ -132,6 +158,8 @@ export function start(ctx) {
     scores: {}, // nom normalisé -> points
     finished: false,
   };
+  if (salvesOf(cfg).length) planSalves(cfg, g, now, Math.max(0, Number(cfg.premier) || 0) * 60e3);
+  return g;
 }
 
 // ---------- tirage au sort ----------
@@ -232,8 +260,8 @@ function announce(ctx, g, r) {
   if (r.type === 'quiz') r.joueurs = connectes; // le quiz : tout le monde joue
   else if (egal) r.joueurs = libres;
   else r.joueurs = draw(g, libres, sizeOf(cfg, r.jeu, libres.length), prevPlayers(g, r));
-  // Le Mime se joue toujours à 4 : s'il manque des joueurs sous la limite, on complète avec les autres connectés
-  if (r.type === 'mime' && r.joueurs.length < 4) r.joueurs.push(...draw(g, connectes.filter(n => !r.joueurs.includes(n)), 4 - r.joueurs.length, prevPlayers(g, r)));
+  // Les jeux à 4 : s'il manque des joueurs sous la limite, on complète avec les autres connectés
+  if (A_QUATRE.includes(r.type) && r.joueurs.length < 4) r.joueurs.push(...draw(g, connectes.filter(n => !r.joueurs.includes(n)), 4 - r.joueurs.length, prevPlayers(g, r)));
   r.multi = egal ? Object.fromEntries(libres.map(n => [n, max - joues(g, n, true)])) : null;
   if (!r.joueurs.length) { r.status = 'saute'; r.finAt = ctx.now(); return; } // personne à faire jouer : round sauté
   r.format = egal ? null : formatOf(cfg, r.jeu);
@@ -241,6 +269,11 @@ function announce(ctx, g, r) {
   r.compris = [];
   r.status = 'annonce';
   r.annonceAt = ctx.now();
+  // Jeux avec spectateurs (ils devinent) : ils s'inscrivent pendant 2 min après le tirage, puis le jeu commence.
+  if (TYPES[r.type]?.spectateurs) {
+    r.inscrits = [];
+    r.inscriptionsFin = r.annonceAt + r.joueurs.length * TIRAGE_PAS + Math.max(10, Number(cfg.inscriptions) || 120) * 1000;
+  }
   ctx.sfx?.('annonce');
 }
 
@@ -252,8 +285,9 @@ function begin(ctx, g, r) {
 }
 
 // Ceux qui ne jouent pas ce round et ont un téléphone connecté (ils devinent, votent…).
+// Jeux à inscription (r.inscrits) : seulement les spectateurs inscrits.
 export function spectateurs(ctx, g, r) {
-  return roster(ctx.cfg).filter(n => g.claims[key(n)] && !r.joueurs.some(p => key(p) === key(n)));
+  return roster(ctx.cfg).filter(n => g.claims[key(n)] && !r.joueurs.some(p => key(p) === key(n)) && (!r.inscrits || r.inscrits.some(p => key(p) === key(n))));
 }
 
 // Places (par équipe) -> points de chaque joueur, ajoutés au classement. Sert aussi à corriger un round terminé.
@@ -304,6 +338,8 @@ export function tick(ctx, g) {
       }
       return res.changed;
     }
+    // fin des inscriptions des spectateurs : le jeu commence
+    if (active.status === 'annonce' && active.inscrits && now >= active.inscriptionsFin) { begin(ctx, g, active); return true; }
     return false;
   }
   // On laisse les résultats du round précédent à l'écran avant d'annoncer le suivant.
@@ -315,6 +351,13 @@ export function tick(ctx, g) {
     g.finishedAt = now;
     ctx.sfx?.('victoire');
     return true;
+  }
+  // Salves : le tirage a lieu à l'heure prévue du round, recalculée à la fin de chaque round.
+  if (salvesOf(cfg).length && !next.hors) {
+    const fin = Math.max(0, ...g.rounds.filter(r => r.status === 'fini' || r.status === 'saute').map(r => r.finAt || 0));
+    if (fin && g.planDepuis !== fin) { planSalves(cfg, g, fin); g.planDepuis = fin; }
+    if (now >= next.at) { announce(ctx, g, next); return true; }
+    return false;
   }
   if (now >= next.at - cfg.annonce * 1000) { announce(ctx, g, next); return true; }
   return false;
@@ -349,8 +392,16 @@ export function playerAction(ctx, g, pid, a) {
     if (!act || act.status !== 'annonce' || !act.joueurs.includes(nom)) return err("Ce n'est pas ton tour.");
     act.compris ??= [];
     if (!act.compris.includes(nom)) act.compris.push(nom);
+    if (act.inscrits) return ok('Compris ! Le jeu commence à la fin des inscriptions des spectateurs.');
     if (act.joueurs.every(p => act.compris.includes(p))) { begin(ctx, g, act); return ok("Tout le monde a compris : c'est parti !"); }
     return ok(`Compris ! On attend les autres (${act.compris.length} / ${act.joueurs.length}).`);
+  }
+  if (a.type === 'inscrire') {
+    if (!act?.inscrits || act.status !== 'annonce') return err('Pas d\'inscription en cours.');
+    if (act.joueurs.includes(nom)) return err('Tu joues ce round.');
+    if (ctx.now() >= act.inscriptionsFin) return err('Les inscriptions sont finies.');
+    if (!act.inscrits.includes(nom)) act.inscrits.push(nom);
+    return ok('Inscrit ! Tu devineras pendant ce round.');
   }
   const T = act && TYPES[act.type];
   if (T && act.status === 'jeu') return T.playerAction(ctx, g, act, nom, a, ctx.cfg.jeux[act.jeu], spectateurs(ctx, g, act));
@@ -530,6 +581,7 @@ function roundView(ctx, r, withRules = false) {
     startAt: r.status === 'annonce' ? startAtOf(ctx.cfg, r) : r.debutAt || r.at, annonceAt: r.annonceAt || 0,
     taille: sizeOf(ctx.cfg, r.jeu, roster(ctx.cfg).length), duree: j.duree, debutAt: r.debutAt, finAt: r.finAt,
     type: r.type || j.type || 'manuel', compris: r.compris || [],
+    inscrits: r.inscrits || null, inscriptionsFin: r.inscriptionsFin || 0,
     points: r.points,
     bonus: r.bonus || null,
     devineurs: r.def?.devineurs || null,
@@ -622,6 +674,8 @@ export function playerView(ctx, g, pid) {
     finished: g.finished,
     podium: g.finished ? rows.slice(0, 3) : null,
     annonce: ctx.cfg.annonce,
+    salves: salvesOf(ctx.cfg).length > 0,
+    inscrit: !!actif?.inscrits?.includes(nom),
     etat: actif?.status === 'jeu' ? etat(ctx, g, inRound(actif) ? 'joueur' : 'spectateur', nom) : null,
   };
 }

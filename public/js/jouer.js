@@ -642,11 +642,12 @@ function miniJeux() {
     h += `<div class="card turn center"><span class="label">Round ${t.n} · ${esc(t.nom)}</span><div class="huge">C'est ton tour !</div>
       <p style="font-size:18px">Viens devant l'écran et lis les règles.</p><p class="muted">${esc(t.format)}</p><p>${mjAvecQui(t)}</p></div>`;
     if (t.regles) h += `<div class="card"><span class="label">Règles</span><p style="white-space:pre-wrap">${esc(t.regles)}</p></div>`;
-    h += ok ? `<div class="card center"><p style="font-size:18px">✓ Compris !</p><p class="muted">On attend les autres : ${t.compris.length} / ${t.joueurs.length}</p></div>`
-      : `<button class="btn primary big" data-act="mjCompris">J'ai compris</button><p class="muted center" style="margin:0">Le jeu commence quand tous les joueurs ont appuyé.</p>`;
+    const fin = t.inscrits ? `Le jeu commence à la fin des inscriptions des spectateurs, dans <strong class="mono" data-until="${t.inscriptionsFin}"></strong>.` : '';
+    h += ok ? `<div class="card center"><p style="font-size:18px">✓ Compris !</p><p class="muted">${fin || `On attend les autres : ${t.compris.length} / ${t.joueurs.length}`}</p></div>`
+      : `<button class="btn primary big" data-act="mjCompris">J'ai compris</button><p class="muted center" style="margin:0">${fin || 'Le jeu commence quand tous les joueurs ont appuyé.'}</p>`;
   } else if (t && (g.etat?.type === 'definition' || g.etat?.type === 'anecdote')) {
     h += mjDefinition(g.etat, t);
-  } else if (g.etat?.type === 'definition' || g.etat?.type === 'anecdote') {
+  } else if ((g.etat?.type === 'definition' || g.etat?.type === 'anecdote') && (!g.actif?.inscrits || g.inscrit)) {
     h += mjDefinition(g.etat);
   } else if (g.etat?.type === 'temple') {
     h += mjTemple(g.etat);
@@ -663,9 +664,15 @@ function miniJeux() {
     if (t.regles) h += `<div class="card"><span class="label">Règles</span><p style="white-space:pre-wrap">${esc(t.regles)}</p></div>`;
   } else {
     if (g.actif?.tirage) h += `<div class="card turn center"><span class="label">Round ${g.actif.n} · ${esc(g.actif.nom)}</span><div class="huge" style="font-size:40px">🎰</div><p style="font-size:20px">Tirage au sort en cours : regarde l'écran !</p></div>`;
+    // jeux avec spectateurs : 2 min pour s'inscrire après le tirage
+    else if (g.actif?.status === 'annonce' && g.actif.inscrits) h += `<div class="card${g.inscrit ? '' : ' turn'} center"><span class="label">Round ${g.actif.n} · ${esc(g.actif.nom)}</span>
+      <p>${g.actif.joueurs.map(esc).join(', ')} jouent.</p>
+      ${g.inscrit ? '<p style="font-size:20px">✓ Inscrit : tu devineras pendant ce round !</p>' : '<p style="font-size:18px">Inscris-toi pour deviner et gagner un bonus.</p><button class="btn primary big" data-act="mjInscrire">Je m\'inscris pour deviner</button>'}
+      <p class="muted">Fin des inscriptions dans <strong class="mono" data-until="${g.actif.inscriptionsFin}"></strong> · ${g.actif.inscrits.length} inscrit${g.actif.inscrits.length > 1 ? 's' : ''}</p></div>`;
+    else if (g.actif?.inscrits && !g.inscrit && g.actif.status === 'jeu') h += `<div class="card"><span class="label">Round ${g.actif.n} en cours · ${esc(g.actif.nom)}</span><p>Tu n'es pas inscrit pour deviner ce round. Regarde l'écran !</p></div>`;
     else if (g.actif) h += `<div class="card"><span class="label">Round ${g.actif.n} en cours · ${esc(g.actif.nom)}</span><p>${g.actif.joueurs.map(esc).join(', ')} ${g.actif.joueurs.length > 1 ? 'jouent' : 'joue'}. Regarde l'écran !</p></div>`;
     if (g.prochain) h += `<div class="card"><span class="label">Prochain round</span><p style="font-size:20px"><strong class="mono">${hm(g.prochain.at)}</strong> · ${esc(g.prochain.nom)}</p>
-      <p class="muted">${g.prochain.taille} joueur${g.prochain.taille > 1 ? 's' : ''} tirés au sort ${Math.round(g.annonce / 60)} min avant. Garde cette page ouverte : ton téléphone vibrera si c'est toi.</p></div>`;
+      <p class="muted">${g.prochain.taille} joueur${g.prochain.taille > 1 ? 's' : ''} tirés au sort ${g.salves ? 'à cette heure' : `${Math.round(g.annonce / 60)} min avant`}. Garde cette page ouverte : ton téléphone vibrera si c'est toi.</p></div>`;
   }
   if (g.devine && !t) h += `<div class="card${g.devine.bonus ? ' accent' : ''}"><span class="label">Round ${g.devine.n} · tu devinais</span><p>${g.devine.bons} bonne${g.devine.bons > 1 ? 's' : ''} réponse${g.devine.bons > 1 ? 's' : ''} · ${g.devine.rang}<sup>${g.devine.rang === 1 ? 'er' : 'e'}</sup> sur ${g.devine.sur}${g.devine.bonus ? `, <strong>+${g.devine.bonus} pt${g.devine.bonus > 1 ? 's' : ''}</strong> 🎉` : ''}</p></div>`;
   if (g.dernier && !t) h += `<div class="card"><span class="label">Ton dernier round</span><p>Round ${g.dernier.n} · ${esc(g.dernier.nom)} : ${g.dernier.place === 1 ? '🥇 ' : ''}${g.dernier.place}<sup>e</sup>, +${g.dernier.points} pts</p></div>`;
@@ -775,6 +782,7 @@ app.addEventListener('click', e => {
   }
   const a = t.dataset.act;
   if (a === 'mjCompris') { act({ type: 'compris' }); return; }
+  if (a === 'mjInscrire') { act({ type: 'inscrire' }); return; }
   if (a === 'meRepondre') { act({ type: 'repondre', choix: Number(t.dataset.choix) }); return; }
   if (a === 'quizRepondre') { act({ type: 'repondre', choix: Number(t.dataset.choix) }); return; }
   if (a === 'drViser') { act({ type: 'viser' }); return; }

@@ -307,8 +307,12 @@ function mjRoster(c) {
   }
   return out;
 }
+// Salves : « 3, 3 » -> [3, 3] (comme côté serveur).
+const mjSalves = c => String(c.salves || '').split(/[,;\s]+/).map(x => Math.round(Number(x))).filter(x => x > 0).slice(0, 20);
+const MJ_A_QUATRE = ['definition', 'anecdote', 'temple', 'mime', 'dragon']; // toujours 4 joueurs
 function mjProgram(c) {
-  const n = Math.max(1, Math.min(60, Math.round(Number(c.rounds) || 1)));
+  const sv = mjSalves(c);
+  const n = Math.max(1, Math.min(60, sv.length ? sv.reduce((a, b) => a + b, 0) : Math.round(Number(c.rounds) || 1)));
   const chosen = String(c.programme || '').split(',').map(s => s.trim()).filter(s => MJ_SLOTS.includes(s));
   const act = MJ_SLOTS.filter(s => c.jeux[s]?.actif);
   const fill = act.length ? act : MJ_SLOTS;
@@ -326,6 +330,7 @@ const MJ_TEAMS = ['Rouges', 'Bleus', 'Verts', 'Jaunes', 'Violets', 'Orange', 'Ro
 // Format réel d'un mini-jeu (comme côté serveur) : Le Mime = des duos, les autres jeux automatiques = chacun pour soi.
 const mjFmt = (c, s) => { const j = c.jeux[s] || {}; return j.type === 'dragon' ? (j.equipesDragon === '2v2' ? [2, 2] : [1, 1, 1, 1]) : j.type === 'mime' ? [2, 2] : MJ_AUTO.includes(j.type) ? null : mjFormat(j.format); };
 const mjSize = (c, s, total) => {
+  if (MJ_A_QUATRE.includes(c.jeux[s]?.type)) return Math.min(4, total);
   const f = mjFmt(c, s);
   if (f) return Math.min(f.reduce((a, b) => a + b, 0), total);
   return Number(c.jeux[s]?.joueurs) > 0 ? Math.min(Number(c.jeux[s].joueurs), total) : total;
@@ -335,15 +340,17 @@ function reglagesMiniJeux(c) {
   const names = mjRoster(c), prog = mjProgram(c);
   const slots = prog.reduce((t, s) => t + mjSize(c, s, names.length), 0);
   const per = names.length ? slots / names.length : 0;
-  const at = i => `+${Math.round(Number(c.premier) + i * Number(c.intervalle))} min`;
+  const sv = mjSalves(c);
+  const salveDe = i => { let k = 0, n = 0; for (const x of sv) { n += x; k++; if (i < n) return k; } return k; };
+  const at = i => (sv.length ? (i === 0 ? `+${Math.round(Number(c.premier))} min` : `Salve ${salveDe(i)}`) : `+${Math.round(Number(c.premier) + i * Number(c.intervalle))} min`);
   const rows = prog.map((s, i) => `<tr><td class="mono">${i + 1}</td><td class="mono">${at(i)}</td>
     <td><select class="in" data-mj-prog="${i}" style="width:auto;min-width:200px">${MJ_SLOTS.map(x => `<option value="${x}" ${x === s ? 'selected' : ''}>${esc(c.jeux[x].nom)}${c.jeux[x].actif ? '' : ' (non utilisé)'}</option>`).join('')}</select></td>
-    <td>${mjFmt(c, s) ? mjFormatLabel(mjFmt(c, s)) : Number(c.jeux[s].joueurs) > 0 ? `${mjSize(c, s, names.length)} joueur${mjSize(c, s, names.length) > 1 ? 's' : ''}` : 'Tout le monde'}</td></tr>`).join('');
+    <td>${MJ_A_QUATRE.includes(c.jeux[s].type) ? (c.jeux[s].type === 'mime' ? '2 contre 2' : '4 joueurs') : mjFmt(c, s) ? mjFormatLabel(mjFmt(c, s)) : Number(c.jeux[s].joueurs) > 0 ? `${mjSize(c, s, names.length)} joueur${mjSize(c, s, names.length) > 1 ? 's' : ''}` : 'Tout le monde'}</td></tr>`).join('');
   const jeux = MJ_SLOTS.map((s, i) => `<div class="box" style="background:var(--ink)">
       <div class="spread"><h3 style="margin:0">Mini-jeu ${i + 1}</h3><label class="row" style="gap:8px">${cfgInput(`jeux.${s}.actif`, c.jeux[s].actif, 'bool')}<span>Utilisé pour « remplir automatiquement »</span></label></div>
       <div class="grid-auto">${cfgInput(`jeux.${s}.nom`, c.jeux[s].nom, 'text', { label: 'Nom' })}
         ${MJ_AUTO.includes(c.jeux[s].type) ? '' : `<label class="field"><span class="label">Format</span><input class="in" list="mj-formats" id="c-jeu-jeux-${s}-format" data-cfg="jeux.${s}.format" data-kind="text" data-scope="jeu" value="${esc(c.jeux[s].format)}" placeholder="vide = chacun pour soi"><span class="muted" style="font-size:13px">${c.jeux[s].format && !mjFormat(c.jeux[s].format) ? '<span style="color:var(--danger)">Format non reconnu : écris par exemple 2v2, 3v1 ou 1v1v1v1.</span>' : mjFormatLabel(mjFormat(c.jeux[s].format))}</span></label>`}
-        ${mjFmt(c, s) ? '' : cfgInput(`jeux.${s}.joueurs`, c.jeux[s].joueurs, 'num', { label: 'Joueurs par round (0 = tout le monde)' })}
+        ${mjFmt(c, s) || MJ_A_QUATRE.includes(c.jeux[s].type) ? '' : cfgInput(`jeux.${s}.joueurs`, c.jeux[s].joueurs, 'num', { label: 'Joueurs par round (0 = tout le monde)' })}
         ${cfgInput(`jeux.${s}.duree`, c.jeux[s].duree, 'dur', { label: 'Durée indicative (min:s)' })}${c.jeux[s].type === 'quiz' ? '' : cfgInput(`jeux.${s}.points`, c.jeux[s].points, 'text', { label: 'Points par place (1er, 2e, 3e…)', ph: '10, 6, 3, 1' })}</div>
       <div class="grid-auto"><label class="field"><span class="label">Type de mini-jeu</span><select class="in" id="c-jeu-jeux-${s}-type" data-cfg="jeux.${s}.type" data-kind="text" data-scope="jeu">${[['manuel', 'Manuel (tu saisis les places)'], ['definition', 'La Définition'], ['temple', 'Le Temple aztèque'], ['mime', 'Le Mime (en duos)'], ['dragon', 'La Chasse au dragon'], ['anecdote', 'L\'Anecdote'], ['disparu', 'Qu\'est-ce qui a changé ? (mémoire)'], ['quiz', 'Le Quiz (tout le monde joue)']].map(([v, l]) => `<option value="${v}" ${c.jeux[s].type === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
       ${c.jeux[s].type === 'definition' ? mjDefinitionReglages(c, s) : c.jeux[s].type === 'temple' ? mjTempleReglages(c, s) : c.jeux[s].type === 'mime' ? mjMimeReglages(c, s) : c.jeux[s].type === 'dragon' ? mjDragonReglages(c, s) : c.jeux[s].type === 'anecdote' ? mjAnecdoteReglages(c, s) : c.jeux[s].type === 'disparu' ? mjDisparuReglages(c, s) : c.jeux[s].type === 'quiz' ? mjQuizReglages(c, s) : ''}
@@ -356,9 +363,11 @@ function reglagesMiniJeux(c) {
       <textarea class="in" rows="10" id="c-jeu-joueurs" data-cfg="joueurs" data-kind="area" data-scope="jeu" placeholder="Léa&#10;Hugo&#10;Inès…">${esc(c.joueurs)}</textarea>
     </div>
     <div class="box"><h2>Journée</h2>
-      <div class="grid-auto">${cfgInput('premier', c.premier, 'num', { label: 'Premier round, X min après l\'ouverture' })}${cfgInput('intervalle', c.intervalle, 'num', { label: 'Puis un round toutes les (min)' })}${cfgInput('rounds', c.rounds, 'num', { label: 'Nombre de rounds' })}${cfgInput('roundsParJoueur', c.roundsParJoueur, 'num', { label: 'Rounds au plus par joueur (sans le quiz)' })}
-        ${cfgInput('annonce', c.annonce, 'dur', { label: 'Annonce des joueurs avant le round' })}${cfgInput('resultats', c.resultats, 'dur', { label: 'Résultats affichés pendant' })}</div>
-      <p style="margin:0">→ Premier round <strong>${esc(c.premier)} min</strong> après l'ouverture, puis un toutes les <strong>${esc(c.intervalle)} min</strong>.${names.length ? ` Chaque participant jouera environ <strong>${Math.floor(per)}${Math.ceil(per) !== Math.floor(per) ? ` à ${Math.ceil(per)}` : ''} round${Math.ceil(per) > 1 ? 's' : ''}</strong>.` : ' Ajoute des participants pour voir combien de rounds chacun jouera.'}</p>
+      <div class="grid-auto">${cfgInput('premier', c.premier, 'num', { label: 'Premier round, X min après l\'ouverture' })}${sv.length ? '' : cfgInput('intervalle', c.intervalle, 'num', { label: 'Puis un round toutes les (min)' }) + cfgInput('rounds', c.rounds, 'num', { label: 'Nombre de rounds' })}${cfgInput('roundsParJoueur', c.roundsParJoueur, 'num', { label: 'Rounds au plus par joueur (sans le quiz)' })}
+        ${cfgInput('salves', c.salves ?? '', 'text', { label: 'Salves (rounds par salve, ex. 3, 3 ; vide = sans salves)', ph: '3, 3' })}${sv.length ? cfgInput('battement', c.battement, 'num', { label: 'Battement entre deux rounds (min)' }) + cfgInput('pause', c.pause, 'num', { label: 'Pause entre deux salves (min)' }) : ''}
+        ${cfgInput('inscriptions', c.inscriptions, 'dur', { label: 'Inscription des spectateurs après le tirage' })}
+        ${sv.length ? '' : cfgInput('annonce', c.annonce, 'dur', { label: 'Annonce des joueurs avant le round' })}${cfgInput('resultats', c.resultats, 'dur', { label: 'Résultats affichés pendant' })}</div>
+      <p style="margin:0">→ Premier round <strong>${esc(c.premier)} min</strong> après l'ouverture, ${sv.length ? `puis ${sv.length} salve${sv.length > 1 ? 's' : ''} (${sv.join(' + ')} rounds) : <strong>${esc(c.battement)} min</strong> entre la fin d'un round et le tirage du suivant, <strong>${esc(c.pause)} min</strong> de pause entre deux salves.` : `puis un toutes les <strong>${esc(c.intervalle)} min</strong>.`}${names.length ? ` Chaque participant jouera environ <strong>${Math.floor(per)}${Math.ceil(per) !== Math.floor(per) ? ` à ${Math.ceil(per)}` : ''} round${Math.ceil(per) > 1 ? 's' : ''}</strong>.` : ' Ajoute des participants pour voir combien de rounds chacun jouera.'}</p>
     </div>
     <div class="box"><div class="spread"><h2>Programme des rounds</h2><button class="btn sm" data-mj="auto" data-confirm="Remplacer le programme par les mini-jeux utilisés, en boucle ?">Remplir automatiquement</button></div>
       <div class="scroll"><table><thead><tr><th>Round</th><th>Heure prévue</th><th>Mini-jeu</th><th>Joueurs</th></tr></thead><tbody>${rows}</tbody></table></div>

@@ -392,7 +392,8 @@ function minijeux(g) {
     main = `<div class="mj-kicker">Round ${a.n} · ${esc(a.format)} · ${tirageFini ? 'venez devant l\'écran !' : 'tirage au sort…'}</div><div class="mj-round">${esc(a.nom)}</div>
       ${mjPlayers(a, tir)}
       ${a.regles ? `<div class="mj-rules mj-rules-page">${esc(a.regles)}</div>` : ''}
-      <div class="sc-sub">Le jeu commence quand chaque joueur a appuyé sur <strong>« J'ai compris »</strong> : ${a.compris.length} / ${a.joueurs.length}</div>
+      ${a.inscrits ? `<div class="sc-sub">Spectateurs : <strong>inscrivez-vous sur votre téléphone</strong> pour deviner ! Le jeu commence dans <strong class="mono" data-until="${a.inscriptionsFin}"></strong> · ${a.inscrits.length} inscrit${a.inscrits.length > 1 ? 's' : ''}</div>`
+        : `<div class="sc-sub">Le jeu commence quand chaque joueur a appuyé sur <strong>« J'ai compris »</strong> : ${a.compris.length} / ${a.joueurs.length}</div>`}
       ${tirageFini ? mjCompris(a) : ''}`;
   } else if (a && a.status === 'jeu' && (g.etat?.type === 'definition' || g.etat?.type === 'anecdote')) {
     main = mjDefinition(a, g.etat);

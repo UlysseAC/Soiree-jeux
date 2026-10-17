@@ -7,4 +7,5 @@ export { start, tick, playerAction, adminAction, view, renommer } from './defini
 
 export const id = 'anecdote';
 export const label = "L'Anecdote";
+export const spectateurs = true; // des spectateurs s'inscrivent pour deviner
 export const defaults = { manches: 3, tempsEcriture: 120, tempsVote: 90, tempsRevelation: 25, pointsDevineurs: 1 };
