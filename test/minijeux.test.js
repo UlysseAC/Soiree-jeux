@@ -134,6 +134,7 @@ test('prendre son nom sur un téléphone : un nom = un téléphone', () => {
 test('le téléphone sait quand c\'est son tour', () => {
   const { g, ctx, at } = setup();
   at(clock(10) - 200e3);
+  at(ctx.now() + 20e3); // les téléphones sont prévenus à la fin du tirage au sort de l'écran
   const [p] = g.rounds[0].joueurs;
   mj.claim(ctx, g, 'moi', p);
   const v = mj.playerView(ctx, g, 'moi');
@@ -231,6 +232,7 @@ test('2v2 : remplacer garde l\'équipe, ajouter va dans la plus petite équipe',
 test('le téléphone connaît ses coéquipiers et ses adversaires', () => {
   const { g, ctx, at } = setup(c => { c.jeux.mj1.format = '3v1'; return c; });
   at(clock(10) - 200e3);
+  at(ctx.now() + 20e3); // fin du tirage au sort
   const r = g.rounds[0];
   const seul = r.equipes[1][0];
   mj.claim(ctx, g, 'moi', seul);

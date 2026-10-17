@@ -660,7 +660,8 @@ function miniJeux() {
     h += `<div class="card turn center"><span class="label">Round ${t.n} · ${esc(t.nom)}</span><div class="huge" style="font-size:44px">À toi de jouer !</div><p>${mjAvecQui(t)}</p><p class="muted">Suis les consignes de l'écran.</p></div>`;
     if (t.regles) h += `<div class="card"><span class="label">Règles</span><p style="white-space:pre-wrap">${esc(t.regles)}</p></div>`;
   } else {
-    if (g.actif) h += `<div class="card"><span class="label">Round ${g.actif.n} en cours · ${esc(g.actif.nom)}</span><p>${g.actif.joueurs.map(esc).join(', ')} ${g.actif.joueurs.length > 1 ? 'jouent' : 'joue'}. Regarde l'écran !</p></div>`;
+    if (g.actif?.tirage) h += `<div class="card turn center"><span class="label">Round ${g.actif.n} · ${esc(g.actif.nom)}</span><div class="huge" style="font-size:40px">🎰</div><p style="font-size:20px">Tirage au sort en cours : regarde l'écran !</p></div>`;
+    else if (g.actif) h += `<div class="card"><span class="label">Round ${g.actif.n} en cours · ${esc(g.actif.nom)}</span><p>${g.actif.joueurs.map(esc).join(', ')} ${g.actif.joueurs.length > 1 ? 'jouent' : 'joue'}. Regarde l'écran !</p></div>`;
     if (g.prochain) h += `<div class="card"><span class="label">Prochain round</span><p style="font-size:20px"><strong class="mono">${hm(g.prochain.at)}</strong> · ${esc(g.prochain.nom)}</p>
       <p class="muted">${g.prochain.taille} joueur${g.prochain.taille > 1 ? 's' : ''} tirés au sort ${Math.round(g.annonce / 60)} min avant. Garde cette page ouverte : ton téléphone vibrera si c'est toi.</p></div>`;
   }

@@ -551,12 +551,19 @@ function teamInfo(r, mine) {
   return { equipe: i, coequipiers: r.equipes[i].filter(p => key(p) !== mine), adversaires: r.equipes.filter((_, k) => k !== i) };
 }
 
+// Le tirage au sort se joue sur l'écran : une bobine par joueur, qui s'arrêtent toutes les 2 s (TIRAGE_PAS dans ecran.js).
+// Pendant ce temps, les téléphones ne savent pas encore qui joue. Pas de tirage quand tout le monde joue.
+const TIRAGE_PAS = 2000;
+export const tirageFini = (ctx, a) => a.status !== 'annonce' || !a.annonceAt || a.joueurs.length >= roster(ctx.cfg).length
+  || ctx.now() >= a.annonceAt + a.joueurs.length * TIRAGE_PAS;
+
 export function playerView(ctx, g, pid) {
   const names = roster(ctx.cfg);
   const mine = pid ? Object.entries(g.claims).find(([, p]) => p === pid)?.[0] : null;
   const nom = mine ? names.find(n => key(n) === mine) : null;
   if (!nom) return { claim: true, libres: names.filter(n => !g.claims[key(n)]).sort((a, b) => a.localeCompare(b, 'fr')), finished: g.finished };
   const c = common(ctx, g);
+  const actif = c.actif && !tirageFini(ctx, c.actif) ? { ...c.actif, joueurs: [], equipes: [], compris: [], tirage: true } : c.actif;
   const rows = ranking(ctx, g);
   const me = rows.find(r => key(r.nom) === mine);
   const inRound = r => r?.joueurs.some(p => key(p) === mine);
@@ -568,15 +575,15 @@ export function playerView(ctx, g, pid) {
     sur: rows.length,
     joues: me.joues,
     attendu: expected(ctx.cfg, g),
-    monTour: inRound(c.actif) ? { ...c.actif, ...teamInfo(c.actif, mine) } : null,
-    actif: c.actif,
+    monTour: inRound(actif) ? { ...actif, ...teamInfo(actif, mine) } : null,
+    actif,
     prochain: c.prochain,
     dernier: dernier ? { n: dernier.n, nom: ctx.cfg.jeux[dernier.jeu]?.nom, place: dernier.points?.[dernier.joueurs.find(p => key(p) === mine)]?.place, points: dernier.points?.[dernier.joueurs.find(p => key(p) === mine)]?.points } : null,
     devine: devine(g, nom),
     finished: g.finished,
     podium: g.finished ? rows.slice(0, 3) : null,
     annonce: ctx.cfg.annonce,
-    etat: c.actif?.status === 'jeu' ? etat(ctx, g, inRound(c.actif) ? 'joueur' : 'spectateur', nom) : null,
+    etat: actif?.status === 'jeu' ? etat(ctx, g, inRound(actif) ? 'joueur' : 'spectateur', nom) : null,
   };
 }
 
