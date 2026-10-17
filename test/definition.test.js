@@ -29,34 +29,33 @@ test('« Compris » de tous les joueurs : la première manche commence, chacun a
   const { r } = setup();
   assert.equal(r.status, 'jeu');
   assert.equal(r.def.manche, 1);
-  assert.equal(r.def.phase, 'ecriture');
+  assert.equal(r.def.phase, 'oral');
   const mots = Object.values(r.def.cur.mots);
   assert.equal(new Set(mots).size, 3);
   assert.ok(mots.every(m => MOTS.includes(m)));
 });
 
-test('personne ne voit qui a quel mot avant la révélation', () => {
+test('les mots s\'affichent, mais personne ne voit qui a quel mot avant la révélation', () => {
   const { g, ctx, r, pid } = setup();
   const [a] = r.joueurs;
-  const moi = mj.playerView(ctx, g, pid(a)).etat;
-  assert.equal(moi.monMot, r.def.cur.mots[a]);
-  const autres = r.joueurs.filter(p => p !== a).map(p => r.def.cur.mots[p]);
+  assert.equal(mj.playerView(ctx, g, pid(a)).etat.monMot, r.def.cur.mots[a]);
   const spect = NAMES.find(n => !r.joueurs.includes(n));
+  assert.deepEqual(mj.screenView(ctx, g).etat.cartes.map(c => c.mot).sort(), Object.values(r.def.cur.mots).sort(), 'les mots sont à l\'écran');
   for (const v of [mj.screenView(ctx, g), mj.playerView(ctx, g, pid(a)), mj.playerView(ctx, g, pid(spect))]) {
-    const json = JSON.stringify(v);
-    for (const m of autres) assert.ok(!json.includes(m), `le mot ${m} ne doit pas apparaître`);
+    assert.ok(!JSON.stringify(v).includes('"auteur"'), "pas d'auteur avant la révélation");
   }
+  assert.equal(mj.playerView(ctx, g, pid(spect)).etat.monMot, undefined, 'un spectateur n\'a pas de mot');
   assert.deepEqual(mj.adminView(ctx, g).etat.admin.mots, r.def.cur.mots, "l'admin voit tout");
 });
 
-test('une manche complète : écriture, vote des spectateurs, révélation, points', () => {
+test('une manche complète : oral, vote des spectateurs, révélation, points', () => {
   const { g, ctx, r, pid, at, now } = setup({ manches: 1 });
   const [a, b, c] = r.joueurs;
   const spect = NAMES.filter(n => !r.joueurs.includes(n));
-  assert.equal(mj.playerAction(ctx, g, pid(spect[0]), { type: 'ecrire', texte: 'triche' }).ok, false, 'un spectateur n\'écrit pas');
-  for (const p of r.joueurs) assert.equal(mj.playerAction(ctx, g, pid(p), { type: 'ecrire', texte: `Définition de ${p}` }).ok, true);
-  mj.tick(ctx, g);
-  assert.equal(r.def.phase, 'vote', 'tout le monde a écrit : on passe au vote');
+  assert.equal(mj.playerAction(ctx, g, pid(a), { type: 'ecrire', texte: 'Une définition' }).ok, false, "la définition se dit à l'oral");
+  assert.equal(r.def.phase, 'oral');
+  at(now() + 90e3); // fin du temps à l'oral
+  assert.equal(r.def.phase, 'vote', 'le temps à l\'oral est écoulé : on passe au vote');
   const mot = p => r.def.cur.mots[p];
   const juste = { [mot(a)]: a, [mot(b)]: b, [mot(c)]: c };
   const inverse = { [mot(a)]: b, [mot(b)]: a, [mot(c)]: c };
@@ -100,23 +99,22 @@ test('bonus des devineurs : le premier tiers, arrondi au-dessus, ex æquo compri
 test('plusieurs manches : un nouveau mot par joueur, jamais déjà utilisé quand la liste suffit', () => {
   const { g, ctx, r, at, now } = setup({ manches: 2 });
   const m1 = Object.values(r.def.cur.mots);
-  at(now() + 120e3); // fin de l'écriture
+  at(now() + 90e3); // fin de l'oral
   at(now() + 90e3); // fin du vote
   at(now() + 20e3); // fin de la révélation
   assert.equal(r.def.manche, 2);
   const m2 = Object.values(r.def.cur.mots);
   assert.ok(m2.every(m => !m1.includes(m)));
-  at(now() + 120e3); at(now() + 90e3); at(now() + 20e3);
+  at(now() + 90e3); at(now() + 90e3); at(now() + 20e3);
   assert.equal(r.status, 'fini');
   assert.ok(Object.values(r.points).every(p => p.place === 1), 'personne n\'a été trouvé : égalité');
 });
 
 test('sans spectateur connecté, on passe directement à la révélation', () => {
-  const { ctx, g, r, pid } = setup({ manches: 1, connectes: NAMES.slice(0, 8) });
+  const { ctx, g, r, at, now } = setup({ manches: 1, connectes: NAMES.slice(0, 8) });
   // on ne garde connectés que les joueurs
   for (const n of NAMES) if (!r.joueurs.includes(n)) mj.adminAction(ctx, g, { type: 'liberer', nom: n });
-  for (const p of r.joueurs) mj.playerAction(ctx, g, pid(p), { type: 'ecrire', texte: 'Une définition' });
-  mj.tick(ctx, g);
+  at(now() + 90e3);
   assert.equal(r.def.phase, 'revelation');
 });
 

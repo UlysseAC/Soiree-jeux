@@ -521,11 +521,8 @@ function mjDefinition(e, t) {
   let h = `<span class="label" style="text-align:center">Manche ${e.manche} / ${e.total}${timer}</span>`;
   if (e.type === 'anecdote') return h + mjAnecdote(e);
   if (e.monMot !== undefined) { // je joue
-    if (e.phase === 'ecriture') {
-      h += `<div class="card turn center"><span class="label">Ton mot</span><div class="huge" style="font-size:40px;word-break:break-word">${esc(e.monMot)}</div><p class="muted">Ce mot n'existe pas : invente sa définition !</p></div>
-        <label class="field"><span class="label">Ta définition</span><textarea class="in" id="mj-def" rows="4" maxlength="300" style="font-size:18px">${esc(ui.mjDraft ?? e.maDef)}</textarea></label>
-        <button class="btn primary big" data-act="mjEcrire">${e.maDef ? 'Modifier ma définition' : 'Envoyer ma définition'}</button>
-        ${e.maDef ? '<p class="muted center" style="margin:0">✓ Envoyée. Tu peux encore la modifier.</p>' : ''}`;
+    if (e.phase === 'oral') {
+      h += `<div class="card turn center"><span class="label">Ton mot</span><div class="huge" style="font-size:40px;word-break:break-word">${esc(e.monMot)}</div><p class="muted">Ce mot n'existe pas : invente sa définition et dis-la à voix haute !</p></div>`;
     } else if (e.phase === 'vote') {
       h += `<div class="card center"><p style="font-size:18px">Les autres essaient de deviner qui avait quel mot…</p><p class="muted">Ton mot : <strong>${esc(e.monMot)}</strong></p></div>`;
     } else {
@@ -535,14 +532,14 @@ function mjDefinition(e, t) {
     return h;
   }
   // je ne joue pas : je devine
-  if (e.phase === 'ecriture') {
-    return h + `<div class="card"><p style="font-size:18px">${e.joueurs.map(esc).join(', ')} écrivent leur définition.</p><p class="muted">Prépare-toi : tu vas deviner qui avait quel mot !</p></div>`;
+  if (e.phase === 'oral') {
+    return h + `<div class="card"><p style="font-size:18px">Écoute bien les définitions à l'oral.</p><p class="muted">Ensuite, tu relieras chaque mot au joueur qui l'avait.</p></div>`;
   }
   if (e.phase === 'vote') {
     const pris = Object.values({ ...(e.mesLiens || {}), ...ui.mjLiens }).filter(Boolean);
     h += `<div class="card"><p style="font-size:18px">Relie chaque mot au joueur qui l'avait.</p></div><div class="mj-vote">${e.cartes.map(c => {
       const v = ui.mjLiens[c.mot] ?? e.mesLiens?.[c.mot] ?? '';
-      return `<div class="card"><strong style="font-size:20px;color:var(--accent)">${esc(c.mot)}</strong><p>${esc(c.def)}</p>
+      return `<div class="card"><strong style="font-size:20px;color:var(--accent)">${esc(c.mot)}</strong>
         <select class="in" data-mj-lien="${esc(c.mot)}"><option value="">Qui avait ce mot ?</option>${e.joueurs.map(p => `<option value="${esc(p)}" ${v === p ? 'selected' : ''} ${v !== p && pris.includes(p) ? 'disabled' : ''}>${esc(p)}</option>`).join('')}</select></div>`;
     }).join('')}</div>
       <button class="btn primary big" data-act="mjVoter">${e.mesLiens ? 'Modifier mes réponses' : 'Envoyer mes réponses'}</button>

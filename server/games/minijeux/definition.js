@@ -1,6 +1,6 @@
 // Mini-jeu « La Définition ».
-// Chaque joueur reçoit un mot inventé (pris au hasard dans la liste écrite par l'organisateur) et invente sa définition.
-// Ensuite, ceux qui ne jouent pas ce round relient, sur leur téléphone, chaque mot au joueur qui l'avait.
+// Chaque joueur reçoit un mot inventé (pris au hasard dans la liste écrite par l'organisateur) et le définit À L'ORAL.
+// Les mots s'affichent sur l'écran. Ensuite, ceux qui ne jouent pas ce round relient, sur leur téléphone, chaque mot au joueur qui l'avait.
 // Un joueur marque un point chaque fois que quelqu'un relie son mot à lui. Celui qui en a le plus gagne.
 // Plusieurs manches (3 par défaut), un nouveau mot par joueur à chaque manche.
 // Les spectateurs sont classés selon leurs bonnes réponses : le premier tiers gagne un bonus (1 point par défaut).
@@ -11,7 +11,7 @@ import { shuffle } from '../../util.js';
 export const id = 'definition';
 export const label = 'La Définition';
 
-export const defaults = { mots: '', manches: 3, tempsEcriture: 120, tempsVote: 90, tempsRevelation: 25, pointsDevineurs: 1 };
+export const defaults = { mots: '', manches: 3, tempsOral: 90, tempsEcriture: 120, tempsVote: 90, tempsRevelation: 25, pointsDevineurs: 1 }; // tempsEcriture : L'Anecdote
 
 const clip = (s, n) => String(s ?? '').replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '').trim().slice(0, n);
 
@@ -47,8 +47,9 @@ function nextManche(ctx, g, r, sc) {
   const w = anecdote ? shuffle(r.joueurs.map((_, i) => String.fromCharCode(65 + i))) : pickWords(g, sc, r.joueurs.length);
   const mots = Object.fromEntries(r.joueurs.map((p, i) => [p, w[i]]));
   d.cur = { mots, defs: {}, votes: {}, ordre: anecdote ? [...w].sort() : shuffle(r.joueurs).map(p => mots[p]), trouves: null };
-  d.phase = 'ecriture';
-  d.fin = ctx.now() + sc.tempsEcriture * 1000;
+  // La Définition se dit à l'oral (pas d'écriture) ; L'Anecdote s'écrit sur les téléphones.
+  d.phase = anecdote ? 'ecriture' : 'oral';
+  d.fin = ctx.now() + (anecdote ? sc.tempsEcriture : sc.tempsOral) * 1000;
 }
 
 export function start(ctx, g, r, sc) {
@@ -96,8 +97,8 @@ export function gagnantsDevineurs(rows) {
 export function tick(ctx, g, r, sc, spectateurs) {
   const d = r.def, now = ctx.now();
   if (!d) return { changed: false };
-  if (d.phase === 'ecriture') {
-    const tousOntEcrit = r.joueurs.every(p => d.cur.defs[p]);
+  if (d.phase === 'ecriture' || d.phase === 'oral') {
+    const tousOntEcrit = d.phase === 'ecriture' && r.joueurs.every(p => d.cur.defs[p]);
     if (now >= d.fin || tousOntEcrit) {
       if (!spectateurs.length) { reveal(ctx, r, sc); return { changed: true }; }
       d.phase = 'vote';
@@ -135,6 +136,7 @@ export function playerAction(ctx, g, r, nom, a, sc, spectateurs) {
   if (!d?.cur) return err("Le jeu n'a pas commencé.");
   if (a.type === 'ecrire') {
     if (!r.joueurs.includes(nom)) return err('Tu ne joues pas ce round.');
+    if (r.type !== 'anecdote') return err("La définition se dit à l'oral : pas besoin de l'écrire.");
     if (d.phase !== 'ecriture') return err("Le temps d'écriture est fini.");
     const t = clip(a.texte, 300);
     if (t.length < 2) return err(r.type === 'anecdote' ? 'Écris ton anecdote.' : 'Écris ta définition.');
@@ -166,16 +168,18 @@ export function adminAction(ctx, g, r, a) {
   return err('Action inconnue.');
 }
 
-// Vue selon qui regarde. Pendant l'écriture et le vote, personne d'autre que l'admin ne voit qui a quel mot.
+// Vue selon qui regarde. Pendant l'oral et le vote, personne d'autre que l'admin ne voit qui a quel mot.
 export function view(ctx, g, r, as, nom, spectateurs) {
   const d = r.def;
   if (!d?.cur) return null;
   const cur = d.cur;
   const base = { type: r.type === 'anecdote' ? 'anecdote' : id, manche: d.manche, total: d.total, phase: d.phase, fin: d.fin, joueurs: r.joueurs,
     ecrit: r.joueurs.filter(p => cur.defs[p]), votants: Object.keys(cur.votes).length, spectateurs: spectateurs.length };
-  const cards = cur.ordre.map(mot => ({ mot, def: cur.defs[authorOf(cur, mot)] || (r.type === 'anecdote' ? '(pas d\'anecdote)' : '(pas de définition)') }));
+  const anecdote = r.type === 'anecdote';
+  // La Définition : seuls les mots sont affichés (les définitions sont dites à l'oral). L'Anecdote : les anecdotes écrites.
+  const cards = cur.ordre.map(mot => ({ mot, ...(anecdote ? { def: cur.defs[authorOf(cur, mot)] || '(pas d\'anecdote)' } : {}) }));
   const reveled = d.phase === 'revelation' || d.phase === 'fini';
-  if (d.phase === 'vote' || reveled) base.cartes = cards;
+  if (d.phase === 'oral' || d.phase === 'vote' || reveled) base.cartes = cards;
   if (reveled) {
     base.cartes = cards.map(c => { const p = authorOf(cur, c.mot); return { ...c, auteur: p, trouves: cur.trouves?.[p] ?? 0 }; });
     base.totaux = totals(r);

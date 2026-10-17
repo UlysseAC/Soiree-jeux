@@ -442,12 +442,12 @@ function mjDefinitionReglages(c, s) {
   const mots = String(j.mots || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
   const besoin = (Number(j.joueurs) || 4) * (Number(j.manches) || 3);
   return `<div class="box" style="gap:10px">
-    <p class="muted" style="margin:0;font-size:14px">Chaque joueur reçoit un de ces mots sur son téléphone et invente sa définition. Ensuite, ceux qui ne jouent pas relient chaque mot à son joueur. Celui qu'on a relié le plus souvent à son mot gagne ; les meilleurs devineurs gagnent un bonus. Format : chacun pour soi, avec le nombre de joueurs choisi.</p>
+    <p class="muted" style="margin:0;font-size:14px">Chaque joueur reçoit un de ces mots sur son téléphone et le définit à l'oral ; les mots s'affichent sur l'écran. Ensuite, ceux qui ne jouent pas relient chaque mot à son joueur. Celui qu'on a relié le plus souvent à son mot gagne ; les meilleurs devineurs gagnent un bonus. Format : chacun pour soi, avec le nombre de joueurs choisi.</p>
     <label class="field"><span class="label">Mots inventés (un par ligne) · ${mots.length} mot${mots.length > 1 ? 's' : ''}</span>
       <textarea class="in" rows="8" id="c-jeu-jeux-${s}-mots" data-cfg="jeux.${s}.mots" data-kind="area" data-scope="jeu" placeholder="Florpidoux&#10;Gramouille&#10;Zétrabule…">${esc(j.mots)}</textarea>
       ${mots.length < besoin ? `<span style="color:var(--danger);font-size:13px">Il faut au moins ${besoin} mots pour une partie (joueurs × manches) sans répéter de mot.</span>` : '<span class="muted" style="font-size:13px">Les mots déjà sortis dans la journée ne reviennent qu\'une fois tous les autres utilisés.</span>'}</label>
     <div class="grid-auto">${cfgInput(`jeux.${s}.manches`, j.manches, 'num', { label: 'Manches' })}
-      ${cfgInput(`jeux.${s}.tempsEcriture`, j.tempsEcriture, 'dur', { label: "Temps pour écrire" })}${cfgInput(`jeux.${s}.tempsVote`, j.tempsVote, 'dur', { label: 'Temps pour deviner' })}${cfgInput(`jeux.${s}.tempsRevelation`, j.tempsRevelation, 'dur', { label: 'Affichage des réponses' })}${cfgInput(`jeux.${s}.pointsDevineurs`, j.pointsDevineurs, 'num', { label: 'Bonus des meilleurs devineurs' })}</div>
+      ${cfgInput(`jeux.${s}.tempsOral`, j.tempsOral, 'dur', { label: 'Temps pour les définitions (oral)' })}${cfgInput(`jeux.${s}.tempsVote`, j.tempsVote, 'dur', { label: 'Temps pour deviner' })}${cfgInput(`jeux.${s}.tempsRevelation`, j.tempsRevelation, 'dur', { label: 'Affichage des réponses' })}${cfgInput(`jeux.${s}.pointsDevineurs`, j.pointsDevineurs, 'num', { label: 'Bonus des meilleurs devineurs' })}</div>
     <p class="muted" style="margin:0;font-size:13px">Les spectateurs sont classés selon leurs bonnes réponses : le premier tiers (ex æquo compris) gagne ce bonus. 0 = pas de bonus.</p>
   </div>`;
 }
@@ -488,11 +488,11 @@ function mjAnecdoteReglages(c, s) {
 // Panneau d'un round « La Définition » en cours : tout est visible pour l'organisateur.
 function mjDefinitionPartie(e) {
   const A = e.type === 'anecdote';
-  const phase = { ecriture: A ? 'Les joueurs écrivent leur anecdote' : 'Les joueurs écrivent leur définition', vote: A ? 'Les spectateurs relient les anecdotes' : 'Les spectateurs relient les mots', revelation: 'Réponses affichées', fini: 'Terminé' }[e.phase];
-  const rows = e.joueurs.map(p => `<tr><td><strong>${esc(p)}</strong></td><td class="mono">${esc(e.admin.mots[p] || '')}</td><td>${e.admin.defs[p] ? esc(e.admin.defs[p]) : '<span class="muted">pas encore</span>'}</td>
+  const phase = { ecriture: 'Les joueurs écrivent leur anecdote', oral: 'Les joueurs définissent leur mot à l\'oral', vote: A ? 'Les spectateurs relient les anecdotes' : 'Les spectateurs relient les mots', revelation: 'Réponses affichées', fini: 'Terminé' }[e.phase];
+  const rows = e.joueurs.map(p => `<tr><td><strong>${esc(p)}</strong></td><td class="mono">${esc(e.admin.mots[p] || '')}</td><td>${A ? (e.admin.defs[p] ? esc(e.admin.defs[p]) : '<span class="muted">pas encore</span>') : '<span class="muted">à l\'oral</span>'}</td>
     <td class="mono">${e.cartes?.find(c => c.auteur === p)?.trouves ?? ''}</td><td class="mono">${e.totaux?.[p] ?? ''}</td></tr>`).join('');
   return `<div class="box" style="background:var(--ink)"><div class="spread"><strong>Manche ${e.manche} / ${e.total} · ${phase}</strong>${e.phase !== 'fini' ? `<span class="pill accent"><span class="mono" data-until="${e.fin}"></span></span>` : ''}</div>
-    <p class="muted" style="margin:0;font-size:14px">${e.ecrit.length} / ${e.joueurs.length} ${A ? 'anecdotes' : 'définitions'} · ${e.votants} / ${e.spectateurs} spectateurs ont voté</p>
+    <p class="muted" style="margin:0;font-size:14px">${A ? `${e.ecrit.length} / ${e.joueurs.length} anecdotes · ` : ''}${e.votants} / ${e.spectateurs} spectateurs ont voté</p>
     <div class="scroll"><table><thead><tr><th>Joueur</th><th>${A ? 'Carte' : 'Mot'}</th><th>${A ? 'Anecdote' : 'Définition'}</th><th>Trouvé (manche)</th><th>Total</th></tr></thead><tbody>${rows}</tbody></table></div>
     ${e.devineurs?.length ? `<p class="muted" style="margin:0;font-size:14px">Meilleurs devineurs : ${e.devineurs.map(x => `${esc(x.nom)} (${x.bons})`).join(' · ')}</p>` : ''}
     ${e.phase !== 'fini' ? '<div><button class="btn sm" data-mj="suivant">Passer à l\'étape suivante</button></div>' : ''}</div>`;

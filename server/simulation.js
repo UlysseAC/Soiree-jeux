@@ -11,7 +11,7 @@ const codeOf = (T, label) => (label === 15 ? '9999' : `9${T === 'A' ? 1 : 2}${St
 // Tests des mini-jeux : nombre de faux joueurs et réglages courts (quelques minutes au total).
 const MINI_NOMS = { definition: 'La Définition', anecdote: "L'Anecdote", temple: 'Le Temple aztèque', mime: 'Le Mime', dragon: 'La Chasse au dragon', disparu: "Qu'est-ce qui a changé ?", quiz: 'Le Quiz' };
 const MINI_TESTS = {
-  definition: { n: 5, reglages: { manches: 1, tempsEcriture: 25, tempsVote: 25, tempsRevelation: 8 } },
+  definition: { n: 5, reglages: { manches: 1, tempsOral: 5, tempsVote: 25, tempsRevelation: 8 } },
   anecdote: { n: 5, reglages: { manches: 1, tempsEcriture: 25, tempsVote: 25, tempsRevelation: 8 } },
   temple: { n: 5, reglages: { etapes: 3, tempsChoix: 12, tempsPiege: 5, cheminsEtapes: '2:1,3:1,4:2' } },
   mime: { n: 4, reglages: { duos: 2, tempsMime: 15, tempsPret: 3 } },

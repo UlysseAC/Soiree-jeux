@@ -44,14 +44,15 @@ Une journée de rounds à heures régulières. À chaque round, un mini-jeu et d
 
 ## La Définition
 
-- **Réglages** : la liste des **mots inventés** (un par ligne, écrite par l'organisateur), le nombre de joueurs, le nombre de manches (3 par défaut), le temps d'écriture, de vote et d'affichage des réponses, le bonus des meilleurs devineurs (1 point par défaut).
-- **Chaque manche** : chaque joueur reçoit sur son téléphone un mot tiré au hasard dans la liste (les mots déjà sortis dans la journée ne reviennent qu'après les autres) et écrit sa définition.
-- **Vote** : quand tout le monde a écrit (ou à la fin du temps), l'écran affiche les mots et leurs définitions, sans dire qui avait quel mot. Les **spectateurs** (participants connectés qui ne jouent pas ce round) relient chaque mot à un joueur sur leur téléphone.
+- **Réglages** : la liste des **mots inventés** (un par ligne, écrite par l'organisateur), le nombre de joueurs, le nombre de manches (3 par défaut), le temps pour les définitions à l'oral, de vote et d'affichage des réponses, le bonus des meilleurs devineurs (1 point par défaut).
+- **Chaque manche** : chaque joueur reçoit sur son téléphone un mot tiré au hasard dans la liste (les mots déjà sortis dans la journée ne reviennent qu'après les autres). Les **mots s'affichent sur l'écran**, et chaque joueur **définit son mot à l'oral**, à voix haute. Pas de texte à écrire sur le téléphone.
+- **Vote** : à la fin du temps à l'oral (ou quand l'admin passe à l'étape suivante), les spectateurs (participants connectés qui ne jouent pas ce round) relient chaque mot à un joueur sur leur téléphone. Ils ont entendu les définitions ; l'écran ne montre que les mots, sans dire qui avait quel mot.
 - **Réponses** : l'écran montre à qui était chaque mot et combien de personnes l'ont trouvé. Puis manche suivante, avec un nouveau mot pour chacun.
 - **Gagnant** : le joueur dont le mot a été relié à lui le plus de fois, sur toutes les manches (ex æquo possibles). Les points du mini-jeu sont donnés selon cette place.
 - **Meilleurs devineurs** : les spectateurs sont classés selon leurs bonnes réponses sur toutes les manches. Le premier tiers (arrondi au-dessus : 1 sur 2 ou 3, 2 sur 4 à 6…), ex æquo compris, gagne le bonus, à condition d'avoir au moins une bonne réponse. Ce classement s'affiche sur l'écran avec les résultats et sur le téléphone de chaque spectateur.
 - **Admin** : voit qui a quel mot et les définitions en direct, peut « Passer à l'étape suivante ». Un joueur absent peut être remplacé (le remplaçant reprend son mot) ; retirer ou ajouter un joueur n'est pas possible une fois le jeu lancé.
 - Sans spectateur connecté, le vote est sauté.
+- **L'Anecdote** garde son écriture sur les téléphones (voir sa section).
 
 ## Qu'est-ce qui a changé ? (mémoire)
 

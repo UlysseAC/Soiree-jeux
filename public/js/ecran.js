@@ -263,7 +263,7 @@ function memoSons(g) {
   meCle = cle;
 }
 
-// La Définition et L'Anecdote (même déroulement) : écriture, puis les spectateurs relient chaque carte à un joueur, puis les réponses.
+// La Définition (définitions dites à l'oral, les mots à l'écran) et L'Anecdote (écrite sur les téléphones) : les spectateurs relient chaque carte à un joueur, puis les réponses.
 function mjDefinition(a, e) {
   const A = e.type === 'anecdote';
   const head = `<div class="mj-kicker">Round ${a.n} · ${esc(a.nom)} · manche ${e.manche} / ${e.total}</div>`;
@@ -274,8 +274,12 @@ function mjDefinition(a, e) {
       <p class="sc-sub muted">Les autres : préparez-vous à deviner ${A ? 'qui a vécu quoi' : 'qui avait quel mot'} !</p>`;
   }
   const titre = c => (A ? `Anecdote ${esc(c.mot)}` : esc(c.mot));
-  const cards = `<div class="mj-cards ${A ? 'mj-anecdotes' : ''}">${e.cartes.map(c => `<div class="mj-card"><div class="mj-mot">${titre(c)}</div><div class="mj-def">${esc(c.def)}</div>
+  const cards = `<div class="mj-cards ${A ? 'mj-anecdotes' : ''}">${e.cartes.map(c => `<div class="mj-card"><div class="mj-mot">${titre(c)}</div>${c.def ? `<div class="mj-def">${esc(c.def)}</div>` : ''}
     ${c.auteur ? `<div class="mj-auteur">${esc(c.auteur)} · <span class="p">${c.trouves} ${A ? (c.trouves > 1 ? 'l\'ont reconnu' : 'l\'a reconnu') : (c.trouves > 1 ? 'ont trouvé' : 'a trouvé')}</span></div>` : ''}</div>`).join('')}</div>`;
+  if (e.phase === 'oral') {
+    return `${head}<div class="mj-round">Définissez vos mots à l'oral !</div>
+      <div class="sc-sub">Chacun défend son mot à voix haute. Encore <strong class="mono" data-until="${e.fin}"></strong></div>${cards}`;
+  }
   if (e.phase === 'vote') {
     return `${head}<div class="sc-sub">À vos téléphones : reliez chaque ${A ? 'anecdote' : 'mot'} à ${e.joueurs.map(esc).join(', ')} · <strong class="mono" data-until="${e.fin}"></strong> · ${e.votants} / ${e.spectateurs} ont répondu</div>${cards}`;
   }
