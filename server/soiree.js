@@ -242,7 +242,7 @@ export class Soiree {
         this.s.history = [];
         this.s.bonus = {};
         this.s.show = null;
-        this.s.session = nextSession(sess.gameId, this.gardes());
+        this.s.session = newSession(sess.gameId); // réinitialisation complète : les joueurs se réinscrivent
         return { ok: true, msg: 'Nouvelle soirée : le classement repart de zéro.' };
       }
       case 'reinitialiserSoiree':
