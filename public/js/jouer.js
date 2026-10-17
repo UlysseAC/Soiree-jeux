@@ -420,38 +420,45 @@ function mjAvecQui(t) {
   return t.coequipiers?.length ? `Équipe ${team} : tu joues avec ${esc(liste(t.coequipiers))} contre ${esc(adv)}` : `Équipe ${team} : tu joues seul contre ${esc(adv)}`;
 }
 // « La Définition » sur le téléphone : le joueur écrit, les autres relient les mots aux joueurs.
-// La Chasse au dragon, sur le téléphone : seulement la manette (le jeu se suit sur l'écran).
-// Viser (se lever et prendre une cible), flèches pour changer de cible, Tirer (après 1 s sur la cible), Recharger, Se cacher.
+// La Chasse au dragon, sur le téléphone, à l'horizontale : à gauche (pouce gauche) les cibles, à droite (pouce droit)
+// Viser en haut, Tirer au milieu, Recharger en bas. On ne choisit une cible qu'en visant ; Tirer est grisé si on est caché
+// ou sans balles. Le jeu se suit sur l'écran.
 let drMinuteur = null;
 function mjDragon(e) {
   const m = e.moi;
   if (!m) return `<div class="card"><p style="font-size:18px">🐉 La chasse au dragon a commencé. Regarde l'écran !</p></div>`;
   if (e.phase === 'fini') return `<div class="card center"><p style="font-size:20px">Partie terminée !</p><p class="muted">Regarde le classement sur l'écran.</p></div>`;
   if (m.horsJeu) return `<div class="card center"><div class="huge" style="font-size:44px">😵</div><p style="font-size:18px">Tu es hors jeu.</p><p class="muted">Regarde la fin de la partie sur l'écran.</p></div>`;
-  const now = SJ.now(), debout = m.action !== 'cache', recharge = m.action === 'recharge';
-  const pret = m.action === 'vise' && now >= m.pretA;
+  const now = SJ.now(), vise = m.action === 'vise', recharge = m.action === 'recharge';
+  const pret = vise && now >= m.pretA;
   // le bouton Tirer s'allume tout seul au bout de la seconde de visée
   clearTimeout(drMinuteur);
-  if (m.action === 'vise' && !pret) drMinuteur = setTimeout(draw, m.pretA - now + 30);
+  if (vise && !pret) drMinuteur = setTimeout(draw, m.pretA - now + 30);
   if (recharge) drMinuteur = setTimeout(draw, Math.max(0, m.finRecharge - now) + 30);
   const balles = '▮'.repeat(m.balles) + '▯'.repeat(Math.max(0, e.chargeur - m.balles));
-  let h = `<div class="card dr-moi ${debout ? 'decouvert' : ''}"><div class="spread"><span style="font-size:24px">${'❤️'.repeat(m.vies)}</span><span class="dr-balles mono" aria-label="${m.balles} balles">${balles}</span></div>
-    <strong style="font-size:17px">${recharge ? '🔄 Tu recharges… (à découvert)' : debout ? '⚠️ Debout : à découvert !' : '🪵 À l\'abri derrière ton muret'}</strong>
-    ${recharge ? `<div class="dr-prog"><div id="dr-prog-${m.finRecharge}" style="animation-duration:${Math.max(0, m.finRecharge - now)}ms"></div></div>` : ''}</div>`;
-  if (!debout) {
-    h += `<button class="btn primary big dr-gros" data-act="drViser">🎯 Viser</button>
-      <button class="btn big" data-act="drRecharger" ${m.balles >= e.chargeur ? 'disabled' : ''}>🔄 Recharger</button>`;
-  } else {
-    const cible = m.cible === 'dragon' ? '🐉 le dragon' : m.cible ? esc(m.cible) : '—';
-    h += `<div class="dr-cible"><button class="btn big" data-act="drCible" data-sens="-1" aria-label="Cible précédente" ${recharge ? 'disabled' : ''}>◀</button>
-        <div class="center"><span class="label">Ta cible</span><div class="dr-nomcible">${cible}</div></div>
-        <button class="btn big" data-act="drCible" data-sens="1" aria-label="Cible suivante" ${recharge ? 'disabled' : ''}>▶</button></div>
-      ${m.action === 'vise' && !pret ? `<div class="dr-prog"><div id="dr-vise-${m.pretA}" style="animation-duration:${Math.max(0, m.pretA - now)}ms"></div></div>` : ''}
-      <button class="btn primary big dr-gros" data-act="drTirer" ${pret && m.balles > 0 ? '' : 'disabled'}>${m.balles <= 0 ? 'Chargeur vide' : pret ? '🔫 Tirer' : 'Vise…'}</button>
-      <div class="dr-bas"><button class="btn big" data-act="drRecharger" ${recharge || m.balles >= e.chargeur ? 'disabled' : ''}>🔄 Recharger</button>
-        <button class="btn big" data-act="drCacher">🪵 Se cacher</button></div>`;
-  }
-  return h;
+  const cibles = [
+    ...e.joueurs.filter(j => j.equipe !== m.equipe).map(j => ({ id: j.nom, label: j.nom, possible: !j.horsJeu })),
+    ...(e.dragon.pv > 0 ? [{ id: 'dragon', label: '🐉 Dragon', possible: true }] : []),
+  ];
+  const etat = recharge ? '🔄 Tu recharges…' : vise ? (pret ? '🎯 Visée prête' : 'Vise… garde ta cible 1 s') : m.action === 'cache' ? '🪵 À l\'abri' : '⚠️ Debout !';
+  const progres = recharge ? `<div class="dr-prog"><div id="dr-prog-${m.finRecharge}" style="animation-duration:${Math.max(0, m.finRecharge - now)}ms"></div></div>`
+    : vise && !pret ? `<div class="dr-prog"><div id="dr-vise-${m.pretA}" style="animation-duration:${Math.max(0, m.pretA - now)}ms"></div></div>` : '';
+  return `<div class="dr-tourne card center"><p style="font-size:18px">🔄 Tourne ton téléphone à l'horizontale pour jouer.</p></div>
+    <div class="dr-tel">
+      <div class="dr-haut"><span>${'❤️'.repeat(m.vies)}</span><span class="dr-balles mono" aria-label="${m.balles} balles">${balles}</span><strong>${etat}</strong></div>
+      ${progres}
+      <div class="dr-corps">
+        <div class="dr-cibles">
+          <span class="label dr-titre">Cible</span>
+          ${cibles.map(c => `<button class="btn big dr-cible-btn ${m.cible === c.id ? 'on' : ''}" data-act="drCibler" data-cible="${esc(c.id)}" aria-pressed="${m.cible === c.id}" ${vise && c.possible ? '' : 'disabled'}>${esc(c.label)}</button>`).join('')}
+        </div>
+        <div class="dr-actions">
+          <button class="btn primary big dr-act" data-act="${m.action === 'cache' ? 'drViser' : 'drCacher'}">${m.action === 'cache' ? '🎯 Viser' : '🪵 Se cacher'}</button>
+          <button class="btn primary big dr-act" data-act="drTirer" ${pret && m.balles > 0 ? '' : 'disabled'}>${m.balles <= 0 ? 'Chargeur vide' : '🔫 Tirer'}</button>
+          <button class="btn big dr-act" data-act="drRecharger" ${recharge || m.balles >= e.chargeur ? 'disabled' : ''}>🔄 Recharger</button>
+        </div>
+      </div>
+    </div>`;
 }
 
 // Le Mime, sur le téléphone : celui qui mime voit le mot et peut passer ; celui qui devine écrit ses essais.
@@ -734,7 +741,7 @@ app.addEventListener('click', e => {
   if (a === 'meRepondre') { act({ type: 'repondre', choix: Number(t.dataset.choix) }); return; }
   if (a === 'quizRepondre') { act({ type: 'repondre', choix: Number(t.dataset.choix) }); return; }
   if (a === 'drViser') { act({ type: 'viser' }); return; }
-  if (a === 'drCible') { act({ type: 'cible', sens: Number(t.dataset.sens) }); return; }
+  if (a === 'drCibler') { act({ type: 'cibler', cible: t.dataset.cible }); return; }
   if (a === 'drTirer') { act({ type: 'tirer' }); navigator.vibrate?.(40); return; }
   if (a === 'drRecharger') { act({ type: 'recharger' }); return; }
   if (a === 'drCacher') { act({ type: 'cacher' }); return; }

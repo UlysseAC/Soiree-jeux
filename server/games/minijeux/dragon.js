@@ -142,12 +142,10 @@ export function playerAction(ctx, g, r, nom, a, sc) {
     if (me.action === 'cache') me.action = 'vise';
     return ok('');
   }
-  if (a.type === 'cible') { // flèches gauche / droite
-    if (me.action === 'cache') return err('Appuie d\'abord sur « Viser ».');
-    const liste = cibles(r, nom);
-    if (!liste.length) return err('Plus de cible.');
-    const i = liste.indexOf(me.cible), sens = a.sens < 0 ? -1 : 1;
-    me.cible = liste[((i < 0 ? 0 : i + sens) % liste.length + liste.length) % liste.length];
+  if (a.type === 'cibler') { // choisir directement sa cible (un joueur ou le dragon), seulement en visant
+    if (me.action !== 'vise') return err('Appuie d\'abord sur « Viser ».');
+    if (!cibles(r, nom).includes(a.cible)) return err('Cette cible n\'est pas possible.');
+    me.cible = a.cible;
     me.viseDepuis = now;
     return ok('');
   }

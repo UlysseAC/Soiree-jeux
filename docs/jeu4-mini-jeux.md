@@ -101,10 +101,11 @@ Une journée de rounds à heures régulières. À chaque round, un mini-jeu et d
 - **L'écran montre la scène en direct, vue de face** : le dragon au fond avec sa barre de vie, les joueurs devant, chacun derrière son muret en bois. À l'abri, on ne voit que le haut de sa tête ; quand il vise ou recharge, il se lève. Une ligne de visée relie chaque tireur à sa cible (pointillée pendant la seconde de visée, pleine quand il peut tirer) ; les tirs, les touches, les « PAF ! à l'abri » et le souffle du dragon s'animent. Sous chaque muret : nom, vies, balles, dégâts au dragon.
 - **Le téléphone sert de manette** :
   - **Viser** : le joueur se lève (il peut être touché) et prend une cible, d'abord un adversaire, même s'il est à l'abri ;
-  - **◀ ▶** : la cible passe d'un joueur à l'autre, puis au dragon, et ainsi de suite ;
+  - **Téléphone à l'horizontale** : à gauche (pouce gauche), un bouton par adversaire et un pour le dragon, de même taille ; à droite (pouce droit), Viser en haut, Tirer au milieu, Recharger en bas. Sur un téléphone en portrait, un message demande de le tourner.
+  - **Cibles** : on ne peut en choisir une qu'en visant. Un adversaire hors jeu est grisé.
   - **Tirer** : possible après 1 s sur la même cible (changer de cible relance la seconde). Un joueur n'est touché que s'il est debout ; à l'abri, c'est « raté ». Le dragon est toujours touché.
-  - **Recharger** : remplit le chargeur, debout pendant 2 s ; ensuite on reprend sa visée.
-  - **Se cacher** : retour derrière le muret.
+  - **Recharger** : remplit le chargeur, debout pendant 2 s ; ensuite on reprend sa visée. Grisé quand le chargeur est plein ou pendant la recharge.
+  - **Se cacher** : même case que Viser (le bouton devient « Se cacher » quand on vise ou qu'on recharge). Tirer est grisé quand on est caché ou sans balles.
 - **Le dragon** ne bouge pas ; il attaque à intervalles irréguliers, annoncé 2 s avant sur l'écran, et touche tous ceux qui sont debout.
 - **Fin** : dragon vaincu, un seul joueur (ou une équipe) encore en jeu, ou temps écoulé. **Classement** : les survivants d'abord, selon leurs dégâts sur le dragon ; puis les éliminés, le dernier éliminé devant.
 - **Admin** : voit ce que fait chacun, ses balles, la prochaine attaque, et peut arrêter la partie.

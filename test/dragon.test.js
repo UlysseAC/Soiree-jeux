@@ -29,26 +29,25 @@ test('format : 4 joueurs chacun pour soi, ou 2 contre 2', () => {
   assert.equal(b.r.equipes.length, 2);
 });
 
-// viser une cible précise : Viser, puis les flèches jusqu'à elle, puis attendre 1 s
+// viser une cible précise : Viser, choisir la cible, puis attendre 1 s
 function viserSur(s, nom, cible) {
   s.act(nom, { type: 'viser' });
-  for (let k = 0; k < 6 && s.r.dr.j[nom].cible !== cible; k++) s.act(nom, { type: 'cible', sens: 1 });
+  assert.equal(s.act(nom, { type: 'cibler', cible }).ok, true);
   assert.equal(s.r.dr.j[nom].cible, cible);
   s.at(s.now() + 1000);
 }
 
-test('Viser : on se lève et on prend d\'abord un adversaire, même à l\'abri ; les flèches font défiler les cibles et le dragon', () => {
+test('Viser : on se lève et on prend d\'abord un adversaire, même à l\'abri ; on choisit ensuite sa cible', () => {
   const s = setup();
   const [a, b, c, d] = s.r.joueurs;
   assert.equal(s.r.dr.j[a].action, 'cache');
+  assert.equal(s.act(a, { type: 'cibler', cible: c }).ok, false, 'on ne choisit pas une cible à l\'abri');
   s.act(a, { type: 'viser' });
   assert.equal(s.r.dr.j[a].action, 'vise', 'à découvert');
   assert.equal(s.r.dr.j[a].cible, b, 'premier adversaire, même à l\'abri');
-  const vus = [];
-  for (let k = 0; k < 4; k++) { s.act(a, { type: 'cible', sens: 1 }); vus.push(s.r.dr.j[a].cible); }
-  assert.deepEqual(vus, [c, d, 'dragon', b], 'droite : joueur suivant, puis le dragon, puis on recommence');
-  s.act(a, { type: 'cible', sens: -1 });
-  assert.equal(s.r.dr.j[a].cible, 'dragon', 'gauche : dans l\'autre sens');
+  for (const cible of [c, d, 'dragon']) assert.equal(s.act(a, { type: 'cibler', cible }).ok, true);
+  assert.equal(s.r.dr.j[a].cible, 'dragon');
+  assert.equal(s.act(a, { type: 'cibler', cible: a }).ok, false, 'pas soi-même');
   const st = mj.screenView(s.ctx, s.g).etat.etats.find(x => x.nom === a);
   assert.equal(st.action, 'vise'); assert.equal(st.cible, 'dragon');
   s.act(a, { type: 'cacher' });
@@ -68,7 +67,7 @@ test('Tirer : seulement après 1 s sur la même cible ; touche un joueur à déc
   s.at(s.now() + 600);
   s.act(a, { type: 'tirer' });
   assert.equal(s.r.dr.j[b].vies, 1, 'b debout : touché');
-  s.act(a, { type: 'cible', sens: 1 });
+  s.act(a, { type: 'cibler', cible: 'dragon' });
   assert.equal(s.act(a, { type: 'tirer' }).ok, false, 'nouvelle cible : on recommence la seconde');
 });
 
@@ -106,8 +105,8 @@ test('en 2 contre 2, son coéquipier n\'est jamais une cible', () => {
   const s = setup({ equipesDragon: '2v2' });
   const [x, y] = s.r.equipes[0];
   s.act(x, { type: 'viser' });
-  const vus = new Set([s.r.dr.j[x].cible]);
-  for (let k = 0; k < 5; k++) { s.act(x, { type: 'cible', sens: 1 }); vus.add(s.r.dr.j[x].cible); }
+  const vus = new Set();
+  for (const p of [...s.r.joueurs, 'dragon']) if (s.act(x, { type: 'cibler', cible: p }).ok) vus.add(p);
   assert.ok(!vus.has(y));
   assert.deepEqual([...vus].sort(), [...s.r.equipes[1], 'dragon'].sort());
 });

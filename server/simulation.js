@@ -255,7 +255,10 @@ export class Simulation {
       if (e.dragon?.prepare && mo.action !== 'cache') return reponse({ type: 'cacher' });
       if (mo.action === 'cache' && Math.random() < .3) return reponse({ type: 'viser' });
       if (mo.action === 'vise' && now >= mo.pretA && Math.random() < .5) return reponse({ type: 'tirer' });
-      if (mo.action === 'vise' && Math.random() < .15) return reponse({ type: 'cible', sens: 1 });
+      if (mo.action === 'vise' && Math.random() < .15) {
+        const cibles = [...e.joueurs.filter(j => j.equipe !== mo.equipe && !j.horsJeu).map(j => j.nom), 'dragon'];
+        return reponse({ type: 'cibler', cible: cibles[Math.floor(Math.random() * cibles.length)] });
+      }
       if (mo.action === 'vise' && mo.balles <= 0) return reponse({ type: 'recharger' });
       if (mo.action === 'recharge' || mo.action === 'cache') return;
     }

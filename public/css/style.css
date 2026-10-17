@@ -502,11 +502,6 @@ body[data-theme="temple"] .tp-choix .btn.choisi { border-color: var(--accent); b
 /* Chasse au dragon : la scène sur l'écran, la manette sur le téléphone */
 .dr-scene { display: block; width: min(100%, calc(56vh * 16 / 9)); max-width: 100%; aspect-ratio: 16 / 9; border-radius: 14px; border: 3px solid #5b3a1c; box-shadow: 0 12px 40px rgba(0, 0, 0, .5); background: #171126; }
 .dr-balles { font-size: 22px; letter-spacing: 2px; color: #f2c53d; }
-.dr-cible { display: grid; grid-template-columns: 64px minmax(0, 1fr) 64px; gap: 8px; align-items: center; }
-.dr-cible .btn { min-height: 64px; font-size: 26px; padding: 0; }
-.dr-nomcible { font: 800 26px/1.1 var(--display); text-transform: uppercase; overflow-wrap: anywhere; }
-.dr-gros { min-height: 76px; font-size: 22px; }
-.dr-bas { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
 /* L'Anecdote : le titre de carte est une lettre, le texte est plus long */
 .mj-anecdotes .mj-mot { font-size: clamp(16px, 1.6vw, 28px); letter-spacing: .06em; }
@@ -555,3 +550,19 @@ body[data-theme="temple"] .tp-choix .btn.choisi { border-color: var(--accent); b
 .rl-win { height: 140px; width: min(70vw, 640px); margin: 0 auto; overflow: hidden; border: 3px solid var(--accent); border-radius: 16px; background: var(--ink); }
 .rl-item { height: 140px; line-height: 140px; padding: 0 20px; font-size: clamp(40px, 7vw, 96px); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rl-nom { min-height: 1.4em; font-size: clamp(28px, 4vw, 56px); font-weight: 700; color: var(--accent); }
+
+/* Chasse au dragon sur le téléphone, à l'horizontale : cibles à gauche (pouce gauche), actions à droite (pouce droit) */
+.dr-tel { display: grid; gap: 1vh; height: max(300px, calc(100dvh - 130px)); }
+.dr-haut { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 16px; }
+.dr-corps { min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.dr-cibles { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: auto 1fr 1fr; gap: 8px; min-height: 0; }
+.dr-titre { grid-column: 1 / -1; text-align: center; }
+.dr-cible-btn { min-height: 0; height: 100%; padding: 0 6px; font-size: 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dr-cible-btn.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent); }
+.dr-actions { min-height: 0; display: grid; grid-template-rows: 1fr 1fr 1fr; gap: 8px; }
+.dr-act { min-height: 0; height: 100%; font-size: 20px; }
+.dr-tourne { display: none; }
+@media (orientation: portrait) {
+  .dr-tel { display: none; }
+  .dr-tourne { display: grid; }
+}
