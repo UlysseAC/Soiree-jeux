@@ -224,6 +224,7 @@ export class Soiree {
     sess.game = this.module.start(this.ctx(), pids);
     sess.status = 'playing';
     sess.regOverride = null;
+    this.s.show = null; // un nouveau jeu masque le classement de la soirée affiché à l'écran
     // Duel : si tout le monde a son numéro de maillot, les duels commencent tout de suite.
     if (this.module.id === 'duel') {
       const r = this.module.adminAction(this.ctx(), sess.game, { type: 'lancer' });
