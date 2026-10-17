@@ -72,3 +72,14 @@ test('limite réglée à 2 rounds : personne ne dépasse 2, et le détective com
   jouer(det);
   for (const n of det.joueurs) assert.equal(det.multi[n], 2 - (mj.joues(g, n) - 1), n);
 });
+
+test('Le Mime a toujours 4 joueurs : on complète avec des connectés déjà à la limite', () => {
+  const { ctx, g, jouer } = setup('mj1,mj2,mj3,mj4,mj5,mj1', ['Léa', 'Hugo', 'Inès', 'Malik']);
+  Object.assign(ctx.cfg, { roundsParJoueur: 2 });
+  Object.assign(ctx.cfg.jeux.mj1, { type: 'mime' });
+  g.rounds[0].status = 'saute';
+  for (const r of g.rounds.slice(1, 5)) jouer(r);
+  for (const n of ['Léa', 'Hugo', 'Inès', 'Malik']) assert.equal(mj.joues(g, n), 2, 'tout le monde est à la limite');
+  jouer(g.rounds[5]);
+  assert.equal(g.rounds[5].joueurs.length, 4);
+});

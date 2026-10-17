@@ -324,7 +324,7 @@ function mjFormat(f) {
 const mjFormatLabel = sizes => (!sizes ? 'Chacun pour soi' : sizes.every(n => n === 1) ? `Chacun pour soi (${sizes.length})` : sizes.join(' contre '));
 const MJ_TEAMS = ['Rouges', 'Bleus', 'Verts', 'Jaunes', 'Violets', 'Orange', 'Roses', 'Gris'];
 // Format réel d'un mini-jeu (comme côté serveur) : Le Mime = des duos, les autres jeux automatiques = chacun pour soi.
-const mjFmt = (c, s) => { const j = c.jeux[s] || {}; return j.type === 'dragon' ? (j.equipesDragon === '2v2' ? [2, 2] : [1, 1, 1, 1]) : j.type === 'mime' ? Array(Math.max(1, Math.min(6, Math.round(Number(j.duos) || 2)))).fill(2) : MJ_AUTO.includes(j.type) ? null : mjFormat(j.format); };
+const mjFmt = (c, s) => { const j = c.jeux[s] || {}; return j.type === 'dragon' ? (j.equipesDragon === '2v2' ? [2, 2] : [1, 1, 1, 1]) : j.type === 'mime' ? [2, 2] : MJ_AUTO.includes(j.type) ? null : mjFormat(j.format); };
 const mjSize = (c, s, total) => {
   const f = mjFmt(c, s);
   if (f) return Math.min(f.reduce((a, b) => a + b, 0), total);
@@ -390,16 +390,16 @@ function mjDragonPartie(e) {
     ${e.phase === 'jeu' ? '<div><button class="btn sm" data-mj="suivant" data-confirm="Arrêter la partie maintenant ?">Arrêter la partie</button></div>' : ''}</div>`;
 }
 
-// Réglages propres au « Mime » : les mots à mimer, le nombre de duos et les temps.
+// Réglages propres au « Mime » : les mots à mimer et les temps (toujours 2 duos).
 function mjMimeReglages(c, s) {
   const j = c.jeux[s];
   const mots = String(j.motsMime || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
   return `<div class="box" style="gap:10px">
-    <p class="muted" style="margin:0;font-size:14px">En duos. Dans chaque duo, l'un mime le mot affiché sur son téléphone, sans un bruit ; l'autre écrit ce qu'il devine (accents et petites fautes acceptés). Celui qui mime peut passer au mot suivant. Chacun mime à son tour ; le duo qui a fait trouver le plus de mots gagne.</p>
+    <p class="muted" style="margin:0;font-size:14px">Toujours 4 joueurs, en 2 duos. Dans chaque duo, l'un mime le mot affiché sur son téléphone, sans un bruit ; l'autre écrit ce qu'il devine (accents et petites fautes acceptés). Celui qui mime peut passer au mot suivant. Chacun mime à son tour ; le duo qui a fait trouver le plus de mots gagne.</p>
     <label class="field"><span class="label">Mots à mimer (un par ligne) · ${mots.length}</span>
       <textarea class="in" rows="10" id="c-jeu-jeux-${s}-motsMime" data-cfg="jeux.${s}.motsMime" data-kind="area" data-scope="jeu" placeholder="Girafe&#10;Pompier&#10;Brosse à dents…">${esc(j.motsMime)}</textarea>
       <span class="muted" style="font-size:13px">Un mot ne revient jamais dans le même round ; dans la journée, les mots déjà sortis reviennent en dernier.</span></label>
-    <div class="grid-auto">${cfgInput(`jeux.${s}.duos`, j.duos, 'num', { label: 'Nombre de duos' })}${cfgInput(`jeux.${s}.tempsMime`, j.tempsMime, 'dur', { label: 'Temps pour mimer (chacun)' })}${cfgInput(`jeux.${s}.tempsPret`, j.tempsPret, 'dur', { label: 'Temps pour se préparer' })}</div>
+    <div class="grid-auto">${cfgInput(`jeux.${s}.tempsMime`, j.tempsMime, 'dur', { label: 'Temps pour mimer (chacun)' })}${cfgInput(`jeux.${s}.tempsPret`, j.tempsPret, 'dur', { label: 'Temps pour se préparer' })}</div>
   </div>`;
 }
 function mjMimePartie(e, a) {

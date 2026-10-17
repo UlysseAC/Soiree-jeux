@@ -54,11 +54,12 @@ function viewFor(sock) {
   if (d.role === 'admin') return { ...soiree.adminView(), simulation: sim.status(), sauvegardeEnLigne: storage.remote, enLigne: !!process.env.RENDER };
   if (d.role === 'ecran') return { ...src(sock).screenView(), joinUrl: d.test ? `${JOIN_URL}?test` : JOIN_URL, qr: d.test ? qrTest : qr, test: !!d.test };
   if (d.role === 'orga') return soiree.orgaView();
-  return d.test ? { ...src(sock).playerView(d.token), simulation: testeur.status() } : soiree.playerView(d.token);
+  return d.test ? { ...src(sock).playerView(d.token), simulation: simTest().status() } : soiree.playerView(d.token);
 }
 
 // Écran et téléphones de test (?test) : ils suivent le testeur, ou la simulation de l'admin quand elle tourne à part.
-const src = sock => (!sock.data.test ? soiree : !testeur.running && sim.aPart ? sim.ecran() : testeur.ecran());
+const simTest = () => (!testeur.running && sim.aPart ? sim : testeur);
+const src = sock => (!sock.data.test ? soiree : simTest().ecran());
 
 let pending = false;
 function broadcast(persist = true) {
@@ -141,7 +142,7 @@ io.on('connection', sock => {
   sock.on('testMiniJeu', (h = {}, cb = () => {}) => {
     if (typeof cb !== 'function') return;
     if (h.password !== ADMIN_PASSWORD) return cb({ ok: false, msg: 'Mot de passe admin incorrect.' });
-    cb(h.cmd === 'stop' ? testeur.handle({ cmd: 'stop' }) : testeur.handle({ cmd: 'start', games: [`mini:${h.type}`], moi: 1, aPart: true }));
+    cb(h.cmd === 'stop' ? testeur.handle({ cmd: 'stop' }) : testeur.handle({ cmd: 'start', games: [`mini:${h.type}`], moi: Math.max(1, Math.min(10, Math.round(Number(h.moi)) || 1)), aPart: true }));
     broadcast();
   });
 });

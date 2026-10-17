@@ -109,7 +109,7 @@ Sur l'écran, l'annonce d'un round commence par une machine à sous, à la place
 
 ## Le Mime
 
-- En **duos** (2 duos par défaut, réglable) : le format est fixé automatiquement (2 duos = 2 contre 2).
+- Toujours **4 joueurs, en 2 duos** (2 contre 2). S'il manque des joueurs sous la limite de rounds, le tirage complète avec d'autres connectés.
 - **Réglages** : la liste des **mots à mimer** (un par ligne ; une liste d'exemples est déjà remplie), le nombre de duos, le temps pour mimer (45 s chacun) et le temps pour se préparer (10 s).
 - **Déroulement** : le premier de chaque duo mime, duo après duo, puis les rôles s'inversent (2 duos = 4 tours). Avant chaque tour, l'écran annonce qui mime et qui devine ; celui qui mime peut lancer tout de suite avec « C'est parti ! ».
 - **Celui qui mime** voit le mot sur son téléphone, sans faire de bruit, et peut **passer au mot suivant** quand il veut. Son téléphone vibre quand son partenaire trouve.

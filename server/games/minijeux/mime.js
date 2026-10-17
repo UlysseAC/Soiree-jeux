@@ -11,13 +11,12 @@ export const defaults = {
   motsMime: ['Girafe', 'Pompier', 'Brosse à dents', 'Parapluie', 'Kangourou', 'Guitare', 'Dentiste', 'Spaghetti', 'Surfeur', 'Pingouin',
     'Boxeur', 'Photographe', 'Escargot', 'Trampoline', 'Magicien', 'Hélicoptère', 'Vampire', 'Bowling', 'Ascenseur', 'Pêcheur',
     'Danseuse étoile', 'Machine à laver', 'Ski', 'Gorille', 'Chef d\'orchestre', 'Popcorn', 'Robot', 'Coiffeur', 'Statue', 'Ninja'].join('\n'),
-  duos: 2,
   tempsMime: 45,
   tempsPret: 10,
 };
 
-// Le Mime se joue toujours en duos : le nombre de duos donne le format (2 duos = 2v2).
-export const format = sc => Array(Math.max(1, Math.min(6, Math.round(Number(sc.duos) || 2)))).fill(2);
+// Le Mime se joue toujours à 4 : deux duos (2 contre 2).
+export const format = () => [2, 2];
 
 const clampInt = (v, d, lo, hi) => Math.max(lo, Math.min(hi, Math.round(Number(v) || d)));
 const clip = (s, n) => String(s ?? '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, n);

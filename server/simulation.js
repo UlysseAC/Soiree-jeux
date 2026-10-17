@@ -14,7 +14,7 @@ const MINI_TESTS = {
   definition: { n: 6, joueurs: 3, reglages: { mots: 'Florpidoux\nGramouille\nZétrabule\nPinchaflor\nBrouscaille\nTirlipote', manches: 1, tempsOral: 40, tempsVote: 25, tempsRevelation: 8 } },
   anecdote: { n: 6, joueurs: 3, reglages: { manches: 1, tempsEcriture: 25, tempsVote: 25, tempsRevelation: 8 } },
   temple: { n: 5, reglages: { etapes: 3, tempsChoix: 12, tempsPiege: 5, cheminsEtapes: '2:1,3:1,4:2' } },
-  mime: { n: 4, reglages: { duos: 2, tempsMime: 15, tempsPret: 3 } },
+  mime: { n: 4, reglages: { tempsMime: 15, tempsPret: 3 } },
   dragon: { n: 4, reglages: { attaqueMin: 8, attaqueMax: 10, dureeTir: 90, pvDragon: 6 } },
   quiz: { n: 5, reglages: { tempsQuestion: 8, tempsRevelation: 4, questions: [1, 2, 3].map(k => `Question de test ${k} ?\nRéponse A\n*Réponse B\nRéponse C\nRéponse D`).join('\n\n') } },
   disparu: { n: 5, reglages: { manchesMemo: 2, objetsDepart: 4, objetsPlus: 1, tempsMemo: 6, tempsReponse: 12, melangeDes: 2 } },
@@ -220,6 +220,8 @@ export class Simulation {
     this.admin({ type: 'choisirJeu', gameId: 'minijeux' });
     const c = (path, value) => this.admin({ type: 'config', scope: 'jeu', path, value });
     c('joueurs', [...this.bots.map(b => b.name), ...incarnes].join('\n'));
+    c('rounds', 1);
+    c('premier', 60); // pas de tirage automatique : on annonce à la main quand les joueurs incarnés sont là
     c('programme', 'mj1');
     c('jeux.mj1.type', type);
     c('jeux.mj1.nom', MINI_NOMS[type]);

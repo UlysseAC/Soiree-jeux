@@ -48,7 +48,7 @@ export function defaultConfig() {
       points: '10, 6, 3, 1', // points par place
       ...definition.defaults, // La Définition : mots inventés, manches, temps
       ...temple.defaults, // Le Temple aztèque : obstacles, pièges, étapes, vies, temps
-      ...mime.defaults, // Le Mime : mots à mimer, nombre de duos, temps
+      ...mime.defaults, // Le Mime : mots à mimer, temps
       ...dragon.defaults, // La Chasse au dragon : équipes, vies, munitions, dragon, durée
       ...disparu.defaults, // Qu'est-ce qui a changé ? : objets, manches, temps
       ...quiz.defaults, // Le Quiz : questions, temps
@@ -232,6 +232,8 @@ function announce(ctx, g, r) {
   if (r.type === 'quiz') r.joueurs = connectes; // le quiz : tout le monde joue
   else if (egal) r.joueurs = libres;
   else r.joueurs = draw(g, libres, sizeOf(cfg, r.jeu, libres.length), prevPlayers(g, r));
+  // Le Mime se joue toujours à 4 : s'il manque des joueurs sous la limite, on complète avec les autres connectés
+  if (r.type === 'mime' && r.joueurs.length < 4) r.joueurs.push(...draw(g, connectes.filter(n => !r.joueurs.includes(n)), 4 - r.joueurs.length, prevPlayers(g, r)));
   r.multi = egal ? Object.fromEntries(libres.map(n => [n, max - joues(g, n, true)])) : null;
   if (!r.joueurs.length) { r.status = 'saute'; r.finAt = ctx.now(); return; } // personne à faire jouer : round sauté
   r.format = egal ? null : formatOf(cfg, r.jeu);

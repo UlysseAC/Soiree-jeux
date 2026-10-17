@@ -6,10 +6,10 @@ import { correspond } from '../server/games/minijeux/mime.js';
 const NAMES = ['Léa', 'Hugo', 'Inès', 'Malik', 'Chloé', 'Tom'];
 const MOTS = ['Girafe', 'Brosse à dents', 'Hélicoptère', 'Pingouin', 'Ski', 'Œuf', 'Kangourou', 'Pompier', 'Robot', 'Ninja', 'Vampire', 'Statue'];
 
-function setup({ duos = 2 } = {}) {
+function setup() {
   let t = Date.UTC(2026, 9, 13, 7, 0);
   const cfg = { ...mj.defaultConfig(), joueurs: NAMES.join('\n'), decalage: -120, programme: 'mj1' };
-  Object.assign(cfg.jeux.mj1, { type: 'mime', duos, motsMime: MOTS.join('\n'), tempsMime: 45, tempsPret: 10, joueurs: 3, format: '1v1v1v1' });
+  Object.assign(cfg.jeux.mj1, { type: 'mime', motsMime: MOTS.join('\n'), tempsMime: 45, tempsPret: 10, joueurs: 3, format: '1v1v1v1' });
   const ctx = { now: () => t, cfg, sfx: () => {} };
   const g = mj.start(ctx);
   NAMES.forEach((n, i) => mj.claim(ctx, g, `p${i}`, n));
@@ -38,8 +38,8 @@ test('réponse : sans accents, sans majuscules, sans article, avec une petite fa
   assert.ok(!correspond('', 'Ski'));
 });
 
-test('le Mime se joue en duos : le nombre de duos donne le nombre de joueurs', () => {
-  const { r } = setup({ duos: 2 });
+test('le Mime se joue toujours à 4, en 2 duos', () => {
+  const { r } = setup();
   assert.deepEqual(r.format, [2, 2]);
   assert.equal(r.joueurs.length, 4);
   assert.equal(r.equipes.length, 2);

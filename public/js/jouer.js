@@ -683,6 +683,7 @@ function testPanel() {
   ui.testType ??= s.tests[0]?.[0];
   return `<div class="card test-panel"><strong>🧪 Tester un mini-jeu</strong>
     <select class="in" id="test-type">${s.tests.map(([k, n]) => `<option value="${k}" ${k === ui.testType ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>
+    <select class="in" id="test-nb">${[1, 2, 3, 4, 5, 6].map(k => `<option value="${k}" ${k === (ui.testNb || 1) ? 'selected' : ''}>${k} vrai${k > 1 ? 's' : ''} joueur${k > 1 ? 's' : ''} (téléphones) avec les bots</option>`).join('')}</select>
     <button class="btn primary" data-act="testLancer">▶ Lancer et jouer</button>${lien}</div>`;
 }
 function draw() {
@@ -710,14 +711,14 @@ function draw() {
 }
 
 // Téléphone de test : lancer ou arrêter un test (mot de passe admin demandé une fois, gardé sur ce téléphone).
-app.addEventListener('change', e => { if (e.target.id === 'test-type') ui.testType = e.target.value; });
+app.addEventListener('change', e => { if (e.target.id === 'test-type') ui.testType = e.target.value; if (e.target.id === 'test-nb') ui.testNb = Number(e.target.value); });
 app.addEventListener('click', async e => {
   const t = e.target.closest('[data-act="testLancer"], [data-act="testArreter"]');
   if (!t) return;
   const password = SJ.store('sj-admin') || prompt('Mot de passe admin');
   if (!password) return;
   const lancer = t.dataset.act === 'testLancer';
-  const r = await SJ.emit('testMiniJeu', lancer ? { password, type: ui.testType } : { password, cmd: 'stop' });
+  const r = await SJ.emit('testMiniJeu', lancer ? { password, type: ui.testType, moi: ui.testNb || 1 } : { password, cmd: 'stop' });
   SJ.toast(r);
   if (!r.ok) { if (/mot de passe/i.test(r.msg || '')) SJ.store('sj-admin', null); return; }
   SJ.store('sj-admin', password);
