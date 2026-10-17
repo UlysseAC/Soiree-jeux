@@ -2,7 +2,7 @@
 // Chacun pour soi (1v1v1v1) ou 2 contre 2. Le téléphone ne sert que de manette ; tout se suit en direct sur l'écran.
 // Par défaut, chaque joueur est à l'abri derrière son muret : rien ne peut le toucher. Sur son téléphone :
 //   - Viser : il se lève (à découvert) et prend une cible, d'abord un adversaire, même s'il est à l'abri ;
-//     les flèches font passer la cible d'un joueur à l'autre, puis au dragon, et ainsi de suite ;
+//     on choisit ensuite sa cible parmi les adversaires et le dragon (seulement en visant) ;
 //   - Tirer : possible après 1 s sur la même cible ; un joueur n'est touché que s'il est à découvert ;
 //   - Recharger : remplit le chargeur en quelques secondes, à découvert ;
 //   - Se cacher : retour derrière le muret.
@@ -39,7 +39,7 @@ function prochaineAttaque(ctx, sc) {
   return ctx.now() + (lo + Math.random() * (hi - lo)) * 1000;
 }
 
-// Cibles possibles, dans l'ordre des flèches : les adversaires encore en jeu (même à l'abri), puis le dragon.
+// Cibles possibles : les adversaires encore en jeu (même à l'abri), puis le dragon.
 export function cibles(r, nom) {
   const d = r.dr, eq = equipeDe(r, nom);
   return [...r.joueurs.filter(p => p !== nom && enJeu(d, p) && equipeDe(r, p) !== eq), ...(d.dragon.pv > 0 ? ['dragon'] : [])];
