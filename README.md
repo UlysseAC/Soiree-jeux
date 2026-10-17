@@ -85,6 +85,17 @@ Dans l'admin, onglet **Soirée** : **Exporter les réglages** télécharge un fi
 
 `npm run repetition` lance le serveur et joue une soirée complète (les 3 jeux puis le grand final) avec 20 faux joueurs, et affiche un bilan. `npm run repetition -- 45` pour 45 joueurs.
 
+## Préparer et enchaîner la soirée
+
+Dans l'admin, onglet **Soirée**, encadré « Programme de la soirée » :
+
+1. **Choisis les jeux** de ce soir (✕ pour en retirer un, « + » pour en ajouter) et leur **ordre** (↑ ↓).
+2. **Règle chaque jeu** avec « ⚙ Régler » : l'onglet **Réglages des jeux** permet de régler n'importe quel jeu, pas seulement le jeu actuel.
+3. **▶ Démarrer la soirée** : le classement repart de zéro et le premier jeu du programme est choisi.
+4. À la fin d'un jeu, **« Jeu suivant »** passe au jeu d'après. Le dernier jeu fini, affiche le grand final dans l'onglet Classement.
+
+Pendant la soirée, le programme et tous les réglages restent modifiables. Le programme est enregistré avec les autres réglages (et dans l'export).
+
 ## Déroulé d'un jeu
 
 1. Dans l'admin, onglet **Soirée** : choisis le jeu, règle le décompte (45 min) et l'ouverture des inscriptions (15 min avant), puis **Démarrer le décompte**.
