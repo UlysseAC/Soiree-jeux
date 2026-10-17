@@ -36,6 +36,11 @@ Petite animation sur l'écran public pour le dragon : la lueur de la lave (qu'on
 
 ## Tirage au sort
 
+- **Seuls les joueurs connectés** (qui ont pris leur nom sur un téléphone) sont tirés au sort.
+- **3 rounds au plus par joueur**, sans compter le quiz. Si un round n'a pas assez de joueurs libres, il se joue avec moins de joueurs ; s'il n'y en a aucun, il est sauté.
+- **Le détective en avant-dernier round** (« Qu'est-ce qui a changé ? ») égalise : il fait jouer tous les connectés qui ont moins de 3 rounds, quel que soit leur nombre. Leurs points de ce round sont multipliés : ×2 pour qui n'avait joué qu'un round, ×3 pour qui n'en avait joué aucun (×1 à 2 rounds). Si tout le monde a déjà 3 rounds, il est sauté. L'admin affiche une alerte si l'avant-dernier round n'est pas le détective.
+- Le classement de l'écran montre 18 joueurs, avec le nombre de rounds joués par chacun (sans le quiz).
+
 Sur l'écran, l'annonce d'un round commence par une machine à sous, à la place des noms : une bobine par joueur, qui tournent toutes et s'arrêtent l'une après l'autre, toutes les 2 secondes. Un nom n'est écrit qu'à l'arrêt de sa bobine. Les téléphones ne sont prévenus (« À toi de jouer ! ») qu'à la fin des bobines ; en attendant, ils affichent « Tirage au sort en cours : regarde l'écran ! ». Pas de machine à sous quand tout le monde joue (Le Quiz).
 
 - On prend d'abord ceux qui ont **le moins joué** : tout le monde joue autant, à un round près.

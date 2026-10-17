@@ -206,11 +206,34 @@ function count(g, r, d) {
   if (new Set(teams.map(t => t.length)).size > 1) for (const t of teams) if (t.length === 1) add(g.solo, key(t[0]));
 }
 
+// Chaque joueur joue au plus 3 rounds, sans compter le quiz.
+export const MAX_ROUNDS_JOUEUR = 3;
+// Rounds joués par un joueur, sans le quiz (avecAnnonce : compte aussi le round annoncé, pour le tirage au sort).
+export function joues(g, nom, avecAnnonce = false) {
+  const ok = avecAnnonce ? ['annonce', 'jeu', 'fini'] : ['jeu', 'fini'];
+  return g.rounds.filter(r => ok.includes(r.status) && r.type !== 'quiz' && r.joueurs.some(p => key(p) === key(nom))).length;
+}
+// Round d'égalisation : le détective (« Qu'est-ce qui a changé ? ») en avant-dernier round du programme. Il réunit
+// tous les joueurs connectés qui ont joué moins de 3 rounds ; leurs points sont multipliés (×2 pour 1 round joué,
+// ×3 pour aucun), comme s'ils avaient joué leurs 3 rounds.
+export function egalisation(g, r) {
+  const prevus = g.rounds.filter(x => !x.hors).map(x => x.n);
+  return r.type === 'disparu' && !r.hors && r.n === Math.max(...prevus) - 1;
+}
+
 function announce(ctx, g, r) {
-  const names = roster(ctx.cfg);
-  r.joueurs = draw(g, names, sizeOf(ctx.cfg, r.jeu, names.length), prevPlayers(g, r));
-  r.type = ctx.cfg.jeux[r.jeu]?.type || 'manuel';
-  r.format = formatOf(ctx.cfg, r.jeu);
+  const cfg = ctx.cfg;
+  r.type = cfg.jeux[r.jeu]?.type || 'manuel';
+  // Seuls les joueurs connectés (nom pris sur un téléphone) sont tirés au sort, et personne ne dépasse 3 rounds.
+  const connectes = roster(cfg).filter(n => g.claims[key(n)]);
+  const libres = connectes.filter(n => joues(g, n, true) < MAX_ROUNDS_JOUEUR);
+  const egal = egalisation(g, r);
+  if (r.type === 'quiz') r.joueurs = connectes; // le quiz : tout le monde joue
+  else if (egal) r.joueurs = libres;
+  else r.joueurs = draw(g, libres, sizeOf(cfg, r.jeu, libres.length), prevPlayers(g, r));
+  r.multi = egal ? Object.fromEntries(libres.map(n => [n, MAX_ROUNDS_JOUEUR - joues(g, n, true)])) : null;
+  if (!r.joueurs.length) { r.status = 'saute'; r.finAt = ctx.now(); return; } // personne à faire jouer : round sauté
+  r.format = egal ? null : formatOf(cfg, r.jeu);
   r.equipes = teamsFor(g, r.joueurs, r.format);
   r.compris = [];
   r.status = 'annonce';
@@ -339,7 +362,7 @@ function placesPoints(cfg, r, places) {
   for (const [i, team] of r.equipes.entries()) {
     const place = Math.round(Number(places?.[i]));
     if (!(place >= 1 && place <= r.equipes.length)) return null;
-    for (const p of team) out[p] = { place, points: pts[place - 1] ?? 0, equipe: i };
+    for (const p of team) out[p] = { place, points: (pts[place - 1] ?? 0) * (r.multi?.[p] || 1), equipe: i }; // ×2 ou ×3 au round d'égalisation
   }
   return out;
 }
@@ -365,6 +388,7 @@ export function adminAction(ctx, g, a) {
       // Annoncé à la main : le round commence peu après (le temps que les joueurs arrivent), pas à son heure prévue.
       next.at = Math.min(next.at, now + Math.min(cfg.annonce * 1000, 120e3));
       announce(ctx, g, next);
+      if (next.status === 'saute') return err(`Round ${next.n} sauté : aucun joueur connecté sous la limite de ${MAX_ROUNDS_JOUEUR} rounds.`);
       return ok(`Round ${next.n} annoncé : il commence dans ${Math.round((startAtOf(cfg, next) - now) / 60000) || 1} min.`);
     }
     case 'lancerMaintenant': { // un mini-jeu choisi tout de suite, hors programme (test avec de vrais joueurs)
@@ -374,6 +398,7 @@ export function adminAction(ctx, g, a) {
       const r = { n: g.rounds.length + 1, jeu: a.slot, at: now, status: 'prevu', joueurs: [], places: null, points: null, annonceAt: 0, debutAt: 0, finAt: 0, hors: true };
       g.rounds.push(r);
       announce(ctx, g, r);
+      if (r.status === 'saute') { g.rounds.pop(); return err(`Aucun joueur connecté sous la limite de ${MAX_ROUNDS_JOUEUR} rounds pour ce mini-jeu.`); }
       return ok(`${cfg.jeux[a.slot].nom} annoncé : il commence dès que tout le monde a compris.`);
     }
     case 'changerJeu': { // un round qui n'est pas encore annoncé peut changer de mini-jeu, pendant la soirée
@@ -467,7 +492,7 @@ function devine(g, nom) {
   return { n: r.n, ...me, sur: r.def.devineurs.length, bonus: r.bonus?.[me.nom] || 0 };
 }
 function ranking(ctx, g) {
-  const rows = roster(ctx.cfg).map(n => ({ nom: n, points: g.scores[key(n)] || 0, joues: g.played[key(n)] || 0 }));
+  const rows = roster(ctx.cfg).map(n => ({ nom: n, points: g.scores[key(n)] || 0, joues: joues(g, n) })); // rounds joués, sans le quiz
   rows.sort((a, b) => b.points - a.points || a.nom.localeCompare(b.nom, 'fr'));
   rows.forEach((r, i) => { r.rang = i && rows[i - 1].points === r.points ? rows[i - 1].rang : i + 1; });
   return rows;
@@ -484,7 +509,7 @@ export function expected(cfg, g) {
 function roundView(ctx, r, withRules = false) {
   const j = ctx.cfg.jeux[r.jeu] || {};
   const v = {
-    n: r.n, jeu: r.jeu, nom: j.nom, at: r.at, status: r.status, joueurs: r.joueurs,
+    n: r.n, jeu: r.jeu, nom: j.nom, at: r.at, status: r.status, joueurs: r.joueurs, hors: !!r.hors,
     equipes: r.equipes || r.joueurs.map(p => [p]),
     equipesNommees: !!(r.status === 'prevu' ? formatOf(ctx.cfg, r.jeu) : r.format)?.some(n => n > 1),
     format: formatLabel(r.status === 'prevu' ? formatOf(ctx.cfg, r.jeu) : r.format),

@@ -326,9 +326,10 @@ function mjDefinition(a, e) {
   return `${head}<div class="sc-sub">Les réponses !${A ? ' Le moins reconnu gagne.' : ''}</div>${cards}`;
 }
 function mjSide(g, title = 'Classement de la journée') {
-  const rows = g.classement.filter(r => r.points || g.faits).slice(0, 12);
+  const rows = g.classement.filter(r => r.points || g.faits).slice(0, 18);
+  // à côté des points : le nombre de rounds joués (sans le quiz)
   return `<aside class="mj-side"><div class="label" style="font-size:clamp(13px,1.1vw,18px)">${esc(title)}</div>
-    ${rows.length ? `<ol class="mj-rank">${rows.map(r => `<li><span class="r">${r.rang}.</span><span>${esc(r.nom)}</span><span class="p">${r.points}</span></li>`).join('')}</ol>` : '<p class="muted" style="margin:0">Pas encore de points.</p>'}</aside>`;
+    ${rows.length ? `<ol class="mj-rank">${rows.map(r => `<li><span class="r">${r.rang}.</span><span>${esc(r.nom)}</span><span class="j" title="rounds joués">${r.joues} r.</span><span class="p">${r.points}</span></li>`).join('')}</ol>` : '<p class="muted" style="margin:0">Pas encore de points.</p>'}</aside>`;
 }
 // Le Quiz (mini-jeu) : la question en grand avec ses 4 réponses, puis la bonne réponse et la répartition des réponses.
 function mjQuiz(a, e) {

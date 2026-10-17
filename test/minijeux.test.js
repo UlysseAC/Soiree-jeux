@@ -4,11 +4,13 @@ import * as mj from '../server/games/minijeux.js';
 import { normName } from '../server/util.js';
 
 const NAMES = ['Léa', 'Hugo', 'Inès', 'Malik', 'Chloé', 'Tom', 'Sarah', 'Nico', 'Jade', 'Yanis', 'Emma'];
-function setup(tweak = c => c, startAt = Date.UTC(2026, 9, 12, 7, 0)) { // 7 h UTC = 9 h à Genève (UTC+2)
+// connecter : chaque participant a pris son nom sur un téléphone (pid « tel:Nom ») ; seuls les connectés sont tirés au sort.
+function setup(tweak = c => c, startAt = Date.UTC(2026, 9, 12, 7, 0), connecter = true) { // 7 h UTC = 9 h à Genève (UTC+2)
   let t = startAt;
   const cfg = tweak({ ...mj.defaultConfig(), joueurs: NAMES.join('\n'), decalage: -120 });
   const ctx = { now: () => t, cfg, sfx: () => {} };
   const g = mj.start(ctx);
+  if (connecter) for (const n of NAMES) mj.claim(ctx, g, `tel:${n}`, n);
   return { g, ctx, cfg, at: ms => { t = ms; mj.tick(ctx, g); }, now: () => t };
 }
 const clock = h => Date.UTC(2026, 9, 12, h - 2, 0); // heure de Genève -> UTC
@@ -40,12 +42,12 @@ test('annonce 5 min avant ; le round commence quand tous les joueurs ont compris
   at(r0 + 60e3);
   assert.equal(g.rounds[0].status, 'annonce', 'pas de départ automatique à l\'heure');
   const [a, b] = g.rounds[0].joueurs;
-  mj.claim(ctx, g, 'pa', a); mj.claim(ctx, g, 'pb', b); mj.claim(ctx, g, 'px', NAMES.find(n => n !== a && n !== b));
-  assert.equal(mj.playerAction(ctx, g, 'px', { type: 'compris' }).ok, false, 'un spectateur ne compte pas');
-  assert.equal(mj.playerAction(ctx, g, 'pa', { type: 'compris' }).ok, true);
+  const x = NAMES.find(n => n !== a && n !== b);
+  assert.equal(mj.playerAction(ctx, g, `tel:${x}`, { type: 'compris' }).ok, false, 'un spectateur ne compte pas');
+  assert.equal(mj.playerAction(ctx, g, `tel:${a}`, { type: 'compris' }).ok, true);
   assert.equal(g.rounds[0].status, 'annonce');
   assert.deepEqual(mj.screenView(ctx, g).actif.compris, [a]);
-  mj.playerAction(ctx, g, 'pb', { type: 'compris' });
+  mj.playerAction(ctx, g, `tel:${b}`, { type: 'compris' });
   assert.equal(g.rounds[0].status, 'jeu');
   at(clock(12));
   assert.equal(g.rounds[0].status, 'jeu', 'le round attend les résultats');
@@ -53,7 +55,7 @@ test('annonce 5 min avant ; le round commence quand tous les joueurs ont compris
 });
 
 test('tout le monde joue autant (à un près), jamais deux rounds de suite quand c\'est possible', () => {
-  const { g, ctx, at } = setup(c => ({ ...c, rounds: 24, programme: '' }));
+  const { g, ctx, at } = setup(c => ({ ...c, rounds: 16, programme: '' })); // 16 rounds de 2 = 32 places pour 11 joueurs (3 rounds max)
   let back2back = 0, prev = [];
   for (const r of g.rounds) {
     jouer(ctx, at, r, g);
@@ -118,7 +120,7 @@ test('passer un round en cours annule sa participation ; décaler le planning', 
 });
 
 test('prendre son nom sur un téléphone : un nom = un téléphone', () => {
-  const { g, ctx } = setup();
+  const { g, ctx } = setup(undefined, undefined, false);
   assert.equal(mj.claim(ctx, g, 'p1', 'léa').ok, true);
   assert.equal(mj.claim(ctx, g, 'p2', 'Léa').ok, false);
   assert.equal(mj.claim(ctx, g, 'p1', 'Inconnu').ok, false);
@@ -136,8 +138,7 @@ test('le téléphone sait quand c\'est son tour', () => {
   at(clock(10) - 200e3);
   at(ctx.now() + 20e3); // les téléphones sont prévenus à la fin du tirage au sort de l'écran
   const [p] = g.rounds[0].joueurs;
-  mj.claim(ctx, g, 'moi', p);
-  const v = mj.playerView(ctx, g, 'moi');
+  const v = mj.playerView(ctx, g, `tel:${p}`);
   assert.equal(v.monTour.n, 1);
   assert.equal(v.monTour.status, 'annonce');
 });
@@ -235,8 +236,7 @@ test('le téléphone connaît ses coéquipiers et ses adversaires', () => {
   at(ctx.now() + 20e3); // fin du tirage au sort
   const r = g.rounds[0];
   const seul = r.equipes[1][0];
-  mj.claim(ctx, g, 'moi', seul);
-  const v = mj.playerView(ctx, g, 'moi').monTour;
+  const v = mj.playerView(ctx, g, `tel:${seul}`).monTour;
   assert.equal(v.coequipiers.length, 0);
   assert.equal(v.adversaires[0].length, 3);
   assert.equal(v.format, '3 contre 1');

@@ -834,6 +834,12 @@ function alerts() {
     const missing = V.game ? V.game.players.filter(p => !p.num).map(p => p.name) : V.registered.filter(p => !p.dossard).map(p => p.name);
     if (missing.length) out.push(`👕 <strong>${missing.length} joueur${missing.length > 1 ? 's' : ''} sans numéro de maillot</strong> : ${missing.slice(0, 12).map(esc).join(', ')}${missing.length > 12 ? '…' : ''}`);
   }
+  // Mini-Jeux : l'avant-dernier round doit être le détective (il égalise le nombre de rounds joués avant le quiz).
+  if (V.gameId === 'minijeux' && V.gameConfig?.jeux) {
+    const prog = V.game?.rounds ? V.game.rounds.filter(r => !r.hors).map(r => r.jeu) : mjProgram(V.gameConfig);
+    const avant = prog[prog.length - 2];
+    if (prog.length >= 2 && V.gameConfig.jeux[avant]?.type !== 'disparu') out.push(`🕵️ <span><strong>L'avant-dernier round n'est pas le détective</strong> (« Qu'est-ce qui a changé ? »). Mets-le en avant-dernier : il fait jouer tous ceux qui ont moins de 3 rounds, avec des points doublés ou triplés, pour que tout le monde ait joué autant.</span>`);
+  }
   const copy = !V.reglagesMaj && localCopy();
   if (copy) out.push(`♻️ <span><strong>Le serveur a perdu tes réglages</strong> (codes, indices, durées, noms des jeux). Ce navigateur en garde une copie du ${esc(new Date(copy.at).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }))}.</span>
     <button class="btn primary" data-act="restaurerCopie">Restaurer mes réglages</button><button class="btn" data-act="oublierCopie" data-confirm="Oublier la copie de ce navigateur ?">Ignorer</button>`);
