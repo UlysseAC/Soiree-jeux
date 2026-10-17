@@ -641,6 +641,60 @@ function rouletteMaj(r) {
   setTimeout(() => rouletteMaj(V.roulette), Math.max(0, r.startAt + r.duree + 6000 - SJ.now()) + 50);
 }
 
+// ---------- tirage au sort d'un round : machine à sous, un nom toutes les 2 secondes ----------
+// Calé sur l'heure d'annonce du serveur : tous les écrans montrent le même tirage, même ouverts en retard.
+const TIRAGE_PAS = 2000, TIRAGE_ROULE = 1500, TIRAGE_FIN = 3000;
+let tirageEtat = null, tirageRaf = 0;
+function tirageEl() {
+  let el = document.getElementById('tirage');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'tirage';
+    el.className = 'rl';
+    el.hidden = true;
+    el.innerHTML = '<div class="rl-box"><div class="label rl-titre"></div><div class="rl-win"><div class="rl-reel"></div></div><div class="rl-tires"></div></div>';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+function tirageMaj() {
+  const g = V?.gameId === 'minijeux' ? V.game : null, a = g?.actif;
+  const noms = (g?.participants || []).map(x => x.nom);
+  // pas de tirage quand tout le monde joue (Le Quiz)
+  const ok = a && a.status === 'annonce' && a.annonceAt && a.joueurs.length && a.joueurs.length < noms.length
+    && SJ.now() < a.annonceAt + a.joueurs.length * TIRAGE_PAS + TIRAGE_FIN;
+  const el = tirageEl();
+  if (!ok) { el.hidden = true; tirageEtat = null; cancelAnimationFrame(tirageRaf); return; }
+  const cle = `${a.n}:${a.annonceAt}`;
+  if (tirageEtat?.cle === cle) return;
+  tirageEtat = { cle, k: -1, pose: -1 };
+  el.hidden = false;
+  el.querySelector('.rl-titre').textContent = `Tirage au sort · Round ${a.n} · ${a.nom}`;
+  const reel = el.querySelector('.rl-reel'), tires = el.querySelector('.rl-tires');
+  const frame = () => {
+    const t = SJ.now() - a.annonceAt, n = a.joueurs.length;
+    if (t >= n * TIRAGE_PAS + TIRAGE_FIN) { el.hidden = true; return; }
+    const k = Math.min(n - 1, Math.floor(Math.max(0, t) / TIRAGE_PAS));
+    if (k !== tirageEtat.k) { // nouveau nom à tirer : une nouvelle bande qui finit sur lui
+      tirageEtat.k = k;
+      const bande = [...Array(18)].map(() => noms[Math.floor(Math.random() * noms.length)]).concat([a.joueurs[k]]);
+      reel.innerHTML = bande.map(x => `<div class="rl-item">${esc(x)}</div>`).join('');
+      reel.dataset.n = bande.length;
+    }
+    const p = Math.min(1, Math.max(0, (t - k * TIRAGE_PAS) / TIRAGE_ROULE));
+    reel.style.transform = `translateY(${(1 - Math.pow(1 - p, 3)) * -(Number(reel.dataset.n) - 1) * RL_ITEM}px)`;
+    const poses = p >= 1 ? k : k - 1;
+    if (poses !== tirageEtat.pose) {
+      if (poses > tirageEtat.pose && poses >= 0 && t - (poses * TIRAGE_PAS + TIRAGE_ROULE) < 400) Sons.coup(.5); // pas de rafale si l'écran arrive en retard
+      tirageEtat.pose = poses;
+      tires.innerHTML = a.joueurs.slice(0, poses + 1).map(x => `<span>${esc(x)}</span>`).join('');
+    }
+    tirageRaf = requestAnimationFrame(frame);
+  };
+  cancelAnimationFrame(tirageRaf);
+  frame();
+}
+
 // ---------- classement de la soirée ----------
 function soireeView(c, final) {
   const rows = c.rows;
@@ -696,6 +750,7 @@ function draw() {
     if (mode === 'final') celebrate(`final:${V.classement.held?.length ?? 0}`, 9000, () => Sons.fanfare());
   }
   rouletteMaj(V.roulette);
+  tirageMaj();
   premierRendu = false;
   const before = {};
   document.querySelectorAll('#board li, #board-soiree li').forEach(li => { before[li.dataset.pid] = li.getBoundingClientRect().top; });

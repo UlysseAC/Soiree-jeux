@@ -488,7 +488,7 @@ function roundView(ctx, r, withRules = false) {
     equipes: r.equipes || r.joueurs.map(p => [p]),
     equipesNommees: !!(r.status === 'prevu' ? formatOf(ctx.cfg, r.jeu) : r.format)?.some(n => n > 1),
     format: formatLabel(r.status === 'prevu' ? formatOf(ctx.cfg, r.jeu) : r.format),
-    startAt: r.status === 'annonce' ? startAtOf(ctx.cfg, r) : r.debutAt || r.at,
+    startAt: r.status === 'annonce' ? startAtOf(ctx.cfg, r) : r.debutAt || r.at, annonceAt: r.annonceAt || 0,
     taille: sizeOf(ctx.cfg, r.jeu, roster(ctx.cfg).length), duree: j.duree, debutAt: r.debutAt, finAt: r.finAt,
     type: r.type || j.type || 'manuel', compris: r.compris || [],
     points: r.points,
