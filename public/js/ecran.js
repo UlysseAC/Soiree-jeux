@@ -21,7 +21,6 @@ SJ.sock.on('etat', v => {
   // Décor du mini-jeu pendant tout le round (annonce, partie, résultats), et celui du prochain round pendant l'attente.
   const mjr = v.gameId === 'minijeux' && v.game ? v.game.actif || v.game.recent || (v.game.finished ? null : v.game.prochain) : null;
   document.body.dataset.theme = MJ_THEMES[mjr?.type] || '';
-  decorAnim(document.body.dataset.theme);
   if (v.gameId === 'minijeux' && v.game) { tpSons(v.game); mimeSons(v.game); dragonSons(v.game); memoSons(v.game); }
   TempleCarte.maj(v.gameId === 'minijeux' ? v.game?.etat : null);
   DragonScene.maj(v.gameId === 'minijeux' ? v.game?.etat : null);
@@ -683,73 +682,6 @@ function rouletteMaj(r) {
   frame();
   // Masquage automatique, même si aucune nouvelle diffusion ne suit.
   setTimeout(() => rouletteMaj(V.roulette), Math.max(0, r.startAt + r.duree + 6000 - SJ.now()) + 50);
-}
-
-// ---------- petites animations des décors (écran public seulement) ----------
-// Dragon : la lueur de la lave, qu'on ne voit pas, bouge doucement sur le bas ; de temps en temps une braise s'envole et retombe.
-// Temple : de temps en temps la silhouette d'un léopard traverse l'écran en marchant au ras du sol.
-const decorCalme = matchMedia('(prefers-reduced-motion: reduce)').matches;
-const auHasard = (a, b) => a + Math.random() * (b - a);
-let decorTheme = null, decorTimer = 0;
-function decorEl() {
-  let el = document.getElementById('mj-anim');
-  if (!el) { el = document.createElement('div'); el.id = 'mj-anim'; el.setAttribute('aria-hidden', 'true'); document.body.appendChild(el); }
-  return el;
-}
-function decorAnim(theme) {
-  if (theme === decorTheme) return;
-  decorTheme = theme;
-  clearTimeout(decorTimer);
-  decorEl().innerHTML = theme === 'dragon' && !decorCalme ? '<div class="lave"></div>' : '';
-  document.querySelectorAll('.leopard').forEach(x => x.remove());
-  if (decorCalme) return;
-  if (theme === 'dragon') prochaineBraise();
-  if (theme === 'temple') prochainLeopard(auHasard(8000, 15000));
-}
-function prochaineBraise() {
-  decorTimer = setTimeout(() => {
-    if (decorTheme !== 'dragon') return;
-    const b = document.createElement('span');
-    b.className = 'braise';
-    b.style.left = `${auHasard(5, 95)}vw`;
-    b.style.setProperty('--h', `${auHasard(12, 30)}vh`);
-    b.style.setProperty('--dx', `${auHasard(-6, 6)}vw`);
-    b.addEventListener('animationend', () => b.remove());
-    decorEl().appendChild(b);
-    prochaineBraise();
-  }, auHasard(9000, 20000)); // rarement
-}
-function prochainLeopard(delai) {
-  decorTimer = setTimeout(() => {
-    if (decorTheme !== 'temple') return;
-    leopard();
-    prochainLeopard(auHasard(30000, 60000));
-  }, delai);
-}
-// Silhouette de léopard vue de profil ; les pattes et la queue bougent (voir .leopard dans style.css).
-const LEOPARD_SVG = `<svg viewBox="0 0 240 120" width="100%" height="100%" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
-  <g class="l-patte l-ar-loin"><path d="M74 58 C86 72 84 84 76 92 L78 114"/><ellipse cx="81" cy="116" rx="5" ry="2.5"/></g>
-  <g class="l-patte l-av-loin"><path d="M150 60 C152 80 150 96 151 114"/><ellipse cx="154" cy="116" rx="5" ry="2.5"/></g>
-  <g class="l-queue"><path d="M62 54 C40 58 30 76 30 96 C30 104 36 106 40 100"/></g>
-  <g class="l-corps">
-    <path d="M62 50 C80 42 140 40 166 46 C176 49 178 58 172 64 C160 70 90 72 70 66 C58 62 54 54 62 50 Z"/>
-    <path d="M156 48 C170 43 183 46 193 54 L189 65 C179 63 168 63 160 63 Z"/>
-    <ellipse cx="198" cy="58" rx="12" ry="9"/><ellipse cx="209" cy="61" rx="6" ry="5"/>
-    <circle cx="192" cy="50" r="3.2"/><circle cx="198" cy="49" r="3.2"/>
-  </g>
-  <g class="l-patte l-ar-pres"><path d="M82 58 C94 72 92 84 84 92 L86 114"/><ellipse cx="89" cy="116" rx="5" ry="2.5"/></g>
-  <g class="l-patte l-av-pres"><path d="M158 60 C160 80 158 96 159 114"/><ellipse cx="162" cy="116" rx="5" ry="2.5"/></g>
-</svg>`;
-function leopard() {
-  if (document.querySelector('.leopard')) return; // un seul à la fois
-  const W = innerWidth, L = 220, H = 110, sol = innerHeight - 16 - H; // il marche juste au-dessus de la frise du bas
-  const dir = Math.random() < .5 ? 1 : -1, x0 = dir > 0 ? -L : W, x1 = dir > 0 ? W : -L;
-  const el = document.createElement('div');
-  el.className = 'leopard';
-  el.innerHTML = `<div style="transform:scaleX(${dir})">${LEOPARD_SVG}</div>`;
-  document.body.appendChild(el);
-  // 70 px par seconde : une marche lente et souple
-  el.animate([{ transform: `translate(${x0}px, ${sol}px)` }, { transform: `translate(${x1}px, ${sol}px)` }], { duration: Math.abs(x1 - x0) / 0.07, easing: 'linear' }).onfinish = () => el.remove();
 }
 
 // ---------- classement de la soirée ----------

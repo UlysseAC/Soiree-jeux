@@ -32,8 +32,6 @@ Une journée de rounds à heures régulières. À chaque round, un mini-jeu et d
 
 Chaque mini-jeu a son décor sur l'écran et les téléphones : plateau télé (Le Quiz), forteresse et braises (La Chasse au dragon), bibliothèque (La Définition), chalet au coin du feu (L'Anecdote), Paris en noir et blanc (Le Mime), bureau de détective (Qu'est-ce qui a changé ?) et jungle aztèque (Le Temple). Sur l'écran, le décor reste pendant tout le round (annonce, partie, résultats) et, entre deux rounds, c'est celui du prochain mini-jeu qui s'affiche pendant l'attente. Les mini-jeux « Manuel » gardent l'écran habituel.
 
-Petites animations sur l'écran public : pour le dragon, la lueur de la lave (qu'on ne voit pas) bouge doucement sur le bas et, rarement, une braise s'envole et retombe ; pour le Temple, de temps en temps la silhouette d'un léopard traverse l'écran en marchant au ras du sol. Rien ne bouge si l'appareil demande moins d'animations.
-
 ## Tirage au sort
 
 Sur l'écran, l'annonce d'un round commence par une machine à sous, à la place des noms : une bobine par joueur, qui tournent toutes et s'arrêtent l'une après l'autre, toutes les 2 secondes. Un nom n'est écrit qu'à l'arrêt de sa bobine. Les téléphones ne sont prévenus (« À toi de jouer ! ») qu'à la fin des bobines ; en attendant, ils affichent « Tirage au sort en cours : regarde l'écran ! ». Pas de machine à sous quand tout le monde joue (Le Quiz).
