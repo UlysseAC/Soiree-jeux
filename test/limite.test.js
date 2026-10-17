@@ -28,11 +28,11 @@ function setup(programme, connectes = NAMES) {
 }
 
 test('seuls les joueurs connectés sont tirés au sort', () => {
-  const { g, jouer } = setup('mj1,mj2,mj3', ['Léa', 'Hugo', 'Inès']);
+  const { g, jouer } = setup('mj1,mj2,mj3', ['Léa', 'Hugo', 'Inès', 'Malik']);
   for (const r of g.rounds) jouer(r);
   const tous = g.rounds.flatMap(r => r.joueurs);
   assert.ok(tous.length > 0);
-  assert.ok(tous.every(n => ['Léa', 'Hugo', 'Inès'].includes(n)), JSON.stringify(tous));
+  assert.ok(tous.every(n => ['Léa', 'Hugo', 'Inès', 'Malik'].includes(n)), JSON.stringify(tous));
 });
 
 test('personne ne joue plus de 3 rounds (le quiz ne compte pas) ; un round sans joueur libre est sauté', () => {
@@ -60,7 +60,7 @@ test('détective en avant-dernier : tous ceux sous 3 rounds jouent, points ×2 p
 });
 
 test('détective en avant-dernier sauté si tout le monde a déjà 3 rounds', () => {
-  const { g, jouer } = setup('mj1,mj2,mj3,mj4,mj5,mj1,mj2,mj3,mj4,mj6,mj7', ['Léa', 'Hugo']);
+  const { g, jouer } = setup('mj1,mj2,mj3,mj4,mj5,mj1,mj2,mj3,mj4,mj6,mj7', ['Léa', 'Hugo', 'Inès', 'Malik']);
   for (const r of g.rounds.slice(0, -1)) jouer(r);
   assert.equal(g.rounds.at(-2).status, 'saute');
 });
@@ -86,14 +86,14 @@ test('tout le monde à la limite : le round attend, l\'écran le dit, l\'admin p
   ctx.now = () => r.at + 3600e3; // l'heure du round est passée
   mj.tick(ctx, g);
   assert.equal(r.status, 'prevu', 'pas sauté : il attend');
-  assert.deepEqual(mj.screenView(ctx, g).attente, { n: 6, raison: 'limite', nom: ctx.cfg.jeux.mj1.nom, max: 2 });
+  assert.deepEqual(mj.screenView(ctx, g).attente, { n: 6, raison: 'limite', nom: ctx.cfg.jeux.mj1.nom, max: 2, connectes: 4, min: 4 });
   assert.equal(mj.adminAction(ctx, g, { type: 'forcer' }).ok, true);
   assert.equal(r.status, 'annonce');
   assert.equal(r.joueurs.length, 4);
   assert.equal(mj.screenView(ctx, g).attente, null);
 });
 
-test('aucun joueur connecté : le round attend au lieu d\'être sauté, puis part dès qu\'un joueur arrive', () => {
+test('moins de 4 joueurs connectés : le round attend au lieu d\'être sauté, puis part dès que 4 sont là', () => {
   const { ctx, g } = setup('mj1,mj2', []);
   const r = g.rounds[0];
   mj.tick(ctx, g);
@@ -101,7 +101,11 @@ test('aucun joueur connecté : le round attend au lieu d\'être sauté, puis par
   mj.tick(ctx, g);
   assert.equal(r.status, 'prevu');
   assert.equal(mj.screenView(ctx, g).attente.raison, 'attente');
-  mj.claim(ctx, g, 'tel:Léa', 'Léa'); mj.claim(ctx, g, 'tel:Hugo', 'Hugo');
+  for (const n of ['Léa', 'Hugo', 'Inès']) mj.claim(ctx, g, `tel:${n}`, n);
+  mj.tick(ctx, g);
+  assert.equal(r.status, 'prevu', '3 connectés : on attend encore');
+  assert.equal(mj.screenView(ctx, g).attente.connectes, 3);
+  mj.claim(ctx, g, 'tel:Malik', 'Malik');
   mj.tick(ctx, g);
   assert.equal(r.status, 'annonce');
 });

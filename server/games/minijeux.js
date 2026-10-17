@@ -251,6 +251,10 @@ export function egalisation(g, r) {
   return r.type === 'disparu' && !r.hors && r.n === Math.max(...prevus) - 1;
 }
 
+// Un round attend qu'au moins 4 joueurs aient pris leur nom (moins si la liste des participants est plus courte).
+export const MIN_CONNECTES = 4;
+const minConnectes = cfg => Math.max(1, Math.min(MIN_CONNECTES, roster(cfg).length));
+
 // Tire au sort et annonce un round. Renvoie 'attente' (aucun joueur connecté) ou 'limite' (tous les connectés ont atteint
 // la limite de rounds) sans rien changer : le round reste prévu. forcer : on tire parmi tous les connectés, limite ou pas.
 function announce(ctx, g, r, forcer = false) {
@@ -260,7 +264,7 @@ function announce(ctx, g, r, forcer = false) {
   const connectes = roster(cfg).filter(n => g.claims[key(n)]);
   const max = maxRounds(cfg), libres = connectes.filter(n => joues(g, n, true) < max);
   const egal = egalisation(g, r);
-  if (!connectes.length) return 'attente';
+  if (connectes.length < minConnectes(cfg)) return 'attente'; // au moins 4 joueurs connectés avant de lancer un round
   if (r.type !== 'quiz' && !egal && !libres.length && !forcer) return 'limite';
   if (forcer && !libres.length) libres.push(...connectes);
   if (r.type === 'quiz') r.joueurs = connectes; // le quiz : tout le monde joue
@@ -459,7 +463,7 @@ export function adminAction(ctx, g, a) {
       // Annoncé à la main : le round commence peu après (le temps que les joueurs arrivent), pas à son heure prévue.
       next.at = Math.min(next.at, now + Math.min(cfg.annonce * 1000, 120e3));
       const res = announce(ctx, g, next);
-      if (res === 'attente') return err('Aucun joueur connecté : le round attend que des joueurs prennent leur nom.');
+      if (res === 'attente') return err(`Il faut au moins ${minConnectes(cfg)} joueurs connectés : le round attend que des joueurs prennent leur nom.`);
       if (res === 'limite') { g.attente = { n: next.n, raison: res }; return err(`Tous les joueurs connectés ont atteint la limite de ${maxRounds(cfg)} rounds : choisis « Jouer quand même » ou « Sauter ».`); }
       if (next.status === 'saute') return err(`Round ${next.n} sauté : tout le monde a déjà ${maxRounds(cfg)} rounds.`);
       return ok(`Round ${next.n} annoncé : il commence dans ${Math.round((startAtOf(cfg, next) - now) / 60000) || 1} min.`);
@@ -471,7 +475,7 @@ export function adminAction(ctx, g, a) {
       const r = { n: g.rounds.length + 1, jeu: a.slot, at: now, status: 'prevu', joueurs: [], places: null, points: null, annonceAt: 0, debutAt: 0, finAt: 0, hors: true };
       g.rounds.push(r);
       const res = announce(ctx, g, r, !!a.forcer);
-      if (res === 'attente') { g.rounds.pop(); return err('Aucun joueur connecté.'); }
+      if (res === 'attente') { g.rounds.pop(); return err(`Il faut au moins ${minConnectes(cfg)} joueurs connectés.`); }
       if (res === 'limite') { g.rounds.pop(); return err(`Tous les joueurs connectés ont atteint la limite de ${maxRounds(cfg)} rounds.`); }
       if (r.status === 'saute') { g.rounds.pop(); return err('Personne à faire jouer pour ce mini-jeu.'); }
       return ok(`${cfg.jeux[a.slot].nom} annoncé : il commence dès que tout le monde a compris.`);
@@ -481,7 +485,7 @@ export function adminAction(ctx, g, a) {
       const next = nextRound(g);
       if (!next) return err('Plus de round prévu.');
       const res = announce(ctx, g, next, true);
-      if (res === 'attente') return err('Aucun joueur connecté.');
+      if (res === 'attente') return err(`Il faut au moins ${minConnectes(cfg)} joueurs connectés.`);
       g.attente = null;
       return ok(`Round ${next.n} annoncé, au-delà de la limite de ${maxRounds(cfg)} rounds.`);
     }
@@ -630,7 +634,8 @@ function common(ctx, g) {
     actif: act ? roundView(ctx, act, true) : null,
     prochain: next ? roundView(ctx, next, true) : null,
     recent: recent ? roundView(ctx, recent) : null,
-    attente: g.attente && !act ? { ...g.attente, nom: ctx.cfg.jeux[g.rounds[g.attente.n - 1]?.jeu]?.nom, max: maxRounds(ctx.cfg) } : null,
+    attente: g.attente && !act ? { ...g.attente, nom: ctx.cfg.jeux[g.rounds[g.attente.n - 1]?.jeu]?.nom, max: maxRounds(ctx.cfg),
+      connectes: roster(ctx.cfg).filter(n => g.claims[key(n)]).length, min: minConnectes(ctx.cfg) } : null,
     total: g.rounds.length,
     faits: g.rounds.filter(r => r.status === 'fini').length,
   };

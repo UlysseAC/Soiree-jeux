@@ -434,7 +434,7 @@ function minijeux(g) {
     main = `<div class="mj-kicker">Round ${at.n} · ${esc(at.nom)} · en attente</div>
       <div class="mj-round">${at.raison === 'limite' ? 'Tout le monde a déjà joué !' : 'En attente des joueurs'}</div>
       <div class="grid-auto" style="grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:3vw">
-        <p class="sc-sub" style="margin:0">${at.raison === 'limite' ? `Tous les joueurs connectés ont déjà joué ${at.max} rounds. L'organisateur décide de la suite… Nouveaux arrivants : scannez le QR code et touchez votre nom !` : 'Scannez le QR code et touchez votre nom : le round commence dès que des joueurs sont connectés.'}</p>${qrBlock(true)}</div>`;
+        <p class="sc-sub" style="margin:0">${at.raison === 'limite' ? `Tous les joueurs connectés ont déjà joué ${at.max} rounds. L'organisateur décide de la suite… Nouveaux arrivants : scannez le QR code et touchez votre nom !` : `Scannez le QR code et touchez votre nom : le round commence dès que ${at.min} joueurs sont connectés. <strong>${at.connectes} / ${at.min}</strong>`}</p>${qrBlock(true)}</div>`;
   } else if (g.prochain) {
     const p = g.prochain;
     const first = g.faits === 0 && g.rounds.every(r => r.status === 'prevu' || r.status === 'saute');
