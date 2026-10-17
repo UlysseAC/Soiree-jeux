@@ -25,6 +25,7 @@ export function defaultState() {
     history: [],
     bonus: {},
     soirees: [], // soirées précédentes : { fin, parties, top } (le classement de chacune, figé)
+    roulette: null, // dernier tirage au sort affiché sur l'écran : { id, names, winner, startAt, duree }
     show: null, // null | 'classement' | 'final' : classement affiché sur l'écran public
   };
 }
@@ -183,6 +184,13 @@ export class Soiree {
         this.s.config = restore({ config: c }).config;
         this.s.reglagesMaj = this.now();
         return { ok: true, msg: 'Réglages importés.' };
+      }
+      case 'roulette': { // machine à sous : un nom tiré parmi les personnes connectées, animé sur l'écran
+        const names = [...new Set(Object.values(this.s.people).map(p => p.name).filter(Boolean))];
+        if (names.length < 2) return { ok: false, msg: 'Il faut au moins 2 personnes connectées.' };
+        const winner = names[Math.floor(Math.random() * names.length)];
+        this.s.roulette = { id: uid(), names, winner, startAt: now, duree: 4000 };
+        return { ok: true };
       }
       case 'nouvelleSoiree': { // archive le classement de la soirée en cours, puis repart de zéro
         if (sess.status !== 'idle' && sess.status !== 'finished') return { ok: false, msg: 'Termine d\'abord la partie en cours.' };
@@ -349,6 +357,7 @@ export class Soiree {
     return {
       ...this.common(),
       show: this.s.show,
+      roulette: this.s.roulette,
       finishedAt: sess.finishedAt || 0,
       classement: { rows: c.rows.slice(0, 30).map(r => ({ pid: r.pid, rank: r.rank, name: r.name, total: r.total, mult: r.mult, games: r.games })), held: c.held },
       registered: sess.registered.map(p => this.s.people[p]?.name).filter(Boolean),

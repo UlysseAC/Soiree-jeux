@@ -594,6 +594,49 @@ function gpOverlay(g) {
   requestAnimationFrame(sportLoop);
 })();
 
+// ---------- roulette (machine à sous) ----------
+// Le serveur choisit le nom ; chaque écran fait défiler la bande et s'arrête sur le même nom.
+const RL_ITEM = 140; // hauteur d'une case, en px (voir .rl-item dans style.css)
+let rouletteVu = null, rouletteRaf = 0;
+function rouletteEl() {
+  let el = document.getElementById('roulette');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'roulette';
+    el.className = 'rl';
+    el.hidden = true;
+    el.innerHTML = '<div class="rl-box"><div class="label">Tirage au sort</div><div class="rl-win"><div class="rl-reel"></div></div><div class="rl-nom"></div></div>';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+function rouletteMaj(r) {
+  const el = rouletteEl();
+  const fini = !r || SJ.now() > r.startAt + r.duree + 6000;
+  el.hidden = fini;
+  if (fini || rouletteVu === r.id) return;
+  rouletteVu = r.id;
+  const reel = el.querySelector('.rl-reel'), nom = el.querySelector('.rl-nom');
+  nom.textContent = '';
+  const tours = [...Array(30)].map(() => r.names[Math.floor(Math.random() * r.names.length)]).concat([r.winner]);
+  reel.innerHTML = tours.map(n => `<div class="rl-item">${esc(n)}</div>`).join('');
+  const fin = -(tours.length - 1) * RL_ITEM;
+  // Arrivée en retard (page rechargée) : on est directement sur le nom, sans fanfare.
+  const tard = SJ.now() - r.startAt > r.duree + 1000;
+  // Les cases défilent vite au début et ralentissent jusqu'à s'arrêter sur le gagnant.
+  const frame = () => {
+    const p = Math.min(1, Math.max(0, (SJ.now() - r.startAt) / r.duree));
+    reel.style.transform = `translateY(${(1 - Math.pow(1 - p, 3)) * fin}px)`;
+    if (p < 1) { rouletteRaf = requestAnimationFrame(frame); return; }
+    nom.textContent = r.winner;
+    if (!tard) Sons.fanfare();
+  };
+  cancelAnimationFrame(rouletteRaf);
+  frame();
+  // Masquage automatique, même si aucune nouvelle diffusion ne suit.
+  setTimeout(() => rouletteMaj(V.roulette), Math.max(0, r.startAt + r.duree + 6000 - SJ.now()) + 50);
+}
+
 // ---------- classement de la soirée ----------
 function soireeView(c, final) {
   const rows = c.rows;
@@ -648,6 +691,7 @@ function draw() {
     ov = soireeView(V.classement, mode === 'final');
     if (mode === 'final') celebrate(`final:${V.classement.held?.length ?? 0}`, 9000, () => Sons.fanfare());
   }
+  rouletteMaj(V.roulette);
   premierRendu = false;
   const before = {};
   document.querySelectorAll('#board li, #board-soiree li').forEach(li => { before[li.dataset.pid] = li.getBoundingClientRect().top; });

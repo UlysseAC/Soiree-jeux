@@ -547,3 +547,11 @@ body[data-theme="temple"] .tp-choix .btn.choisi { border-color: var(--accent); b
 .qz-classement li { display: grid; grid-template-columns: 3em 1fr auto; gap: .8vw; background: var(--panel); border-radius: 10px; padding: .6vh .9vw; }
 .qz-boutons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .qz-btn { min-height: 96px; display: flex; align-items: center; gap: 10px; font-size: 18px; text-align: left; white-space: normal; }
+
+/* Roulette (machine à sous) sur l'écran public */
+.rl { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: rgba(10, 6, 3, .85); }
+.rl[hidden] { display: none; }
+.rl-box { text-align: center; display: grid; gap: 3vh; padding: 0 16px; }
+.rl-win { height: 140px; width: min(70vw, 640px); margin: 0 auto; overflow: hidden; border: 3px solid var(--accent); border-radius: 16px; background: var(--ink); }
+.rl-item { height: 140px; line-height: 140px; padding: 0 20px; font-size: clamp(40px, 7vw, 96px); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rl-nom { min-height: 1.4em; font-size: clamp(28px, 4vw, 56px); font-weight: 700; color: var(--accent); }

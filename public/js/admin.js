@@ -620,7 +620,8 @@ function classementTab() {
   let h = `<div class="spread"><div class="row"><span class="pill accent">${shown}</span><span class="muted">Jeux comptés : ${c.held.map(x => esc(x.name)).join(', ') || 'aucun pour l\'instant'}</span></div>
     <div class="row"><button class="btn" data-act="afficherClassement" data-mode="classement">📊 Afficher le classement</button>
       <button class="btn primary" data-act="afficherClassement" data-mode="final">🏆 Grand final</button>
-      <button class="btn sm" data-act="afficherClassement" data-mode="">Masquer</button></div></div>`;
+      <button class="btn sm" data-act="afficherClassement" data-mode="">Masquer</button>
+      <button class="btn" data-act="roulette" ${V.people.length < 2 ? 'disabled' : ''} title="Tire un nom au sort parmi les personnes connectées">🎰 Roulette</button></div></div>`;
   h += `<div class="box"><h2>Classement de la soirée</h2><div class="scroll"><table><thead><tr><th>#</th><th>Joueur</th>${c.held.map(x => `<th>${esc(x.name)} <span class="muted">/${x.max}</span></th>`).join('')}<th>Bonus jeu raté</th><th>Bonus manuel</th><th>Total</th></tr></thead><tbody>
     ${c.rows.map(r => `<tr><td class="mono">${r.rank}</td><td>${esc(r.name)}</td>${c.held.map(x => `<td class="mono">${pts(r.games[x.id])}</td>`).join('')}
       <td class="mono">${r.mult > 1 ? '×' + pts(r.mult) : ''}</td>
