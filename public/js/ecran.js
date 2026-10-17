@@ -21,6 +21,7 @@ SJ.sock.on('etat', v => {
   // Décor du mini-jeu pendant tout le round (annonce, partie, résultats), et celui du prochain round pendant l'attente.
   const mjr = v.gameId === 'minijeux' && v.game ? v.game.actif || v.game.recent || (v.game.finished ? null : v.game.prochain) : null;
   document.body.dataset.theme = MJ_THEMES[mjr?.type] || '';
+  decorAnim(document.body.dataset.theme);
   if (v.gameId === 'minijeux' && v.game) { tpSons(v.game); mimeSons(v.game); dragonSons(v.game); memoSons(v.game); }
   TempleCarte.maj(v.gameId === 'minijeux' ? v.game?.etat : null);
   DragonScene.maj(v.gameId === 'minijeux' ? v.game?.etat : null);
@@ -684,6 +685,37 @@ function rouletteMaj(r) {
   setTimeout(() => rouletteMaj(V.roulette), Math.max(0, r.startAt + r.duree + 6000 - SJ.now()) + 50);
 }
 
+// ---------- petites animations des décors (écran public seulement) ----------
+// Dragon : la lueur de la lave, qu'on ne voit pas, bouge doucement sur le bas ; rarement une braise s'envole et retombe.
+const decorCalme = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const auHasard = (a, b) => a + Math.random() * (b - a);
+let decorTheme = null, decorTimer = 0;
+function decorEl() {
+  let el = document.getElementById('mj-anim');
+  if (!el) { el = document.createElement('div'); el.id = 'mj-anim'; el.setAttribute('aria-hidden', 'true'); document.body.appendChild(el); }
+  return el;
+}
+function decorAnim(theme) {
+  if (theme === decorTheme) return;
+  decorTheme = theme;
+  clearTimeout(decorTimer);
+  decorEl().innerHTML = theme === 'dragon' && !decorCalme ? '<div class="lave"></div>' : '';
+  if (decorCalme) return;
+  if (theme === 'dragon') prochaineBraise();
+}
+function prochaineBraise() {
+  decorTimer = setTimeout(() => {
+    if (decorTheme !== 'dragon') return;
+    const b = document.createElement('span');
+    b.className = 'braise';
+    b.style.left = `${auHasard(5, 95)}vw`;
+    b.style.setProperty('--h', `${auHasard(12, 30)}vh`);
+    b.style.setProperty('--dx', `${auHasard(-6, 6)}vw`);
+    b.addEventListener('animationend', () => b.remove());
+    decorEl().appendChild(b);
+    prochaineBraise();
+  }, auHasard(9000, 20000)); // rarement
+}
 // ---------- classement de la soirée ----------
 function soireeView(c, final) {
   const rows = c.rows;
