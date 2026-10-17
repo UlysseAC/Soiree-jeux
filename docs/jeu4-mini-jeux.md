@@ -28,6 +28,10 @@ Une journée de rounds à heures régulières. À chaque round, un mini-jeu et d
 - Le round est marqué « hors programme » ; le programme prévu n'est pas modifié.
 - Les rounds prévus à leur heure peuvent toujours se déclencher pendant le test : utilise « Sauter » ou « Terminer la journée » pour les écarter.
 
+## Décors
+
+Chaque mini-jeu a son décor sur l'écran et les téléphones : plateau télé (Le Quiz), forteresse et braises (La Chasse au dragon), bibliothèque (La Définition, L'Anecdote), théâtre (Le Mime), musée (Qu'est-ce qui a changé ?) et jungle aztèque (Le Temple). Sur l'écran, le décor reste pendant tout le round (annonce, partie, résultats) et, entre deux rounds, c'est celui du prochain mini-jeu qui s'affiche pendant l'attente. Les mini-jeux « Manuel » gardent l'écran habituel.
+
 ## Tirage au sort
 
 - On prend d'abord ceux qui ont **le moins joué** : tout le monde joue autant, à un round près.

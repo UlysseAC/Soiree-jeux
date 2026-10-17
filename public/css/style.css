@@ -566,3 +566,106 @@ body[data-theme="temple"] .tp-choix .btn.choisi { border-color: var(--accent); b
   .dr-tel { display: none; }
   .dr-tourne { display: grid; }
 }
+
+/* ---------- Décors des mini-jeux (comme le Temple) : sur l'écran pendant tout le round et l'attente du suivant ---------- */
+/* Couche de décor commune : derrière tout le contenu, sans gêner les clics. */
+body[data-theme="quiz"]::before, body[data-theme="dragon"]::before, body[data-theme="livre"]::before,
+body[data-theme="theatre"]::before, body[data-theme="musee"]::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+}
+/* bandeau en haut de l'écran */
+body[data-theme="quiz"]::after, body[data-theme="dragon"]::after, body[data-theme="theatre"]::after {
+  content: ""; position: fixed; top: 0; left: 0; right: 0; z-index: -1; pointer-events: none;
+}
+
+/* Le Quiz : plateau de jeu télévisé, projecteurs et ampoules */
+body[data-theme="quiz"] {
+  --ink: #0a0b24; --panel: #151a4a; --panel2: #1f2668; --line: #3a4290;
+  --text: #eef0ff; --muted: #a5aad8;
+  --accent: #ffc83d; --accent-ink: #1d1405; --accent-soft: rgba(255, 200, 61, .16);
+  background: radial-gradient(ellipse 90% 60% at 50% -10%, #3b2a8f 0%, #141653 45%, #070821 100%) fixed;
+}
+body[data-theme="quiz"]::before {
+  background:
+    radial-gradient(ellipse 22% 85% at 12% -5%, rgba(255, 255, 255, .09), transparent 70%),
+    radial-gradient(ellipse 22% 85% at 88% -5%, rgba(255, 255, 255, .09), transparent 70%),
+    radial-gradient(ellipse 60% 30% at 50% 105%, rgba(255, 200, 61, .12), transparent 70%);
+}
+body[data-theme="quiz"]::after { height: 14px; background: radial-gradient(circle, #ffd76a 0 3px, rgba(255, 215, 106, .25) 4px, transparent 6px) 0 50% / 24px 14px repeat-x; }
+body[data-theme="quiz"] .mj-round { color: var(--accent); text-shadow: 0 0 24px rgba(255, 200, 61, .45); }
+body[data-theme="quiz"] .card, body[data-theme="quiz"] .mj-rules { background: linear-gradient(160deg, #1f2668, #121644); border-color: var(--line); }
+body[data-theme="quiz"] .qz-rep { background: linear-gradient(180deg, #27317f, #141a4d); border-color: #4a56b8; border-radius: 999px; }
+body[data-theme="quiz"] .qz-rep.bonne { background: linear-gradient(180deg, #1f8a4c, #126235); border-color: #5be08f; }
+body[data-theme="quiz"] .qz-lettre { color: var(--accent); }
+
+/* La Chasse au dragon : forteresse, créneaux et braises */
+body[data-theme="dragon"] {
+  --ink: #140806; --panel: #24110c; --panel2: #331811; --line: #5a2a1c;
+  --text: #f6e6dc; --muted: #c09a8a;
+  --accent: #ff8a3d; --accent-ink: #1d0a03; --accent-soft: rgba(255, 138, 61, .16);
+  background: radial-gradient(ellipse 120% 70% at 50% 110%, #5a1a0c 0%, #2a0d07 45%, #0c0403 100%) fixed;
+}
+body[data-theme="dragon"]::before {
+  background:
+    radial-gradient(circle at 18% 92%, rgba(255, 120, 40, .18) 0 2px, transparent 3px) 0 0 / 90px 70px,
+    radial-gradient(circle at 70% 80%, rgba(255, 170, 60, .14) 0 2px, transparent 3px) 0 0 / 130px 110px,
+    radial-gradient(ellipse 80% 35% at 50% 100%, rgba(255, 90, 30, .22), transparent 70%);
+}
+body[data-theme="dragon"]::after {
+  height: 16px;
+  background: linear-gradient(#3a2622, #3a2622) 0 0 / 100% 8px no-repeat, linear-gradient(90deg, #3a2622 50%, transparent 50%) 0 8px / 32px 8px repeat-x;
+}
+body[data-theme="dragon"] .mj-round { font-family: "Rye", Georgia, serif; font-weight: 400; text-transform: none; color: var(--accent); text-shadow: 0 3px 0 #5a1a0c, 0 0 28px rgba(255, 120, 40, .4); }
+body[data-theme="dragon"] .card, body[data-theme="dragon"] .mj-rules { background: linear-gradient(160deg, #331811, #1c0c08); border-color: var(--line); }
+
+/* La Définition et L'Anecdote : bibliothèque, dos de livres et parchemin */
+body[data-theme="livre"] {
+  --ink: #1a120b; --panel: #2a1e14; --panel2: #36271a; --line: #5c4630;
+  --text: #f3e6cf; --muted: #bba98c;
+  --accent: #d9b56a; --accent-ink: #1d1405; --accent-soft: rgba(217, 181, 106, .16);
+  background: radial-gradient(ellipse 100% 70% at 50% 0%, #3b2a1a 0%, #1f160e 50%, #0d0905 100%) fixed;
+}
+body[data-theme="livre"]::before {
+  opacity: .35;
+  background:
+    repeating-linear-gradient(90deg, #4a2f1c 0 10px, #6b3d22 10px 18px, #2f4a3a 18px 26px, #5a2424 26px 34px, #3b2a52 34px 40px) left top / 3vw 100% no-repeat,
+    repeating-linear-gradient(90deg, #5a2424 0 8px, #2f4a3a 8px 16px, #6b3d22 16px 26px, #3b2a52 26px 32px, #4a2f1c 32px 40px) right top / 3vw 100% no-repeat;
+}
+body[data-theme="livre"] .mj-round { font-family: Georgia, "Times New Roman", serif; font-style: italic; font-weight: 400; text-transform: none; color: var(--accent); }
+body[data-theme="livre"] .card, body[data-theme="livre"] .mj-rules { background: linear-gradient(160deg, #36271a, #1f160e); border-color: var(--line); }
+body[data-theme="livre"] .mj-card { background: linear-gradient(160deg, #3b2c1c, #261b11); border-color: #7a5f3c; }
+body[data-theme="livre"] .mj-mot { font-family: Georgia, "Times New Roman", serif; }
+
+/* Le Mime : salle de théâtre, rideaux rouges et lambrequin */
+body[data-theme="theatre"] {
+  --ink: #12060a; --panel: #220c12; --panel2: #2e1119; --line: #5a2230;
+  --text: #f7e9ec; --muted: #c79aa5;
+  --accent: #f2c14e; --accent-ink: #1d1405; --accent-soft: rgba(242, 193, 78, .16);
+  background: radial-gradient(ellipse 60% 80% at 50% 0%, #3a1a22 0%, #1a080d 55%, #0d0407 100%) fixed;
+}
+body[data-theme="theatre"]::before {
+  background:
+    repeating-linear-gradient(90deg, #8a1224 0 14px, #5c0a18 14px 24px) left top / 4vw 100% no-repeat,
+    repeating-linear-gradient(90deg, #5c0a18 0 10px, #8a1224 10px 24px) right top / 4vw 100% no-repeat;
+}
+body[data-theme="theatre"]::after { height: 3vh; min-height: 16px; background: repeating-linear-gradient(90deg, #8a1224 0 30px, #6e0e1d 30px 60px); border-bottom: 3px solid var(--accent); }
+body[data-theme="theatre"] .screen { padding: calc(3vh + 3vh) 6vw 3vh; } /* le texte ne passe pas sur les rideaux */
+body[data-theme="theatre"] .phone { padding-top: calc(20px + max(3vh, 16px) + env(safe-area-inset-top, 0px)); }
+body[data-theme="theatre"] .mj-round { font-family: "Rye", Georgia, serif; font-weight: 400; text-transform: none; color: var(--accent); }
+body[data-theme="theatre"] .card, body[data-theme="theatre"] .mj-rules { background: linear-gradient(160deg, #2e1119, #18070c); border-color: var(--line); }
+
+/* Qu'est-ce qui a changé ? : salle de musée, cimaise et éclairage de vitrine */
+body[data-theme="musee"] {
+  --ink: #0f1114; --panel: #1b1e23; --panel2: #252930; --line: #3c424c;
+  --text: #eef0f2; --muted: #a3a9b3;
+  --accent: #c9a45c; --accent-ink: #1a1408; --accent-soft: rgba(201, 164, 92, .16);
+  background: radial-gradient(ellipse 70% 60% at 50% -10%, #2c3038 0%, #15181c 55%, #0b0c0e 100%) fixed;
+}
+body[data-theme="musee"]::before {
+  background:
+    linear-gradient(transparent 8px, rgba(201, 164, 92, .6) 8px, rgba(201, 164, 92, .6) 10px, transparent 10px),
+    radial-gradient(ellipse 40% 55% at 50% 0, rgba(255, 244, 214, .08), transparent 70%);
+}
+body[data-theme="musee"] .mj-round { font-family: Georgia, "Times New Roman", serif; font-weight: 400; letter-spacing: .06em; color: var(--accent); }
+body[data-theme="musee"] .card, body[data-theme="musee"] .mj-rules { background: linear-gradient(160deg, #252930, #15181c); border-color: var(--line); }
+

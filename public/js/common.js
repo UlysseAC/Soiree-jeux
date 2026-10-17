@@ -121,3 +121,6 @@ const SJ = (() => {
 
   return { sock, now, sync, emit, esc, fmt, money, render, toast, store, hearts, confetti, keepAwake, tickTimers };
 })();
+
+// Décor de chaque mini-jeu sur l'écran et les téléphones (voir body[data-theme] dans style.css).
+const MJ_THEMES = { temple: 'temple', dragon: 'dragon', quiz: 'quiz', definition: 'livre', anecdote: 'livre', mime: 'theatre', disparu: 'musee' };

@@ -18,9 +18,9 @@ function celebrate(key, ms, extra) {
 SJ.sock.on('connect', () => SJ.emit('hello', { role: 'ecran' }));
 SJ.sock.on('etat', v => {
   V = v; document.body.dataset.game = v.gameId;
-  // Décor aztèque pendant un round du Temple (annonce, partie, résultats).
-  const mjr = v.gameId === 'minijeux' && v.game ? v.game.actif || v.game.recent : null;
-  document.body.dataset.theme = mjr?.type === 'temple' ? 'temple' : '';
+  // Décor du mini-jeu pendant tout le round (annonce, partie, résultats), et celui du prochain round pendant l'attente.
+  const mjr = v.gameId === 'minijeux' && v.game ? v.game.actif || v.game.recent || (v.game.finished ? null : v.game.prochain) : null;
+  document.body.dataset.theme = MJ_THEMES[mjr?.type] || '';
   if (v.gameId === 'minijeux' && v.game) { tpSons(v.game); mimeSons(v.game); dragonSons(v.game); memoSons(v.game); }
   TempleCarte.maj(v.gameId === 'minijeux' ? v.game?.etat : null);
   DragonScene.maj(v.gameId === 'minijeux' ? v.game?.etat : null);

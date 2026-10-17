@@ -23,7 +23,7 @@ SJ.sock.on('etat', v => {
   const before = V;
   V = v;
   document.body.dataset.game = v.gameId;
-  document.body.dataset.theme = v.gameId === 'minijeux' && v.game?.actif?.type === 'temple' ? 'temple' : '';
+  document.body.dataset.theme = v.gameId === 'minijeux' ? MJ_THEMES[v.game?.actif?.type] || '' : '';
   draw();
   buzz(before, v);
 });
