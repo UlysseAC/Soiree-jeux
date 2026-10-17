@@ -590,7 +590,8 @@ function partieMiniJeux(g) {
     const edit = ui.mjEdit === r.n && r.status === 'fini';
     const team = (t, i) => `${r.equipesNommees ? `<strong>${esc(teamLabel(r, i))}</strong> ` : ''}${t.map(esc).join(' + ')}`;
     const res = r.equipes.map((t, i) => `${team(t, i)}${r.points?.[t[0]] ? ` (${r.points[t[0]].place}<sup>e</sup>, ${r.points[t[0]].points} pts)` : ''}`).join(r.equipesNommees ? ' <span class="muted">vs</span> ' : ' · ');
-    return `<tr><td class="mono">${r.n}</td><td class="mono">${hhmm(r.at)}</td><td>${esc(r.nom)}<br><span class="muted" style="font-size:13px">${esc(r.format)}</span></td><td>${edit ? r.equipes.map((t, i) => `<div class="row" style="gap:8px">${team(t, i)} ${placeSelect(r, i)}</div>`).join('') + `<button class="btn sm primary" data-mj="resultats" data-n="${r.n}">Enregistrer</button>` : r.joueurs.length ? res : '<span class="muted">—</span>'}</td>
+    const choix = `<select class="in" style="width:auto;max-width:240px" data-mj-jeu="${r.n}">${MJ_SLOTS.map(s => `<option value="${s}" ${s === r.jeu ? 'selected' : ''}>${esc(V.gameConfig.jeux[s]?.nom || s)} · ${MJ_TYPE_NOMS[V.gameConfig.jeux[s]?.type] || 'Manuel'}</option>`).join('')}</select>`;
+    return `<tr><td class="mono">${r.n}</td><td class="mono">${hhmm(r.at)}</td><td>${r.status === 'prevu' ? choix : esc(r.nom)}<br><span class="muted" style="font-size:13px">${esc(r.format)}</span></td><td>${edit ? r.equipes.map((t, i) => `<div class="row" style="gap:8px">${team(t, i)} ${placeSelect(r, i)}</div>`).join('') + `<button class="btn sm primary" data-mj="resultats" data-n="${r.n}">Enregistrer</button>` : r.joueurs.length ? res : '<span class="muted">—</span>'}</td>
       <td>${etat[r.status]}${r.status === 'fini' && !edit ? ` <button class="btn sm" data-mj="corriger" data-n="${r.n}">Corriger</button>` : ''}${r.status === 'prevu' ? ` <button class="btn sm" data-mj="passer" data-n="${r.n}" data-confirm="Sauter le round ${r.n} ?">Sauter</button>` : ''}</td></tr>`;
   }).join('');
   const joueurs = g.joueurs.map(p => `<tr><td class="mono">${p.rang}</td><td>${esc(p.nom)}</td><td>${p.connecte ? `<span class="pill ok">📱 connecté</span> <button class="btn sm" data-mj="liberer" data-nom="${esc(p.nom)}" data-confirm="Libérer le nom de ${esc(p.nom)} ? Il pourra le reprendre sur un autre téléphone.">Libérer</button>` : '<span class="pill">pas encore</span>'}</td><td class="mono">${p.joues}</td><td class="mono">${p.points}</td></tr>`).join('');
@@ -645,10 +646,13 @@ app.addEventListener('click', async e => {
 app.addEventListener('change', e => {
   const t = e.target;
   if (t.dataset.mjPlace) { ui.places ??= {}; (ui.places[t.dataset.mjPlace] ??= {})[t.dataset.equipe] = Number(t.value); return; }
+  if (t.dataset.mjJeu) return admin({ type: 'jeu', action: { type: 'changerJeu', n: Number(t.dataset.mjJeu), slot: t.value } });
   if (t.dataset.mjProg != null) {
-    const prog = mjProgram(V.gameConfig);
-    prog[Number(t.dataset.mjProg)] = t.value;
+    const i = Number(t.dataset.mjProg), prog = mjProgram(V.gameConfig);
+    prog[i] = t.value;
     admin({ type: 'config', scope: 'jeu', path: 'programme', value: prog.join(',') });
+    // Le programme est aussi appliqué au round déjà prévu, si la journée est ouverte.
+    if (V.game?.rounds?.[i]?.status === 'prevu') admin({ type: 'jeu', action: { type: 'changerJeu', n: i + 1, slot: t.value } });
   }
 });
 

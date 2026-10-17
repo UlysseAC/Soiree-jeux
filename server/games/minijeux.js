@@ -356,6 +356,12 @@ export function adminAction(ctx, g, a) {
       announce(ctx, g, r);
       return ok(`${cfg.jeux[a.slot].nom} annoncé : il commence dès que tout le monde a compris.`);
     }
+    case 'changerJeu': { // un round qui n'est pas encore annoncé peut changer de mini-jeu, pendant la soirée
+      if (!r || r.status !== 'prevu') return err('Seuls les rounds à venir peuvent changer de mini-jeu.');
+      if (!SLOTS.includes(a.slot)) return err('Choisis un mini-jeu.');
+      r.jeu = a.slot;
+      return ok(`Round ${r.n} : ${cfg.jeux[a.slot].nom}.`);
+    }
     case 'commencer': {
       const act = activeRound(g);
       if (!act || act.status !== 'annonce') return err('Aucun round annoncé.');
