@@ -74,8 +74,8 @@ export class Simulation {
       this.aPart = !!this.bacASable && ['playing', 'countdown'].includes(this.reel.sess.status);
       this.so = this.aPart ? this.bacASable() : this.reel;
       this.bots = [];
-      // joueurs incarnés : de vrais téléphones (/jouer?test) prennent la place de faux joueurs
-      this.incarnes = Math.max(0, Math.min(10, Math.round(Number(a.moi)) || 0));
+      // joueurs incarnés (test d'un mini-jeu seulement) : de vrais téléphones (/jouer?test) prennent la place de faux joueurs
+      this.incarnes = String(a.games?.[0] || '').startsWith('mini:') ? Math.max(0, Math.min(10, Math.round(Number(a.moi)) || 0)) : 0;
       const ou = this.aPart ? 'Une vraie partie est en cours : la simulation tourne à part. Ouvre l\'écran de test (adresse /ecran?test).' : 'Regarde l\'écran public !';
       if (String(a.games?.[0] || '').startsWith('mini:')) {
         const type = a.games[0].slice(5);
@@ -84,10 +84,10 @@ export class Simulation {
         const faux = Math.max(1, MINI_TESTS[type].n - this.incarnes), places = this.incarnes ? ` et ${this.incarnes} place${this.incarnes > 1 ? 's' : ''} à incarner (/jouer?test)` : '';
         return { ok: true, msg: `Test de « ${MINI_NOMS[type]} » lancé avec ${faux} faux joueurs${places}. ${ou}` };
       }
-      const n = Math.max(4, Math.min(60, Number(a.n) || 50)) - this.incarnes; // les joueurs incarnés comptent dans le total
+      const n = Math.max(4, Math.min(60, Number(a.n) || 50));
       const games = (a.games?.length ? a.games : ['chemin', 'grandpari', 'duel']).filter(g => ['chemin', 'grandpari', 'duel'].includes(g));
       this.run(n, games).catch(e => { console.error('Simulation :', e); this.step = 'Erreur : ' + e.message; this.finish(); });
-      return { ok: true, msg: `Simulation lancée avec ${n} faux joueurs${this.incarnes ? ` (+ ${this.incarnes} à incarner sur /jouer?test : entre ton nom et inscris-toi pendant le décompte)` : ''}. ${ou}` };
+      return { ok: true, msg: `Simulation lancée avec ${n} faux joueurs. ${ou}` };
     }
     if (a.cmd === 'stop') {
       if (!this.running) return { ok: false, msg: 'Pas de simulation en cours.' };
