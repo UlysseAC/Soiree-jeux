@@ -367,6 +367,8 @@ function minijeux(g) {
   } else {
     main = '<div class="mj-round">Fin des rounds</div>';
   }
+  // La Chasse au dragon prend tout l'écran pendant la partie : ni en-tête ni classement.
+  if (a && a.status === 'jeu' && g.etat?.type === 'dragon') return `<div class="mj-grid mj-plein"><section class="mj-main">${main}</section></div>`;
   return `${head(`${pos} · ${g.inscrits} / ${g.participants.length} connectés`)}<div class="mj-grid"><section class="mj-main">${main}</section>${mjSide(g)}</div>`;
 }
 

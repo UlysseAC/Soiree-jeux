@@ -232,6 +232,8 @@ td.nowrap { white-space: nowrap; }
 /* ---------- Les Mini-Jeux ---------- */
 .mj-grid { flex: 1; display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 3vw; min-height: 0; }
 .mj-main { display: flex; flex-direction: column; gap: 2.2vh; min-width: 0; justify-content: center; }
+.mj-grid.mj-plein { grid-template-columns: minmax(0, 1fr); }
+.mj-plein .dr-scene { width: min(100%, calc(80vh * 16 / 9)); margin: 0 auto; }
 .mj-side { display: flex; flex-direction: column; gap: 1vh; min-width: 0; border-left: 1px solid var(--line); padding-left: 2.4vw; }
 .mj-kicker { font: 700 clamp(14px, 1.3vw, 22px) var(--body); text-transform: uppercase; letter-spacing: .14em; color: var(--accent); }
 .mj-round { font: 800 clamp(40px, 6vw, 104px)/1 var(--display); text-transform: uppercase; }
