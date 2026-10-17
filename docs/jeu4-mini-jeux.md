@@ -30,7 +30,7 @@ Une journée de rounds à heures régulières. À chaque round, un mini-jeu et d
 
 ## Décors
 
-Chaque mini-jeu a son décor sur l'écran et les téléphones : plateau télé (Le Quiz), forteresse et braises (La Chasse au dragon), bibliothèque (La Définition, L'Anecdote), théâtre (Le Mime), musée (Qu'est-ce qui a changé ?) et jungle aztèque (Le Temple). Sur l'écran, le décor reste pendant tout le round (annonce, partie, résultats) et, entre deux rounds, c'est celui du prochain mini-jeu qui s'affiche pendant l'attente. Les mini-jeux « Manuel » gardent l'écran habituel.
+Chaque mini-jeu a son décor sur l'écran et les téléphones : plateau télé (Le Quiz), forteresse et braises (La Chasse au dragon), bibliothèque (La Définition), chalet au coin du feu (L'Anecdote), Paris en noir et blanc (Le Mime), bureau de détective (Qu'est-ce qui a changé ?) et jungle aztèque (Le Temple). Sur l'écran, le décor reste pendant tout le round (annonce, partie, résultats) et, entre deux rounds, c'est celui du prochain mini-jeu qui s'affiche pendant l'attente. Les mini-jeux « Manuel » gardent l'écran habituel.
 
 ## Tirage au sort
 
