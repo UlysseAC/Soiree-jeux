@@ -719,7 +719,23 @@ body[data-theme="detective"] .card, body[data-theme="detective"] .mj-rules { bac
   50% { transform: translate(calc(var(--dx) * .6), calc(var(--h) * -1)); opacity: 1; }
   100% { transform: translate(var(--dx), -2vh); opacity: 0; }
 }
-/* Temple : le petit singe (au-dessus du contenu, mais sans gêner les clics) */
-.singe { position: fixed; left: 0; top: 0; z-index: 20; pointer-events: none; font-size: 44px; line-height: 1; }
-.singe span { display: inline-block; animation: mj-pas .35s ease-in-out infinite alternate; }
-@keyframes mj-pas { from { translate: 0 0; } to { translate: 0 -4px; } }
+/* Temple : la silhouette du léopard, au ras du sol (au-dessus du contenu, mais sans gêner les clics) */
+.leopard { position: fixed; left: 0; top: 0; z-index: 20; pointer-events: none; width: 220px; height: 110px; filter: drop-shadow(0 0 4px rgba(227, 179, 65, .35)); }
+.leopard > div { width: 100%; height: 100%; }
+.leopard svg { fill: #030504; stroke: #030504; }
+.leopard path { stroke-width: 3; }
+.leopard .l-patte path { fill: none; stroke-width: 9; }
+.leopard .l-av-loin path, .leopard .l-av-pres path { stroke-width: 8; }
+.leopard .l-queue path { fill: none; stroke-width: 6; }
+.leopard * { transform-box: view-box; }
+.leopard .l-corps { animation: l-souple .9s ease-in-out infinite alternate; }
+.leopard .l-queue { transform-origin: 62px 54px; animation: l-queue 1.8s ease-in-out infinite alternate; }
+.leopard .l-ar-loin { transform-origin: 74px 58px; } .leopard .l-ar-pres { transform-origin: 82px 58px; }
+.leopard .l-av-loin { transform-origin: 150px 60px; } .leopard .l-av-pres { transform-origin: 158px 60px; }
+/* marche à quatre temps : patte avant proche avec patte arrière lointaine, et inversement */
+.leopard .l-av-pres, .leopard .l-ar-loin { animation: l-pas-a .9s ease-in-out infinite alternate; }
+.leopard .l-av-loin, .leopard .l-ar-pres { animation: l-pas-b .9s ease-in-out infinite alternate; }
+@keyframes l-pas-a { from { transform: rotate(18deg); } to { transform: rotate(-18deg); } }
+@keyframes l-pas-b { from { transform: rotate(-18deg); } to { transform: rotate(18deg); } }
+@keyframes l-souple { from { transform: translateY(0); } to { transform: translateY(1.5px); } }
+@keyframes l-queue { from { transform: rotate(-6deg); } to { transform: rotate(6deg); } }

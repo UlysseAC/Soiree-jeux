@@ -687,7 +687,7 @@ function rouletteMaj(r) {
 
 // ---------- petites animations des décors (écran public seulement) ----------
 // Dragon : la lueur de la lave, qu'on ne voit pas, bouge doucement sur le bas ; de temps en temps une braise s'envole et retombe.
-// Temple : de temps en temps un petit singe traverse l'écran sans se presser, en sautant sur les cadres de l'écran.
+// Temple : de temps en temps la silhouette d'un léopard traverse l'écran en marchant au ras du sol.
 const decorCalme = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const auHasard = (a, b) => a + Math.random() * (b - a);
 let decorTheme = null, decorTimer = 0;
@@ -701,10 +701,10 @@ function decorAnim(theme) {
   decorTheme = theme;
   clearTimeout(decorTimer);
   decorEl().innerHTML = theme === 'dragon' && !decorCalme ? '<div class="lave"></div>' : '';
-  document.querySelectorAll('.singe').forEach(x => x.remove());
+  document.querySelectorAll('.leopard').forEach(x => x.remove());
   if (decorCalme) return;
   if (theme === 'dragon') prochaineBraise();
-  if (theme === 'temple') prochainSinge(auHasard(8000, 15000));
+  if (theme === 'temple') prochainLeopard(auHasard(8000, 15000));
 }
 function prochaineBraise() {
   decorTimer = setTimeout(() => {
@@ -719,43 +719,37 @@ function prochaineBraise() {
     prochaineBraise();
   }, auHasard(9000, 20000)); // rarement
 }
-function prochainSinge(delai) {
+function prochainLeopard(delai) {
   decorTimer = setTimeout(() => {
     if (decorTheme !== 'temple') return;
-    singe();
-    prochainSinge(auHasard(25000, 50000));
+    leopard();
+    prochainLeopard(auHasard(30000, 60000));
   }, delai);
 }
-function singe() {
-  if (document.querySelector('.singe')) return; // un seul singe à la fois
-  const W = innerWidth, H = innerHeight, T = 44, sol = H - 20 - T; // il marche juste au-dessus de la frise du bas
-  const dir = Math.random() < .5 ? 1 : -1, x0 = dir > 0 ? -T - 10 : W + 10, x1 = dir > 0 ? W + 10 : -T - 10;
-  // plateformes : le haut des cadres visibles (carte du temple, cartes, règles, noms…), au plus deux, dans le sens de la marche
-  const plats = [...document.querySelectorAll('.screen canvas, .screen .card, .screen .mj-rules, .screen .mj-names, .screen .mj-next, .screen .mj-results')]
-    .map(e => e.getBoundingClientRect()).filter(r => r.width > 140 && r.top > 100 && r.top < sol - 80 && r.left > 0 && r.right < W)
-    .sort((a, b) => dir * (a.left - b.left));
-  const choisies = [];
-  for (const r of plats) if (choisies.length < 2 && !choisies.some(c => r.left < c.right + 80 && r.right > c.left - 80)) choisies.push(r);
-  const pts = [{ x: x0, y: sol, t: 0 }], v = 0.075; // 75 px par seconde : il prend son temps
-  const aller = x => { const p = pts.at(-1); pts.push({ x, y: p.y, t: p.t + Math.abs(x - p.x) / v }); };
-  const sauter = (x, y) => { const p = pts.at(-1); pts.push({ x: (p.x + x) / 2, y: Math.min(p.y, y) - 70, t: p.t + 350 }, { x, y, t: p.t + 700 }); };
-  const pause = ms => { const p = pts.at(-1); pts.push({ ...p, t: p.t + ms }); };
-  for (const r of choisies) {
-    const debut = dir > 0 ? r.left : r.right - T, fin = dir > 0 ? r.right - T : r.left;
-    aller(debut - dir * 50);
-    sauter(debut + dir * 8, r.top - T + 4);
-    aller((debut + fin) / 2);
-    if (Math.random() < .6) pause(auHasard(800, 1800));
-    aller(fin - dir * 8);
-    sauter(fin + dir * 50, sol);
-  }
-  aller(x1);
+// Silhouette de léopard vue de profil ; les pattes et la queue bougent (voir .leopard dans style.css).
+const LEOPARD_SVG = `<svg viewBox="0 0 240 120" width="100%" height="100%" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
+  <g class="l-patte l-ar-loin"><path d="M74 58 C86 72 84 84 76 92 L78 114"/><ellipse cx="81" cy="116" rx="5" ry="2.5"/></g>
+  <g class="l-patte l-av-loin"><path d="M150 60 C152 80 150 96 151 114"/><ellipse cx="154" cy="116" rx="5" ry="2.5"/></g>
+  <g class="l-queue"><path d="M62 54 C40 58 30 76 30 96 C30 104 36 106 40 100"/></g>
+  <g class="l-corps">
+    <path d="M62 50 C80 42 140 40 166 46 C176 49 178 58 172 64 C160 70 90 72 70 66 C58 62 54 54 62 50 Z"/>
+    <path d="M156 48 C170 43 183 46 193 54 L189 65 C179 63 168 63 160 63 Z"/>
+    <ellipse cx="198" cy="58" rx="12" ry="9"/><ellipse cx="209" cy="61" rx="6" ry="5"/>
+    <circle cx="192" cy="50" r="3.2"/><circle cx="198" cy="49" r="3.2"/>
+  </g>
+  <g class="l-patte l-ar-pres"><path d="M82 58 C94 72 92 84 84 92 L86 114"/><ellipse cx="89" cy="116" rx="5" ry="2.5"/></g>
+  <g class="l-patte l-av-pres"><path d="M158 60 C160 80 158 96 159 114"/><ellipse cx="162" cy="116" rx="5" ry="2.5"/></g>
+</svg>`;
+function leopard() {
+  if (document.querySelector('.leopard')) return; // un seul à la fois
+  const W = innerWidth, L = 220, H = 110, sol = innerHeight - 16 - H; // il marche juste au-dessus de la frise du bas
+  const dir = Math.random() < .5 ? 1 : -1, x0 = dir > 0 ? -L : W, x1 = dir > 0 ? W : -L;
   const el = document.createElement('div');
-  el.className = 'singe';
-  el.innerHTML = `<span style="transform:scaleX(${-dir})">🐒</span>`;
+  el.className = 'leopard';
+  el.innerHTML = `<div style="transform:scaleX(${dir})">${LEOPARD_SVG}</div>`;
   document.body.appendChild(el);
-  const duree = pts.at(-1).t;
-  el.animate(pts.map(p => ({ transform: `translate(${p.x}px, ${p.y}px)`, offset: p.t / duree })), { duration: duree, easing: 'linear' }).onfinish = () => el.remove();
+  // 70 px par seconde : une marche lente et souple
+  el.animate([{ transform: `translate(${x0}px, ${sol}px)` }, { transform: `translate(${x1}px, ${sol}px)` }], { duration: Math.abs(x1 - x0) / 0.07, easing: 'linear' }).onfinish = () => el.remove();
 }
 
 // ---------- classement de la soirée ----------
