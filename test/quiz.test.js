@@ -71,30 +71,46 @@ test('une question : on répond une fois, la bonne réponse n\'est visible qu\'�
   assert.deepEqual(mj.screenView(ctx, g).etat.correction.compte, [1, 4, 0, 0]);
 });
 
-test('le classement : bonnes réponses, puis le plus rapide ; les points viennent des places', () => {
+test('points à chaque question, en direct : 2 au plus rapide, 1 aux autres ; dernière question 5, 4, 3…', () => {
   const { g, ctx, r, pid, at, now } = setup('Q1\nA\n*B\nC\nD\n\nQ2\nA\n*B\nC\nD', '30, 20, 15, 10, 5');
   const [a, b, c, d, e] = r.joueurs;
-  // Q1 : a répond juste vite, b juste plus tard, c faux
+  const pts = nom => mj.screenView(ctx, g).classement.find(x => x.nom === nom).points;
+  // Q1 : a juste le premier, b juste ensuite, les autres faux
   mj.playerAction(ctx, g, pid(a), { type: 'repondre', choix: 1 });
   at(now() + 5000);
   mj.playerAction(ctx, g, pid(b), { type: 'repondre', choix: 1 });
   for (const p of [c, d, e]) mj.playerAction(ctx, g, pid(p), { type: 'repondre', choix: 0 });
   at(now());
+  assert.equal(r.qz.phase, 'revelation');
+  assert.equal(pts(a), 2, 'en direct dans le classement, dès la correction');
+  assert.equal(pts(b), 1);
+  assert.deepEqual(mj.screenView(ctx, g).etat.correction.gains, [{ nom: a, points: 2 }, { nom: b, points: 1 }]);
+  assert.equal(mj.playerView(ctx, g, pid(a)).etat.gain, 2);
   at(now() + 8000);
   assert.equal(r.qz.k, 1);
-  // Q2 : tout le monde répond juste sauf d, et e répond juste aussi
-  for (const p of [a, b, c, e]) mj.playerAction(ctx, g, pid(p), { type: 'repondre', choix: 1 });
+  assert.equal(mj.screenView(ctx, g).etat.derniere, true);
+  // Q2 (la dernière) : e, puis a, puis b, puis c répondent juste ; d se trompe
+  for (const p of [e, a, b, c]) { mj.playerAction(ctx, g, pid(p), { type: 'repondre', choix: 1 }); at(now() + 1000); }
   mj.playerAction(ctx, g, pid(d), { type: 'repondre', choix: 3 });
   at(now());
+  assert.deepEqual(r.qz.gains[1], { [e]: 5, [a]: 4, [b]: 3, [c]: 2 });
   at(now() + 8000);
   assert.equal(r.status, 'fini');
-  assert.deepEqual(r.qz.score, { [a]: 2, [b]: 2, [c]: 1, [d]: 0, [e]: 1 });
-  // a et b ont 2 bonnes : a est plus rapide (il a répondu à Q1 avant b)
-  assert.equal(r.points[a].place, 1);
-  assert.equal(r.points[b].place, 2);
-  assert.equal(r.points[a].points, 30);
-  assert.equal(r.points[b].points, 20);
-  assert.equal(r.points[d].points, 5, 'dernier : 5 points');
+  // totaux : a 6, e 5, b 4, c 2, d 0 ; pas de points de place en plus
+  assert.deepEqual([a, e, b, c, d].map(pts), [6, 5, 4, 2, 0]);
+  assert.deepEqual([a, e, b, c, d].map(p => r.points[p].place), [1, 2, 3, 4, 5]);
+  assert.equal(r.points[a].points, 6);
+});
+
+test('quiz sauté en cours : les points déjà donnés sont retirés ; pas de correction des places', () => {
+  const { g, ctx, r, pid, at, now } = setup('Q1\nA\n*B\nC\nD\n\nQ2\nA\n*B\nC\nD');
+  const [a] = r.joueurs;
+  mj.playerAction(ctx, g, pid(a), { type: 'repondre', choix: 1 });
+  at(now() + 20000);
+  assert.equal(mj.screenView(ctx, g).classement.find(x => x.nom === a).points, 2);
+  assert.equal(mj.adminAction(ctx, g, { type: 'resultats', n: r.n, places: {} }).ok, false);
+  assert.equal(mj.adminAction(ctx, g, { type: 'passer', n: r.n }).ok, true);
+  assert.equal(mj.screenView(ctx, g).classement.find(x => x.nom === a).points, 0);
 });
 
 test('temps écoulé : la correction passe sans réponse ; l\'admin peut passer à la suite', () => {

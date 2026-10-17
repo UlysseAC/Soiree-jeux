@@ -301,9 +301,11 @@ function mjQuiz(a, e) {
     const nb = cor ? ` <span class="qz-nb">${cor.compte[i]}</span>` : '';
     return `<div class="qz-rep ${cls}"><span class="qz-lettre">${r.lettre}</span><span class="qz-txt">${esc(r.texte)}</span>${nb}</div>`;
   }).join('');
+  const bareme = e.derniere ? '<strong>Dernière question : 5, 4, 3, 2, 1 points aux plus rapides !</strong>' : '2 points au plus rapide, 1 point aux autres bonnes réponses';
   const sub = e.phase === 'question'
-    ? `<div class="sc-sub">Réponds sur ton téléphone ! <strong class="mono" data-until="${e.fin}"></strong> · ${e.repondus} / ${e.participants} ont répondu</div>`
-    : `<div class="sc-sub">La bonne réponse : <strong>${esc(cor ? cor.lettre : '')}</strong></div>`;
+    ? `<div class="sc-sub">Réponds sur ton téléphone ! <strong class="mono" data-until="${e.fin}"></strong> · ${e.repondus} / ${e.participants} ont répondu</div><div class="sc-sub muted">${bareme}</div>`
+    : `<div class="sc-sub">La bonne réponse : <strong>${esc(cor ? cor.lettre : '')}</strong></div>
+      <div class="sc-sub">${cor?.gains?.length ? cor.gains.map(x => `<strong>+${x.points}</strong> ${esc(x.nom)}`).join(' · ') : 'Personne n\'a trouvé.'}</div>`;
   return `${head}<div class="qz-question">${esc(q.texte)}</div>${sub}<div class="qz-grille">${tuiles}</div>`;
 }
 function minijeux(g) {

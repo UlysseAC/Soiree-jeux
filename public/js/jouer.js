@@ -561,13 +561,13 @@ function mjQuizTel(e) {
   const titre = `<span class="label" style="text-align:center">Question ${e.k + 1} / ${e.total}${e.phase === 'question' ? ` · <strong class="mono" data-until="${e.fin}"></strong>` : ''}</span>`;
   if (!e.question && !e.correction) return titre + `<div class="card"><p style="font-size:18px">Bientôt la première question…</p></div>`;
   if (e.phase === 'question' && e.maReponse == null) {
-    return titre + `<div class="card"><p style="font-size:20px;margin:0">${esc(e.question.texte)}</p></div>
+    return titre + `<div class="card"><p style="font-size:20px;margin:0">${esc(e.question.texte)}</p><p class="muted" style="margin:0">${e.derniere ? 'Dernière question : 5 points au plus rapide, puis 4, 3, 2, 1 !' : '2 points si tu es le plus rapide à répondre juste, sinon 1 point.'}</p></div>
       <div class="qz-boutons">${e.question.reponses.map((r, i) => `<button class="btn qz-btn" data-act="quizRepondre" data-choix="${i}"><span class="qz-lettre">${r.lettre}</span>${esc(r.texte)}</button>`).join('')}</div>`;
   }
-  if (e.phase === 'question') return titre + `<div class="card center"><p style="font-size:18px">✓ Réponse envoyée. On attend les autres…</p><p class="muted">Ton score : ${e.score}</p></div>`;
+  if (e.phase === 'question') return titre + `<div class="card center"><p style="font-size:18px">✓ Réponse envoyée. On attend les autres…</p><p class="muted">Tes points : ${e.points}</p></div>`;
   return titre + `<div class="card ${e.juste ? 'accent' : ''} center"><div class="huge" style="font-size:40px">${e.juste ? '✓' : e.maReponse == null ? '⏱️' : '✗'}</div>
-    <p style="font-size:20px">${e.juste ? 'Bonne réponse !' : e.maReponse == null ? 'Pas de réponse.' : 'Raté.'}</p>
-    <p class="muted">La bonne réponse : <strong>${esc(e.bonne?.lettre || '')} ${esc(e.bonne?.texte || '')}</strong></p><p>Ton score : <strong>${e.score}</strong></p></div>`;
+    <p style="font-size:20px">${e.juste ? `Bonne réponse ! <strong>+${e.gain} point${e.gain > 1 ? 's' : ''}</strong>` : e.maReponse == null ? 'Pas de réponse.' : 'Raté.'}</p>
+    <p class="muted">La bonne réponse : <strong>${esc(e.bonne?.lettre || '')} ${esc(e.bonne?.texte || '')}</strong></p><p>Tes points : <strong>${e.points}</strong></p></div>`;
 }
 
 // « Qu'est-ce qui a changé ? » sur le téléphone : regarder l'écran, puis choisir l'objet disparu parmi 4.

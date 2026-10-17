@@ -241,6 +241,20 @@ function applyResults(ctx, g, r, places) {
   return true;
 }
 
+// Mini-jeu à points en direct (Le Quiz) : les points sont déjà dans le classement, on note seulement les places.
+function finirDirect(ctx, r, places) {
+  r.points = {};
+  for (const [i, team] of r.equipes.entries()) for (const p of team) r.points[p] = { place: Math.round(Number(places[i])) || r.equipes.length, points: r.direct?.[p] || 0, equipe: i };
+  r.status = 'fini';
+  r.finAt = ctx.now();
+}
+
+// Round sauté ou annulé : on retire les points déjà donnés en direct.
+function annulerDirect(g, r) {
+  for (const [p, v] of Object.entries(r.direct || {})) g.scores[key(p)] = (g.scores[key(p)] || 0) - v;
+  r.direct = null;
+}
+
 // ---------- déroulement ----------
 export function tick(ctx, g) {
   if (g.finished) return false;
@@ -250,11 +264,17 @@ export function tick(ctx, g) {
     const T = TYPES[active.type];
     if (active.status === 'jeu' && T) {
       const res = T.tick(ctx, g, active, cfg.jeux[active.jeu], spectateurs(ctx, g, active));
+      // Points donnés en direct (Le Quiz) : ajoutés tout de suite au classement.
+      if (res.points) for (const [p, v] of Object.entries(res.points)) {
+        g.scores[key(p)] = (g.scores[key(p)] || 0) + v;
+        active.direct ??= {};
+        active.direct[p] = (active.direct[p] || 0) + v;
+      }
       if (res.places) {
         // Bonus des meilleurs devineurs : donné une seule fois, une correction des places ne le change pas.
         active.bonus = res.bonus || {};
         for (const [p, v] of Object.entries(active.bonus)) g.scores[key(p)] = (g.scores[key(p)] || 0) + v;
-        applyResults(ctx, g, active, res.places);
+        if (T.pointsDirects) finirDirect(ctx, active, res.places); else applyResults(ctx, g, active, res.places);
       }
       return res.changed;
     }
@@ -405,12 +425,14 @@ export function adminAction(ctx, g, a) {
     }
     case 'resultats': { // places des joueurs ; corrige aussi un round déjà terminé
       if (!r || (r.status !== 'jeu' && r.status !== 'fini')) return err('Ce round n\'est pas en cours.');
+      if (TYPES[r.type]?.pointsDirects) return err('Les points de ce mini-jeu sont donnés à chaque question : pas de places à corriger.');
       if (!applyResults(ctx, g, r, a.places)) return err(r.format && !r.format.every(n => n === 1) ? 'Donne une place à chaque équipe.' : 'Donne une place à chaque joueur.');
       return ok(`Résultats du round ${r.n} enregistrés.`);
     }
     case 'passer': {
       if (!r || r.status === 'fini' || r.status === 'saute') return err('Ce round ne peut pas être sauté.');
       if (r.status === 'jeu') count(g, r, -1);
+      annulerDirect(g, r);
       r.status = 'saute';
       r.finAt = now;
       return ok(`Round ${r.n} sauté.`);
@@ -427,7 +449,7 @@ export function adminAction(ctx, g, a) {
     case 'terminer': {
       for (const x of g.rounds) if (x.status === 'prevu' || x.status === 'annonce') x.status = 'saute';
       const act = activeRound(g);
-      if (act) { if (act.status === 'jeu') count(g, act, -1); act.status = 'saute'; }
+      if (act) { if (act.status === 'jeu') count(g, act, -1); annulerDirect(g, act); act.status = 'saute'; }
       g.finished = true;
       g.finishedAt = now;
       return ok('Journée terminée.');

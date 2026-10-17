@@ -2,8 +2,11 @@
 // Une question, quatre réponses à choix, une seule bonne. Les questions sont écrites dans l'admin (Réglages du jeu) :
 // un bloc par question, séparés par une ligne vide. La 1re ligne est la question, les 4 suivantes sont les réponses,
 // et la bonne réponse commence par une étoile « * ».
-// Classement du round : le plus de bonnes réponses, puis à égalité le plus rapide ; les points viennent des « points par place ».
+// Points à chaque question, ajoutés en direct au classement des mini-jeux : le premier qui répond juste gagne 2 points,
+// les autres bonnes réponses 1 point. Dernière question : 5 points au premier, 4 au 2e, 3 au 3e… (au moins 1 point).
+// Classement du round : le plus de points, puis le plus de bonnes réponses, puis le plus rapide.
 export const id = 'quiz';
+export const pointsDirects = true; // les points sont donnés à chaque question, pas selon la place à la fin
 export const label = 'Le Quiz';
 
 export const defaults = {
@@ -33,8 +36,8 @@ export function parseQuestions(texte) {
 
 export function start(ctx, g, r, sc) {
   const { questions } = parseQuestions(sc.questions);
-  r.qz = { questions, k: -1, phase: null, fin: 0, debutQ: 0, reponses: [], score: {}, temps: {}, fini: false };
-  for (const p of r.joueurs) { r.qz.score[p] = 0; r.qz.temps[p] = 0; }
+  r.qz = { questions, k: -1, phase: null, fin: 0, debutQ: 0, reponses: [], score: {}, temps: {}, points: {}, gains: [], fini: false };
+  for (const p of r.joueurs) { r.qz.score[p] = 0; r.qz.temps[p] = 0; r.qz.points[p] = 0; }
   if (!questions.length) r.qz.fini = true; else nextQuestion(ctx, r, sc);
 }
 
@@ -48,40 +51,53 @@ function nextQuestion(ctx, r, sc) {
   z.fin = z.debutQ + clampInt(sc.tempsQuestion, 20, 5, 300) * 1000;
 }
 
+// Points d'une bonne réponse selon son rang (0 = le plus rapide).
+export function pointsDe(rang, derniere) {
+  return derniere ? Math.max(1, 5 - rang) : rang === 0 ? 2 : 1;
+}
+
+// Corrige la question en cours. Renvoie les points gagnés : { nom: points }.
 function corriger(r) {
-  const z = r.qz, q = z.questions[z.k];
-  for (const p of r.joueurs) {
-    const rep = z.reponses[z.k][p];
-    if (rep && rep.choix === q.bonne) { z.score[p]++; z.temps[p] += rep.at - z.debutQ; }
-  }
+  const z = r.qz, q = z.questions[z.k], derniere = z.k === z.questions.length - 1;
+  const justes = r.joueurs.map(p => ({ p, rep: z.reponses[z.k][p] })).filter(x => x.rep && x.rep.choix === q.bonne).sort((a, b) => a.rep.at - b.rep.at);
+  const gains = {};
+  justes.forEach(({ p, rep }, rang) => {
+    z.score[p]++;
+    z.temps[p] += rep.at - z.debutQ;
+    gains[p] = pointsDe(rang, derniere);
+    z.points[p] = (z.points[p] || 0) + gains[p];
+  });
+  z.gains[z.k] = gains;
+  return gains;
 }
 
-// Classement : [{ nom, score, temps }] du meilleur au moins bon.
+// Classement : [{ nom, points, score, temps }] du meilleur au moins bon.
 export function classement(r) {
-  return r.joueurs.map(p => ({ nom: p, score: r.qz.score[p], temps: r.qz.temps[p] }))
-    .sort((a, b) => b.score - a.score || a.temps - b.temps);
+  const z = r.qz;
+  return r.joueurs.map(p => ({ nom: p, points: z.points[p] || 0, score: z.score[p] || 0, temps: z.temps[p] || 0 }))
+    .sort((a, b) => b.points - a.points || b.score - a.score || a.temps - b.temps);
 }
 
-// Places par index de joueur (chacun pour soi : index = équipe), ex æquo si même score et même temps.
+// Places par index de joueur (chacun pour soi : index = équipe), ex æquo si mêmes points, bonnes réponses et temps.
 function places(r) {
   const liste = classement(r), out = {};
   liste.forEach((x, i) => {
-    const same = i && liste[i - 1].score === x.score && liste[i - 1].temps === x.temps;
+    const y = liste[i - 1], same = i && y.points === x.points && y.score === x.score && y.temps === x.temps;
     out[r.joueurs.indexOf(x.nom)] = same ? out[r.joueurs.indexOf(liste[i - 1].nom)] : i + 1;
   });
   return out;
 }
 
-// Appelé régulièrement. Renvoie { changed, places? } ; places quand le quiz est fini.
+// Appelé régulièrement. Renvoie { changed, points?, places? } : points à chaque correction, places quand le quiz est fini.
 export function tick(ctx, g, r, sc) {
   const z = r?.qz;
   if (!z || z.fini) return { changed: false };
   const now = ctx.now();
   if (z.phase === 'question' && (now >= z.fin || r.joueurs.every(p => z.reponses[z.k][p]))) {
-    corriger(r);
+    const points = corriger(r);
     z.phase = 'revelation';
     z.fin = now + clampInt(sc.tempsRevelation, 8, 2, 120) * 1000;
-    return { changed: true };
+    return { changed: true, points };
   }
   if (z.phase === 'revelation' && now >= z.fin) {
     nextQuestion(ctx, r, sc);
@@ -120,27 +136,31 @@ export function view(ctx, g, r, as, nom) {
   if (!z) return null;
   const q = z.questions[z.k] || null, revele = z.phase === 'revelation' || z.phase === 'fini';
   const v = {
-    type: id, k: z.k, total: z.questions.length, phase: z.phase, fin: z.fin,
+    type: id, k: z.k, total: z.questions.length, phase: z.phase, fin: z.fin, derniere: z.k === z.questions.length - 1,
     question: q && z.phase !== 'fini' ? { texte: q.question, reponses: q.reponses.map((t, i) => ({ lettre: LETTRES[i], texte: t })) } : null,
     repondus: z.phase === 'question' ? Object.keys(z.reponses[z.k] || {}).length : null,
     participants: r.joueurs.length,
-    classement: classement(r).map(x => ({ nom: x.nom, score: x.score, rang: places(r)[r.joueurs.indexOf(x.nom)] })),
+    classement: classement(r).map(x => ({ nom: x.nom, points: x.points, score: x.score, rang: places(r)[r.joueurs.indexOf(x.nom)] })),
   };
   if (revele && q) {
-    v.correction = { bonne: q.bonne, lettre: LETTRES[q.bonne], compte: q.reponses.map((_, i) => Object.values(z.reponses[z.k] || {}).filter(x => x.choix === i).length) };
+    v.correction = { bonne: q.bonne, lettre: LETTRES[q.bonne], compte: q.reponses.map((_, i) => Object.values(z.reponses[z.k] || {}).filter(x => x.choix === i).length),
+      gains: Object.entries(z.gains[z.k] || {}).map(([nom, points]) => ({ nom, points })).sort((a, b) => b.points - a.points) };
   }
   if (as === 'admin' && q) v.manquants = z.phase === 'question' ? r.joueurs.filter(p => !z.reponses[z.k][p]) : [];
   if (as === 'joueur' && r.joueurs.includes(nom)) {
     const rep = z.reponses[z.k]?.[nom] || null;
-    Object.assign(v, { maReponse: rep ? rep.choix : null, juste: revele && rep && q ? rep.choix === q.bonne : null, score: z.score[nom] || 0 });
+    Object.assign(v, { maReponse: rep ? rep.choix : null, juste: revele && rep && q ? rep.choix === q.bonne : null, score: z.score[nom] || 0,
+      points: z.points[nom] || 0, gain: revele ? z.gains[z.k]?.[nom] || 0 : null });
     if (revele && q) v.bonne = { lettre: LETTRES[q.bonne], texte: q.reponses[q.bonne] };
   }
   return v;
 }
 
+// Un joueur remplacé : ses points déjà gagnés restent à lui dans le classement des mini-jeux ; le remplaçant repart de zéro.
 export function renommer(r, ancien, nouveau) {
   const z = r?.qz;
   if (!z) return;
-  for (const obj of [z.score, z.temps]) if (ancien in obj) { obj[nouveau] = obj[ancien]; delete obj[ancien]; }
-  for (const rep of z.reponses) if (rep && ancien in rep) { rep[nouveau] = rep[ancien]; delete rep[ancien]; }
+  for (const obj of [z.score, z.temps, z.points]) { delete obj[ancien]; obj[nouveau] = 0; }
+  const cur = z.reponses[z.k];
+  if (cur) delete cur[ancien];
 }
