@@ -681,11 +681,12 @@ function miniJeux() {
 function testPanel() {
   const s = V.simulation;
   if (!TEL_TEST || !s) return '';
-  if (s.running) return `<div class="card test-panel"><strong>🧪 Test en cours</strong><p class="muted" style="margin:0">${esc(s.step)}</p><button class="btn sm" data-act="testArreter">Arrêter le test</button></div>`;
+  const lien = '<a class="muted" href="/ecran?test" target="_blank" rel="noopener">📺 Ouvrir l\'écran de test</a>';
+  if (s.running) return `<div class="card test-panel"><strong>🧪 Test en cours</strong><p class="muted" style="margin:0">${esc(s.step)}</p><button class="btn sm" data-act="testArreter">Arrêter le test</button>${lien}</div>`;
   ui.testType ??= s.tests[0]?.[0];
   return `<div class="card test-panel"><strong>🧪 Tester un mini-jeu</strong>
     <select class="in" id="test-type">${s.tests.map(([k, n]) => `<option value="${k}" ${k === ui.testType ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>
-    <button class="btn primary" data-act="testLancer">▶ Lancer et jouer</button></div>`;
+    <button class="btn primary" data-act="testLancer">▶ Lancer et jouer</button>${lien}</div>`;
 }
 function draw() {
   if (!V) return;
