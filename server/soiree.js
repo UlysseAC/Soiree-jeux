@@ -40,11 +40,6 @@ function cleanProgramme(ids) {
 // Change à chaque démarrage du serveur : les téléphones savent ainsi qu'il a redémarré.
 const BOOT = uid();
 
-// Nouvelle partie : les inscriptions, les numéros de maillot et les noms pris sur les téléphones (Mini-Jeux) sont gardés.
-function nextSession(gameId, gardes) {
-  return { ...newSession(gameId), ...gardes };
-}
-
 function newSession(gameId) {
   return {
     id: uid(),
@@ -206,7 +201,7 @@ export class Soiree {
         this.s.history = [];
         this.s.bonus = {};
         this.s.show = null;
-        this.s.session = nextSession(prog[0], this.gardes());
+        this.s.session = newSession(prog[0]); // les joueurs restent dans la base, mais doivent s'inscrire à chaque jeu
         this.s.soiree = { started: true, startedAt: now };
         return { ok: true, msg: `Soirée démarrée ! Premier jeu : ${this.gameName(prog[0])}.` };
       }
@@ -285,7 +280,6 @@ export class Soiree {
     const pids = sess.registered.filter(p => this.s.people[p]);
     if (pids.length < this.module.minPlayers) return { ok: false, msg: `Il faut au moins ${this.module.minPlayers} inscrits.` };
     sess.game = this.module.start(this.ctx(), pids);
-    if (sess.claims && this.module.id === 'minijeux') sess.game.claims = sess.claims;
     sess.status = 'playing';
     sess.regOverride = null;
     this.s.show = null; // un nouveau jeu masque le classement de la soirée affiché à l'écran
@@ -315,14 +309,7 @@ export class Soiree {
     const sess = this.sess;
     if (!sess.game) return;
     this.s.history.push({ gameId: sess.gameId, at: this.now(), results: this.module.results(this.ctx(), sess.game) });
-    if (sess.game.claims) sess.claims = sess.game.claims; // Mini-Jeux : les noms pris sur les téléphones restent
     sess.game = null;
-  }
-
-  // Ce qu'on garde quand on passe à une autre partie : inscriptions, maillots et noms pris (Mini-Jeux).
-  gardes() {
-    const sess = this.sess;
-    return { registered: sess.registered, dossards: sess.dossards, claims: sess.claims || sess.game?.claims || null };
   }
 
   // Appelé régulièrement. Renvoie true si l'état a changé.

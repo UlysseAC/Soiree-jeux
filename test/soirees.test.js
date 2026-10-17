@@ -44,19 +44,19 @@ test('nouvelle soirée : repart de zéro, les joueurs se réinscrivent (noms pri
   assert.equal(state.session.claims, undefined);
 });
 
-test('démarrer la soirée : garde les inscriptions et les noms pris sur les téléphones', () => {
+test('démarrer la soirée : les joueurs restent dans la base, mais doivent se réinscrire à chaque jeu', () => {
   const state = defaultState();
   state.people.p0 = { id: 'p0', token: 't0', name: 'Léa' };
   state.config.games.minijeux.joueurs = 'Léa\nHugo';
   state.config.programme = ['minijeux'];
   const so = new Soiree(state, { now: () => Date.UTC(2026, 9, 13, 20, 0) });
   so.admin({ type: 'choisirJeu', gameId: 'minijeux' });
-  state.session.registered = ['p0'];
   so.admin({ type: 'lancerJeu' });
   assert.equal(so.claimMini('t0', 'Léa').ok, true);
   so.admin({ type: 'arreter' });
   so.admin({ type: 'demarrerSoiree' });
-  assert.deepEqual(state.session.registered, ['p0']);
+  assert.ok(state.people.p0, 'la personne reste dans la base');
+  assert.deepEqual(state.session.registered, []);
   so.admin({ type: 'lancerJeu' });
-  assert.equal(Object.keys(state.session.game.claims).length, 1);
+  assert.equal(Object.keys(state.session.game.claims).length, 0, 'il faut se réinscrire au jeu');
 });
