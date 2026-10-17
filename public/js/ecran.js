@@ -321,7 +321,8 @@ function mjDefinition(a, e) {
     ${c.auteur ? `<div class="mj-auteur">${esc(c.auteur)} · <span class="p">${c.trouves} ${A ? (c.trouves > 1 ? 'l\'ont reconnu' : 'l\'a reconnu') : (c.trouves > 1 ? 'ont trouvé' : 'a trouvé')}</span></div>` : ''}</div>`).join('')}</div>`;
   if (e.phase === 'oral') {
     return `${head}<div class="mj-round">Définissez vos mots à l'oral !</div>
-      <div class="sc-sub">Chacun défend son mot à voix haute. Encore <strong class="mono" data-until="${e.fin}"></strong></div>${cards}`;
+      <div class="sc-sub">Chacun défend son mot à voix haute : ${e.joueurs.map(esc).join(', ')}. Encore <strong class="mono" data-until="${e.fin}"></strong></div>
+      ${cards}<p class="sc-sub muted">Les autres : reliez chaque mot à celui qui l'a défini, sur votre téléphone · ${e.votants} / ${e.spectateurs} ont répondu</p>`;
   }
   if (e.phase === 'vote') {
     return `${head}<div class="sc-sub">À vos téléphones : reliez chaque ${A ? 'anecdote' : 'mot'} à ${e.joueurs.map(esc).join(', ')} · <strong class="mono" data-until="${e.fin}"></strong> · ${e.votants} / ${e.spectateurs} ont répondu</div>${cards}`;

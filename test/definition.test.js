@@ -133,3 +133,15 @@ test('l\'admin peut passer à l\'étape suivante', () => {
   assert.equal(mj.adminAction(ctx, g, { type: 'suivant' }).ok, true);
   assert.equal(r.def.phase, 'vote');
 });
+
+test('les spectateurs peuvent relier les mots dès l\'oral, en écoutant ; leurs réponses restent pour le vote', () => {
+  const { g, ctx, r, pid, at, now } = setup({ manches: 1 });
+  const spect = NAMES.find(n => !r.joueurs.includes(n));
+  assert.equal(r.def.phase, 'oral');
+  const liens = Object.fromEntries(r.joueurs.map(p => [r.def.cur.mots[p], p]));
+  assert.equal(mj.playerAction(ctx, g, pid(spect), { type: 'voter', liens }).ok, true);
+  assert.equal(r.def.phase, 'oral', "l'oral continue jusqu'au bout du temps");
+  at(now() + 90e3);
+  assert.equal(r.def.phase, 'vote');
+  assert.deepEqual(mj.playerView(ctx, g, pid(spect)).etat.mesLiens, liens);
+});

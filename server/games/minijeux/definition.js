@@ -1,6 +1,7 @@
 // Mini-jeu « La Définition ».
 // Chaque joueur reçoit un mot inventé (pris au hasard dans la liste écrite par l'organisateur) et le définit À L'ORAL.
-// Les mots s'affichent sur l'écran. Ensuite, ceux qui ne jouent pas ce round relient, sur leur téléphone, chaque mot au joueur qui l'avait.
+// Les mots s'affichent sur l'écran. Ceux qui ne jouent pas ce round relient, sur leur téléphone, chaque mot au joueur qui l'avait
+// (dès l'oral, en écoutant, puis pendant le vote).
 // Un joueur marque un point chaque fois que quelqu'un relie son mot à lui. Celui qui en a le plus gagne.
 // Plusieurs manches (3 par défaut), un nouveau mot par joueur à chaque manche.
 // Les spectateurs sont classés selon leurs bonnes réponses : le premier tiers gagne un bonus (1 point par défaut).
@@ -145,7 +146,8 @@ export function playerAction(ctx, g, r, nom, a, sc, spectateurs) {
   }
   if (a.type === 'voter') {
     if (!spectateurs.includes(nom)) return err('Seuls ceux qui ne jouent pas ce round peuvent deviner.');
-    if (d.phase !== 'vote') return err("Ce n'est pas le moment de voter.");
+    // La Définition : on peut relier dès l'oral, en écoutant (puis corriger pendant le vote)
+    if (d.phase !== 'vote' && !(d.phase === 'oral' && r.type !== 'anecdote')) return err("Ce n'est pas le moment de voter.");
     const liens = {};
     for (const mot of d.cur.ordre) {
       const p = a.liens?.[mot];

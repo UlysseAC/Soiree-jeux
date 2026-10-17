@@ -544,12 +544,9 @@ function mjDefinition(e, t) {
     return h;
   }
   // je ne joue pas : je devine
-  if (e.phase === 'oral') {
-    return h + `<div class="card"><p style="font-size:18px">Écoute bien les définitions à l'oral.</p><p class="muted">Ensuite, tu relieras chaque mot au joueur qui l'avait.</p></div>`;
-  }
-  if (e.phase === 'vote') {
+  if (e.phase === 'oral' || e.phase === 'vote') {
     const pris = Object.values({ ...(e.mesLiens || {}), ...ui.mjLiens }).filter(Boolean);
-    h += `<div class="card"><p style="font-size:18px">Relie chaque mot au joueur qui l'avait.</p></div><div class="mj-vote">${e.cartes.map(c => {
+    h += `<div class="card"><p style="font-size:18px">${e.phase === 'oral' ? 'Écoute les définitions et relie chaque mot (affiché à l\'écran) au joueur qui l\'a défini.' : 'Relie chaque mot au joueur qui l\'avait.'}</p>${e.phase === 'oral' ? '<p class="muted" style="margin:0">Tu pourras encore corriger pendant le vote.</p>' : ''}</div><div class="mj-vote">${e.cartes.map(c => {
       const v = ui.mjLiens[c.mot] ?? e.mesLiens?.[c.mot] ?? '';
       return `<div class="card"><strong style="font-size:20px;color:var(--accent)">${esc(c.mot)}</strong>
         <select class="in" data-mj-lien="${esc(c.mot)}"><option value="">Qui avait ce mot ?</option>${e.joueurs.map(p => `<option value="${esc(p)}" ${v === p ? 'selected' : ''} ${v !== p && pris.includes(p) ? 'disabled' : ''}>${esc(p)}</option>`).join('')}</select></div>`;

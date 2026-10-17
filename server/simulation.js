@@ -11,8 +11,8 @@ const codeOf = (T, label) => (label === 15 ? '9999' : `9${T === 'A' ? 1 : 2}${St
 // Tests des mini-jeux : nombre de faux joueurs et réglages courts (quelques minutes au total).
 const MINI_NOMS = { definition: 'La Définition', anecdote: "L'Anecdote", temple: 'Le Temple aztèque', mime: 'Le Mime', dragon: 'La Chasse au dragon', disparu: "Qu'est-ce qui a changé ?", quiz: 'Le Quiz' };
 const MINI_TESTS = {
-  definition: { n: 5, reglages: { manches: 1, tempsOral: 5, tempsVote: 25, tempsRevelation: 8 } },
-  anecdote: { n: 5, reglages: { manches: 1, tempsEcriture: 25, tempsVote: 25, tempsRevelation: 8 } },
+  definition: { n: 6, joueurs: 3, reglages: { mots: 'Florpidoux\nGramouille\nZétrabule\nPinchaflor\nBrouscaille\nTirlipote', manches: 1, tempsOral: 40, tempsVote: 25, tempsRevelation: 8 } },
+  anecdote: { n: 6, joueurs: 3, reglages: { manches: 1, tempsEcriture: 25, tempsVote: 25, tempsRevelation: 8 } },
   temple: { n: 5, reglages: { etapes: 3, tempsChoix: 12, tempsPiege: 5, cheminsEtapes: '2:1,3:1,4:2' } },
   mime: { n: 4, reglages: { duos: 2, tempsMime: 15, tempsPret: 3 } },
   dragon: { n: 4, reglages: { attaqueMin: 8, attaqueMax: 10, dureeTir: 90, pvDragon: 6 } },
@@ -223,7 +223,7 @@ export class Simulation {
     c('programme', 'mj1');
     c('jeux.mj1.type', type);
     c('jeux.mj1.nom', MINI_NOMS[type]);
-    c('jeux.mj1.joueurs', 0);
+    c('jeux.mj1.joueurs', T.joueurs || 0); // 0 = tout le monde ; sinon les autres devinent
     for (const [k, v] of Object.entries(T.reglages)) c(`jeux.mj1.${k}`, v);
     this.admin({ type: 'lancerJeu' });
     // Chaque faux joueur prend son nom sur la liste, comme un vrai téléphone
