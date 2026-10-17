@@ -156,12 +156,12 @@ export class Soiree {
         if (!GAMES[a.gameId]) return { ok: false, msg: 'Jeu inconnu.' };
         if (sess.status === 'playing') return { ok: false, msg: 'Termine d\'abord la partie en cours.' };
         this.archive();
-        this.s.session = nextSession(a.gameId, this.gardes());
+        this.s.session = newSession(a.gameId); // chaque nouveau jeu : il faut se réinscrire
         this.s.show = null; // la nouvelle soirée ne reprend pas l'affichage du classement de la précédente
         return { ok: true };
       case 'demarrer':
         if (sess.status === 'playing') return { ok: false, msg: 'Partie déjà en cours.' };
-        if (sess.status === 'finished') { this.archive(); this.s.session = nextSession(sess.gameId, this.gardes()); }
+        if (sess.status === 'finished') { this.archive(); this.s.session = newSession(sess.gameId); }
         Object.assign(this.sess, { status: 'countdown' });
         Object.assign(this.sess.countdown, { startedAt: now, adjust: 0, pausedAt: 0, pausedTotal: 0 });
         return { ok: true };
