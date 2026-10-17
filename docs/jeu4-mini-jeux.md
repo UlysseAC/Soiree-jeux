@@ -1,6 +1,6 @@
 # Jeu 4 — Les Mini-Jeux (structure)
 
-> Le **Quiz** (jeu final, tout le monde joue) n'est pas un mini-jeu : c'est un jeu à part, voir la fin de ce document.
+> Le **Quiz** est le 7e mini-jeu (tout le monde joue) : voir la section « Le Quiz » ci-dessous.
 
 Une journée de rounds à heures régulières. À chaque round, un mini-jeu et des joueurs tirés au sort. Chaque mini-jeu a un nom, une page de règles écrite par l'organisateur, un format et des points par place. Un mini-jeu est soit **manuel** (l'organisateur saisit les places à la fin), soit un jeu automatique joué sur les téléphones : pour l'instant **La Définition**, **Le Temple aztèque**, **Le Mime**, **La Chasse au dragon**, **L'Anecdote** et **Qu'est-ce qui a changé ?** (mémoire).
 
@@ -107,15 +107,15 @@ Classement de la journée, séparé du classement de la soirée des 3 autres jeu
 
 ## À définir avec les 6 mini-jeux
 
-- Les 5 autres mini-jeux (quiz…).
 - Départage des ex æquo au classement final.
 
-## Le Quiz (jeu final)
+## Le Quiz
 
-- Un jeu à part, choisi dans l'onglet Soirée comme les autres. Tout le monde s'inscrit, comme pour les autres jeux.
-- **Questions** : onglet « Réglages du jeu », section « Questions ». Un bloc par question, séparés par une ligne vide. La 1re ligne est la question, les 4 suivantes sont les réponses, et la bonne réponse commence par une étoile `*`. L'admin vérifie en direct : une question sans 4 réponses ou sans une seule bonne réponse est signalée en rouge.
+- Un mini-jeu comme les autres (type « Le Quiz » dans les réglages du mini-jeu), mais **tout le monde joue**, sans inscription par round : chaque joueur de la soirée répond.
+- **Questions** : dans les réglages du mini-jeu « Le Quiz », section « Questions ». Un bloc par question, séparés par une ligne vide. La 1re ligne est la question, les 4 suivantes sont les réponses, et la bonne réponse commence par une étoile `*`. L'admin vérifie en direct : une question sans 4 réponses ou sans une seule bonne réponse est signalée en rouge.
 - **Déroulement** : une question à la fois. Chaque joueur répond une seule fois sur son téléphone (4 boutons A à D). L'écran affiche la question, le compte à rebours et le nombre de réponses. Quand tout le monde a répondu, ou à la fin du temps, la bonne réponse s'affiche en vert avec le nombre de personnes qui ont choisi chaque réponse. Puis la question suivante.
 - **Réglages** : temps pour répondre (20 s) et affichage de la bonne réponse (8 s).
-- **Classement** : le nombre de bonnes réponses sert de points (les points de la soirée vont de 90 au premier à 15 au dernier, réglables). À égalité de bonnes réponses, celui qui a répondu juste le plus vite passe devant.
+- **Classement** : le nombre de bonnes réponses détermine la place ; à égalité, celui qui a répondu juste le plus vite passe devant. Il apparaît dans le classement des mini-jeux, avec les points de la place (« Points par place » du mini-jeu).
+- **Points** : pour que le quiz soit le mini-jeu où l'on gagne le plus, mettre un barème plus haut dans « Points par place » du mini-jeu Quiz (par exemple `30, 20, 15, 10, 5`). La valeur par défaut est celle des autres mini-jeux (`10, 6, 3, 1`).
 - **Admin** : voit la question, la bonne réponse, qui n'a pas encore répondu, et peut « Afficher la bonne réponse » ou passer à la question suivante.
-- **Simulation** : le quiz est proposé dans les jeux de la simulation de l'onglet Soirée, avec des faux joueurs qui répondent au hasard.
+- **Simulation** : le quiz est proposé dans « Tester un mini-jeu » de l'onglet Soirée, avec des faux joueurs qui répondent au hasard.

@@ -9,10 +9,11 @@ import * as mime from './minijeux/mime.js';
 import * as dragon from './minijeux/dragon.js';
 import * as anecdote from './minijeux/anecdote.js';
 import * as disparu from './minijeux/disparu.js';
+import * as quiz from './minijeux/quiz.js';
 
 // Types de mini-jeux : « manuel » (l'organisateur saisit les places) ou un mini-jeu programmé.
-export const TYPES = { definition, temple, mime, dragon, anecdote, disparu };
-export const TYPE_LABELS = { manuel: 'Manuel (tu saisis les places)', definition: definition.label, temple: temple.label, mime: mime.label, dragon: dragon.label, anecdote: anecdote.label, disparu: disparu.label };
+export const TYPES = { definition, temple, mime, dragon, anecdote, disparu, quiz };
+export const TYPE_LABELS = { manuel: 'Manuel (tu saisis les places)', definition: definition.label, temple: temple.label, mime: mime.label, dragon: dragon.label, anecdote: anecdote.label, disparu: disparu.label, quiz: quiz.label };
 const typeOf = (cfg, slot) => TYPES[cfg.jeux[slot]?.type] || null;
 // Format d'un mini-jeu : fixé par son type (Le Mime : des duos ; les autres jeux automatiques : chacun pour soi), sinon celui saisi par l'admin.
 export const formatOf = (cfg, slot) => { const T = typeOf(cfg, slot); return T ? T.format?.(cfg.jeux[slot]) || null : parseFormat(cfg.jeux[slot]?.format); };
@@ -50,6 +51,7 @@ export function defaultConfig() {
       ...mime.defaults, // Le Mime : mots à mimer, nombre de duos, temps
       ...dragon.defaults, // La Chasse au dragon : équipes, vies, munitions, dragon, durée
       ...disparu.defaults, // Qu'est-ce qui a changé ? : objets, manches, temps
+      ...quiz.defaults, // Le Quiz : questions, temps
     }])),
   };
 }
@@ -94,6 +96,7 @@ export const formatLabel = sizes => (!sizes ? 'Chacun pour soi' : sizes.every(n 
 export const TEAM_NAMES = ['Rouges', 'Bleus', 'Verts', 'Jaunes', 'Violets', 'Orange', 'Roses', 'Gris'];
 
 const sizeOf = (cfg, slot, total) => {
+  if (cfg.jeux[slot]?.type === 'quiz') return total; // le quiz : tout le monde joue
   const sizes = formatOf(cfg, slot);
   if (sizes) return Math.min(sizes.reduce((a, b) => a + b, 0), total);
   const j = Math.round(Number(cfg.jeux[slot]?.joueurs) || 0);

@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import * as quiz from '../server/games/quiz.js';
-import * as classement from '../server/classement.js';
+import * as mj from '../server/games/minijeux.js';
+import { parseQuestions } from '../server/games/minijeux/quiz.js';
 
+const NAMES = ['Léa', 'Hugo', 'Inès', 'Malik', 'Chloé'];
 const TEXTE = `Quelle est la capitale de la France ?
 Lyon
 *Paris
@@ -15,86 +16,92 @@ Combien font 2 + 2 ?
 5
 22`;
 
-function setup(texte = TEXTE) {
-  let t = 1000;
-  const ctx = { now: () => t, cfg: { ...quiz.defaultConfig(), questions: texte, tempsQuestion: 20, tempsRevelation: 8 }, name: p => p.toUpperCase(), sfx: () => {} };
-  const g = quiz.start(ctx, ['a', 'b', 'c']);
-  return { ctx, g, at: ms => { t = ms; quiz.tick(ctx, g); }, now: () => t };
+function setup(texte = TEXTE, points = '30, 20, 15, 10, 5') {
+  let t = Date.UTC(2026, 9, 13, 7, 0);
+  const cfg = { ...mj.defaultConfig(), joueurs: NAMES.join('\n'), decalage: -120, programme: 'mj1' };
+  Object.assign(cfg.jeux.mj1, { type: 'quiz', questions: texte, tempsQuestion: 20, tempsRevelation: 8, points });
+  const ctx = { now: () => t, cfg, sfx: () => {}, name: p => p };
+  const g = mj.start(ctx);
+  NAMES.forEach((n, i) => mj.claim(ctx, g, `p${i}`, n));
+  const pid = n => `p${NAMES.indexOf(n)}`;
+  const at = ms => { t = ms; mj.tick(ctx, g); };
+  const r = g.rounds[0];
+  at(r.at - 299e3);
+  for (const p of r.joueurs) mj.playerAction(ctx, g, pid(p), { type: 'compris' });
+  return { g, ctx, r, pid, at, now: () => t };
 }
 
-test('lecture des questions : un bloc par question, une bonne réponse marquée d\'une étoile', () => {
-  const { questions, erreurs } = quiz.parseQuestions(TEXTE);
+test('lecture des questions : un bloc par question, une seule bonne réponse marquée d\'une étoile', () => {
+  const { questions, erreurs } = parseQuestions(TEXTE);
   assert.deepEqual(erreurs, []);
   assert.equal(questions.length, 2);
-  assert.equal(questions[0].question, 'Quelle est la capitale de la France ?');
   assert.deepEqual(questions[0].reponses, ['Lyon', 'Paris', 'Marseille', 'Lille']);
   assert.equal(questions[0].bonne, 1);
-  assert.equal(questions[1].bonne, 1);
+  const e = parseQuestions('Q1\nA\nB\n*C\n\nQ2\nA\n*B\n*C\nD\n\nQ3\nA\nB\nC\nD');
+  assert.equal(e.questions.length, 0);
+  assert.equal(e.erreurs.length, 3);
+  assert.match(e.erreurs[0], /4 réponses/);
+  assert.match(e.erreurs[1], /exactement une bonne réponse/);
 });
 
-test('erreurs signalées dans l\'admin : pas 4 réponses, pas de bonne réponse, deux bonnes réponses', () => {
-  const { questions, erreurs } = quiz.parseQuestions('Q1\nA\nB\n*C\n\nQ2\nA\n*B\n*C\nD\n\nQ3\nA\nB\nC\nD');
-  assert.equal(questions.length, 0);
-  assert.equal(erreurs.length, 3);
-  assert.match(erreurs[0], /4 réponses/);
-  assert.match(erreurs[1], /exactement une bonne réponse/);
-  assert.match(erreurs[2], /exactement une bonne réponse/);
-  assert.deepEqual(quiz.parseQuestions('').erreurs, ['Aucune question pour le moment.']);
+test('tout le monde joue : tous les joueurs du roster participent au quiz', () => {
+  const { r } = setup();
+  assert.equal(r.joueurs.length, NAMES.length);
+  assert.equal(r.type, 'quiz');
+  assert.equal(r.status, 'jeu');
 });
 
-test('une partie : on répond une fois, la bonne réponse est révélée, le temps compte pour départager', () => {
-  const { g, ctx, at, now } = setup();
-  assert.equal(g.phase, 'question');
-  assert.equal(quiz.playerAction(ctx, g, 'a', { type: 'repondre', choix: 1 }).ok, true);
-  assert.equal(quiz.playerAction(ctx, g, 'a', { type: 'repondre', choix: 0 }).ok, false, 'une seule réponse');
-  assert.equal(quiz.screenView(ctx, g).correction, undefined, 'pas de bonne réponse avant la correction');
-  at(now() + 3000);
-  quiz.playerAction(ctx, g, 'b', { type: 'repondre', choix: 1 });
-  quiz.playerAction(ctx, g, 'c', { type: 'repondre', choix: 0 });
+test('une question : on répond une fois, la bonne réponse n\'est visible qu\'à la correction', () => {
+  const { g, ctx, r, pid, at, now } = setup();
+  const [a, b, c, d, e] = r.joueurs;
+  assert.equal(mj.playerAction(ctx, g, pid(a), { type: 'repondre', choix: 1 }).ok, true);
+  assert.equal(mj.playerAction(ctx, g, pid(a), { type: 'repondre', choix: 0 }).ok, false, 'une seule réponse');
+  const avant = mj.playerView(ctx, g, pid(b)).etat;
+  assert.equal(avant.bonne, undefined, 'pas de bonne réponse avant la correction');
+  assert.equal(avant.question.reponses.length, 4);
+  // tout le monde a répondu : correction tout de suite
+  for (const p of [b, c, d]) mj.playerAction(ctx, g, pid(p), { type: 'repondre', choix: 1 });
+  mj.playerAction(ctx, g, pid(e), { type: 'repondre', choix: 0 });
   at(now());
-  assert.equal(g.phase, 'revelation', 'tout le monde a répondu : correction tout de suite');
-  assert.equal(quiz.screenView(ctx, g).correction.bonne, 1);
-  assert.deepEqual(quiz.screenView(ctx, g).correction.compte, [1, 2, 0, 0]);
-  assert.equal(quiz.playerView(ctx, g, 'a').juste, true);
-  assert.equal(quiz.playerView(ctx, g, 'c').juste, false);
-  at(now() + 8000);
-  assert.equal(g.k, 1, 'question suivante');
+  assert.equal(r.qz.phase, 'revelation');
+  const apres = mj.playerView(ctx, g, pid(a)).etat;
+  assert.equal(apres.juste, true);
+  assert.equal(apres.bonne.lettre, 'B');
+  assert.equal(mj.playerView(ctx, g, pid(e)).etat.juste, false);
+  assert.deepEqual(mj.screenView(ctx, g).etat.correction.compte, [1, 4, 0, 0]);
 });
 
-test('le temps de réponse : à égalité de bonnes réponses, le plus rapide passe devant', () => {
-  const { g, ctx, at, now } = setup('Q1\nA\n*B\nC\nD\n\nQ2\nA\n*B\nC\nD');
-  quiz.playerAction(ctx, g, 'a', { type: 'repondre', choix: 1 });
+test('le classement : bonnes réponses, puis le plus rapide ; les points viennent des places', () => {
+  const { g, ctx, r, pid, at, now } = setup('Q1\nA\n*B\nC\nD\n\nQ2\nA\n*B\nC\nD', '30, 20, 15, 10, 5');
+  const [a, b, c, d, e] = r.joueurs;
+  // Q1 : a répond juste vite, b juste plus tard, c faux
+  mj.playerAction(ctx, g, pid(a), { type: 'repondre', choix: 1 });
   at(now() + 5000);
-  quiz.playerAction(ctx, g, 'b', { type: 'repondre', choix: 1 });
-  quiz.playerAction(ctx, g, 'c', { type: 'repondre', choix: 0 });
+  mj.playerAction(ctx, g, pid(b), { type: 'repondre', choix: 1 });
+  for (const p of [c, d, e]) mj.playerAction(ctx, g, pid(p), { type: 'repondre', choix: 0 });
   at(now());
   at(now() + 8000);
-  assert.equal(g.k, 1);
-  for (const p of ['a', 'b', 'c']) quiz.playerAction(ctx, g, p, { type: 'repondre', choix: p === 'c' ? 0 : 1 });
+  assert.equal(r.qz.k, 1);
+  // Q2 : tout le monde répond juste sauf d, et e répond juste aussi
+  for (const p of [a, b, c, e]) mj.playerAction(ctx, g, pid(p), { type: 'repondre', choix: 1 });
+  mj.playerAction(ctx, g, pid(d), { type: 'repondre', choix: 3 });
   at(now());
   at(now() + 8000);
-  assert.equal(g.finished, true);
-  const cl = quiz.classement(g);
-  assert.deepEqual(cl.map(x => x.pid), ['a', 'b', 'c']);
-  assert.equal(cl[0].score, 2);
-  assert.equal(cl[1].score, 2);
-  assert.equal(cl[2].score, 0);
+  assert.equal(r.status, 'fini');
+  assert.deepEqual(r.qz.score, { [a]: 2, [b]: 2, [c]: 1, [d]: 0, [e]: 1 });
+  // a et b ont 2 bonnes : a est plus rapide (il a répondu à Q1 avant b)
+  assert.equal(r.points[a].place, 1);
+  assert.equal(r.points[b].place, 2);
+  assert.equal(r.points[a].points, 30);
+  assert.equal(r.points[b].points, 20);
+  assert.equal(r.points[d].points, 5, 'dernier : 5 points');
 });
 
-test('temps écoulé : on passe à la correction sans réponse ; fin au bout de la dernière question', () => {
-  const { g, at, now } = setup('Q1\nA\n*B\nC\nD');
+test('temps écoulé : la correction passe sans réponse ; l\'admin peut passer à la suite', () => {
+  const { g, ctx, r, at, now } = setup('Q1\nA\n*B\nC\nD\n\nQ2\nA\n*B\nC\nD');
   at(now() + 20000);
-  assert.equal(g.phase, 'revelation');
-  at(now() + 8000);
-  assert.equal(g.finished, true);
-  assert.equal(g.phase, 'fini');
-});
-
-test('classement de la soirée : bonnes réponses converties en points par place', () => {
-  const cfg = { ...classement.defaultConfig() };
-  const res = [{ pid: 'a', score: 5, temps: 10000, won: true }, { pid: 'b', score: 3, temps: 9000 }, { pid: 'c', score: 3, temps: 20000 }];
-  const pts = classement.gamePoints(cfg, { gameId: 'quiz', results: res });
-  assert.equal(pts.a.pts, cfg.quiz.max);
-  assert.ok(pts.b.pts > pts.c.pts, 'à égalité, le plus rapide a plus de points');
-  assert.equal(pts.c.pts, cfg.quiz.min);
+  assert.equal(r.qz.phase, 'revelation');
+  mj.adminAction(ctx, g, { type: 'suivant' });
+  at(now());
+  assert.equal(r.qz.k, 1, 'question suivante');
 });
