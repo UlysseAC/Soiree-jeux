@@ -253,6 +253,15 @@ export class Simulation {
         this.broadcast();
       }
     }
+    // Jeux avec spectateurs : « Incarné 2 » ne joue jamais, pour tester l'inscription des devineurs
+    if (incarnes.length > 1 && r?.inscrits && r.joueurs.includes(incarnes[1])) {
+      const bot = this.bots.find(b => !r.joueurs.includes(b.name))?.name;
+      if (bot) {
+        r.joueurs = r.joueurs.map(n => (n === incarnes[1] ? bot : n));
+        r.equipes = r.equipes?.map(t => t.map(n => (n === incarnes[1] ? bot : n)));
+        this.broadcast();
+      }
+    }
     const fini = () => r?.status === 'fini';
     // les faux joueurs jouent jusqu'à la fin du round, puis on attend la révélation
     await Promise.all([this.play((b, g) => this.miniTurn(type, b, g), fini), this.wait(240000, fini)]);
