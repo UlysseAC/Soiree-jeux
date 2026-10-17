@@ -32,6 +32,8 @@ function lanAddress() {
 const PUBLIC_URL = (process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || `http://${lanAddress()}:${PORT}`).replace(/\/$/, '');
 const JOIN_URL = `${PUBLIC_URL}/jouer`;
 const qr = await QRCode.toDataURL(JOIN_URL, { margin: 1, width: 360, color: { dark: '#17110c', light: '#f0e3c8' } });
+// QR code de l'écran de test : il mène au téléphone de test (/jouer?test), pour incarner un joueur de la simulation.
+const qrTest = await QRCode.toDataURL(`${JOIN_URL}?test`, { margin: 1, width: 360, color: { dark: '#17110c', light: '#f0e3c8' } });
 
 // ---------- application ----------
 const app = express();
@@ -50,10 +52,13 @@ app.get('/ping', (_, res) => res.type('text').send('ok'));
 function viewFor(sock) {
   const d = sock.data;
   if (d.role === 'admin') return { ...soiree.adminView(), simulation: sim.status(), sauvegardeEnLigne: storage.remote, enLigne: !!process.env.RENDER };
-  if (d.role === 'ecran') return { ...(d.test ? sim.ecran() : soiree).screenView(), joinUrl: JOIN_URL, qr, test: !!d.test };
+  if (d.role === 'ecran') return { ...(d.test ? sim.ecran() : soiree).screenView(), joinUrl: d.test ? `${JOIN_URL}?test` : JOIN_URL, qr: d.test ? qrTest : qr, test: !!d.test };
   if (d.role === 'orga') return soiree.orgaView();
-  return soiree.playerView(d.token);
+  return src(sock).playerView(d.token);
 }
+
+// Écran et téléphones de test (?test) : ils suivent la soirée de la simulation quand elle tourne à part.
+const src = sock => (sock.data.test ? sim.ecran() : soiree);
 
 let pending = false;
 function broadcast(persist = true) {
@@ -93,14 +98,14 @@ io.on('connection', sock => {
     if (!['admin', 'ecran', 'orga', 'joueur'].includes(role)) return cb({ ok: false, msg: 'Rôle inconnu.' });
     sock.data.role = role;
     sock.data.token = h.token;
-    sock.data.test = role === 'ecran' && !!h.test;
+    sock.data.test = (role === 'ecran' || role === 'joueur') && !!h.test;
     if (role === 'ecran') sock.join(sock.data.test ? 'ecran-test' : 'ecran');
     cb({ ok: true });
     sock.emit('etat', viewFor(sock));
   });
 
   sock.on('rejoindre', (h = {}, cb = () => {}) => {
-    const r = soiree.join(sock.data.token, h.name);
+    const r = src(sock).join(sock.data.token, h.name);
     if (r.ok) sock.data.token = r.token;
     cb(r);
     broadcast();
@@ -109,7 +114,7 @@ io.on('connection', sock => {
   sock.on('reclamer', (h = {}, cb = () => {}) => {
     if (typeof cb !== 'function') return;
     let r;
-    try { r = soiree.claimMini(sock.data.token, h.nom); } catch (e) { console.error(e); r = { ok: false, msg: 'Erreur interne.' }; }
+    try { r = src(sock).claimMini(sock.data.token, h.nom); } catch (e) { console.error(e); r = { ok: false, msg: 'Erreur interne.' }; }
     if (r.ok) sock.data.token = r.token;
     cb(r);
     broadcast();
@@ -126,7 +131,7 @@ io.on('connection', sock => {
     if (sock.data.role !== 'ecran' && sock.data.role !== 'admin') return cb(null);
     cb((sock.data.test ? sim.ecran() : soiree).data(q));
   });
-  sock.on('joueur', guard('joueur', a => soiree.player(sock.data.token, a)));
+  sock.on('joueur', guard('joueur', a => src(sock).player(sock.data.token, a)));
   sock.on('admin', guard('admin', a => (a.type === 'simulation' ? sim.handle(a) : soiree.admin(a))));
   sock.on('orga', guard('orga', a => soiree.orga(a)));
 });

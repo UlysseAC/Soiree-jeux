@@ -38,6 +38,8 @@ Petite animation sur l'écran public pour le dragon : la lueur de la lave (qu'on
 
 La simulation peut se lancer même pendant une vraie partie : elle tourne alors dans une soirée à part (mêmes réglages, jamais sauvegardée), sans toucher aux vrais joueurs, au classement ni à l'écran public. On la regarde sur l'écran de test : adresse `/ecran?test` (bandeau rouge « Écran de test »). Sans partie en cours, elle se joue comme avant sur l'écran public.
 
+**Incarner des joueurs** : le champ « Joueurs incarnés » garde des places pour de vrais téléphones, à la place de faux joueurs. Sur le téléphone, ouvrir `/jouer?test` (ou scanner le QR code de l'écran de test). Pour un mini-jeu, prendre un nom « Incarné 1, 2… » : la partie attend ces téléphones (2 min au plus). Pour les 3 jeux de la soirée, entrer son nom et s'inscrire pendant le décompte. Le téléphone de test garde son identité à part : le vrai nom pris sur ce téléphone ne change pas.
+
 ## Règles affichées
 
 Si le champ « Règles » d'un mini-jeu est vide, l'annonce affiche les règles de base de son type.

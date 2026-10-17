@@ -6,17 +6,22 @@ let V = null;
 const pads = {};          // saisie en cours de chaque pavé
 const ui = { weapon: null, target: null, alloc: {}, showArme: false, tab: 'parier', sel: null, mise: 100, inv: {} };
 
+// /jouer?test : téléphone de test, pour incarner un joueur dans la simulation. Son identité est gardée à part
+// (clé « sj-token-test ») : jouer la simulation ne change rien au vrai nom pris sur ce téléphone.
+const TEL_TEST = new URLSearchParams(location.search).has('test');
+const CLE_TOKEN = TEL_TEST ? 'sj-token-test' : 'sj-token';
+if (TEL_TEST) document.body.insertAdjacentHTML('beforeend', '<div class="badge-test">Téléphone de test · simulation</div>');
 function hello() {
-  SJ.emit('hello', { role: 'joueur', token: SJ.store('sj-token') });
+  SJ.emit('hello', { role: 'joueur', token: SJ.store(CLE_TOKEN), test: TEL_TEST });
 }
 SJ.sock.on('connect', hello);
 let autoJoin = false;
 SJ.sock.on('etat', v => {
   // Le serveur ne nous connaît plus (il a redémarré) : on se réinscrit tout seul avec le même prénom.
   const nom = SJ.store('sj-nom');
-  if (!v.me && nom && SJ.store('sj-token') && !autoJoin) {
+  if (!v.me && nom && SJ.store(CLE_TOKEN) && !autoJoin) {
     autoJoin = true;
-    SJ.emit('rejoindre', { name: nom }).then(r => { if (r.ok) { SJ.store('sj-token', r.token); hello(); } });
+    SJ.emit('rejoindre', { name: nom }).then(r => { if (r.ok) { SJ.store(CLE_TOKEN, r.token); hello(); } });
     return;
   }
   reinscrire(v);
@@ -695,7 +700,7 @@ app.addEventListener('click', async e => {
   if (!b) return;
   const r = await SJ.emit('reclamer', { nom: b.dataset.mjNom });
   SJ.toast(r);
-  if (r.ok) { SJ.store('sj-token', r.token); ui.mjQ = ''; hello(); }
+  if (r.ok) { SJ.store(CLE_TOKEN, r.token); ui.mjQ = ''; hello(); }
 });
 app.addEventListener('input', e => {
   if (e.target.id === 'mj-q') { ui.mjQ = e.target.value; draw(); }
@@ -709,7 +714,7 @@ app.addEventListener('submit', async e => {
   e.preventDefault();
   const r = await SJ.emit('rejoindre', { name: document.getElementById('nom').value });
   if (!r.ok) return SJ.toast(r);
-  SJ.store('sj-token', r.token);
+  SJ.store(CLE_TOKEN, r.token);
   SJ.store('sj-nom', document.getElementById('nom').value.trim());
   hello();
 });

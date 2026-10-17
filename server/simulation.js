@@ -1,6 +1,6 @@
 // Simulation depuis l'admin : de faux joueurs jouent les jeux, à un rythme qu'on peut suivre sur l'écran public.
 // Les réglages sont remis comme avant à la fin ; « Effacer la simulation » retire les faux joueurs et leurs points.
-import { shuffle } from './util.js';
+import { shuffle, normName } from './util.js';
 
 const PRENOMS = ['Léa', 'Hugo', 'Inès', 'Malik', 'Chloé', 'Tom', 'Sarah', 'Nico', 'Jade', 'Yanis', 'Emma', 'Louis', 'Nora', 'Rose', 'Hamza', 'Lou', 'Ethan', 'Clara', 'Victor', 'Eva',
   'Mehdi', 'Alice', 'Camille', 'Enzo', 'Julie', 'Sami', 'Anaïs', 'Lucas', 'Noah', 'Paul', 'Léna', 'Gabin', 'Oscar', 'Mila', 'Jules', 'Iris', 'Nathan', 'Lola', 'Samuel', 'Romy',
@@ -74,17 +74,20 @@ export class Simulation {
       this.aPart = !!this.bacASable && ['playing', 'countdown'].includes(this.reel.sess.status);
       this.so = this.aPart ? this.bacASable() : this.reel;
       this.bots = [];
+      // joueurs incarnés : de vrais téléphones (/jouer?test) prennent la place de faux joueurs
+      this.incarnes = Math.max(0, Math.min(10, Math.round(Number(a.moi)) || 0));
       const ou = this.aPart ? 'Une vraie partie est en cours : la simulation tourne à part. Ouvre l\'écran de test (adresse /ecran?test).' : 'Regarde l\'écran public !';
       if (String(a.games?.[0] || '').startsWith('mini:')) {
         const type = a.games[0].slice(5);
         if (!MINI_TESTS[type]) return { ok: false, msg: 'Mini-jeu inconnu.' };
         this.runMini(type).catch(e => { console.error('Simulation :', e); this.step = 'Erreur : ' + e.message; this.finish(); });
-        return { ok: true, msg: `Test de « ${MINI_NOMS[type]} » lancé avec ${MINI_TESTS[type].n} faux joueurs. ${ou}` };
+        const faux = Math.max(1, MINI_TESTS[type].n - this.incarnes), places = this.incarnes ? ` et ${this.incarnes} place${this.incarnes > 1 ? 's' : ''} à incarner (/jouer?test)` : '';
+        return { ok: true, msg: `Test de « ${MINI_NOMS[type]} » lancé avec ${faux} faux joueurs${places}. ${ou}` };
       }
-      const n = Math.max(4, Math.min(60, Number(a.n) || 50));
+      const n = Math.max(4, Math.min(60, Number(a.n) || 50)) - this.incarnes; // les joueurs incarnés comptent dans le total
       const games = (a.games?.length ? a.games : ['chemin', 'grandpari', 'duel']).filter(g => ['chemin', 'grandpari', 'duel'].includes(g));
       this.run(n, games).catch(e => { console.error('Simulation :', e); this.step = 'Erreur : ' + e.message; this.finish(); });
-      return { ok: true, msg: `Simulation lancée avec ${n} faux joueurs. ${ou}` };
+      return { ok: true, msg: `Simulation lancée avec ${n} faux joueurs${this.incarnes ? ` (+ ${this.incarnes} à incarner sur /jouer?test : entre ton nom et inscris-toi pendant le décompte)` : ''}. ${ou}` };
     }
     if (a.cmd === 'stop') {
       if (!this.running) return { ok: false, msg: 'Pas de simulation en cours.' };
@@ -198,11 +201,13 @@ export class Simulation {
 
   // Test d'un mini-jeu : faux joueurs, un seul round du type choisi, réglages courts. Le vrai réglage est remis à la fin.
   async runMini(type) {
+    this.debutAttente = Date.now();
     const s = this.so.s, T = MINI_TESTS[type];
     this.running = true;
     this.backup = this.backup ?? { config: clone(s.config), history: clone(s.history), bonus: clone(s.bonus), show: s.show };
     this.bots = [];
-    for (let i = 0; i < T.n; i++) {
+    const incarnes = Array.from({ length: this.incarnes }, (_, i) => `Incarné ${i + 1}`);
+    for (let i = 0; i < Math.max(1, T.n - incarnes.length); i++) {
       let name = PRENOMS[i] ?? `Joueur ${i + 1}`;
       let r = this.so.join(undefined, name);
       if (!r.ok) r = this.so.join(undefined, `${name} ${i + 1}`);
@@ -214,7 +219,7 @@ export class Simulation {
     this.step = `${MINI_NOMS[type]} : inscriptions`;
     this.admin({ type: 'choisirJeu', gameId: 'minijeux' });
     const c = (path, value) => this.admin({ type: 'config', scope: 'jeu', path, value });
-    c('joueurs', this.bots.map(b => b.name).join('\n'));
+    c('joueurs', [...this.bots.map(b => b.name), ...incarnes].join('\n'));
     c('programme', 'mj1');
     c('jeux.mj1.type', type);
     c('jeux.mj1.nom', MINI_NOMS[type]);
@@ -224,6 +229,14 @@ export class Simulation {
     // Chaque faux joueur prend son nom sur la liste, comme un vrai téléphone
     for (const b of this.bots) this.so.claimMini(b.token, b.name);
     this.broadcast();
+    // on attend que chaque joueur incarné ait pris son nom « Incarné N » sur un téléphone de test (2 min au plus)
+    const manquants = () => incarnes.filter(n => !this.so.sess.game?.claims?.[normName(n)]);
+    while (this.running && manquants().length) {
+      this.step = `En attente de ${manquants().length} joueur${manquants().length > 1 ? 's' : ''} incarné${manquants().length > 1 ? 's' : ''} : ouvre /jouer?test et prends « ${manquants()[0]} »`;
+      this.broadcast();
+      await this.wait(1000);
+      if (Date.now() - this.debutAttente > 120000) break;
+    }
     await sleep(500);
     this.admin({ type: 'jeu', action: { type: 'annoncer' } });
     this.step = `${MINI_NOMS[type]} : partie en cours`;

@@ -176,9 +176,11 @@ ${[[-300, '−5 min'], [-60, '−1 min'], [60, '+1 min'], [300, '+5 min']].map((
       <div class="grid-auto">${cfgInput('orgaCode', V.config.orgaCode, 'text', { scope: 'soiree', label: 'Code orga' })}</div>
       <h2 style="margin-top:8px">Simulation</h2>
       <p class="muted" style="margin:0;font-size:14px">De faux joueurs jouent pour de vrai : regarde l'écran public. Tes réglages sont remis comme avant à la fin.
-        Pendant une vraie partie, la simulation tourne à part, sans rien toucher : regarde-la sur l'<a href="/ecran?test" target="_blank" rel="noopener">écran de test</a>.</p>
+        Pendant une vraie partie, la simulation tourne à part, sans rien toucher : regarde-la sur l'<a href="/ecran?test" target="_blank" rel="noopener">écran de test</a>.
+        <strong>Joueurs incarnés</strong> : autant de places sont gardées pour de vrais téléphones. Ouvre <span class="mono">/jouer?test</span> sur ton téléphone (ou scanne le QR code de l'écran de test) : pour un mini-jeu, prends un nom « Incarné 1, 2… » (la partie attend tes téléphones) ; pour les 3 jeux, entre ton nom et inscris-toi pendant le décompte.</p>
       ${V.simulation?.running ? `<div class="row"><span class="pill accent">▶ ${esc(V.simulation.step)}</span><span class="muted">${V.simulation.bots} faux joueurs</span><button class="btn sm danger" data-act="simStop">Arrêter</button></div>` : `
       <div class="row"><label class="field" style="max-width:120px"><span class="label">Faux joueurs</span><input class="in" id="sim-n" inputmode="numeric" value="50"></label>
+        <label class="field" style="max-width:150px"><span class="label">Joueurs incarnés</span><input class="in" id="sim-moi" inputmode="numeric" value="0"></label>
         <label class="field" style="max-width:220px"><span class="label">Jeux</span><select class="in" id="sim-jeux"><option value="chemin,grandpari,duel">Les 3 jeux (~25 min)</option>${V.games.filter(g => g.id !== 'minijeux').map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join('')}<optgroup label="Tester un mini-jeu (faux joueurs, quelques minutes)">${[["definition", "La Définition"], ["anecdote", "L'Anecdote"], ["temple", "Le Temple aztèque"], ["mime", "Le Mime"], ["dragon", "La Chasse au dragon"], ["disparu", "Qu'est-ce qui a changé ?"], ["quiz", "Le Quiz"]].map(([v, l]) => `<option value="mini:${v}">${l}</option>`).join('')}</optgroup></select></label>
         <button class="btn primary" data-act="simStart" style="align-self:flex-end">▶ Lancer la simulation</button></div>
       ${V.simulation?.canErase ? `<div class="row"><span class="muted">${esc(V.simulation.step)}</span><button class="btn sm danger" data-act="simErase" data-confirm="Effacer les faux joueurs et leurs points ?">Effacer la simulation</button></div>` : ''}`}
@@ -900,7 +902,7 @@ app.addEventListener('click', e => {
     return admin({ type: 'bonus', pid, delta });
   }
   if (a === 'afficherClassement') return admin({ type: 'afficherClassement', mode: t.dataset.mode });
-  if (a === 'simStart') return admin({ type: 'simulation', cmd: 'start', n: Number(document.getElementById('sim-n').value), games: document.getElementById('sim-jeux').value.split(',') });
+  if (a === 'simStart') return admin({ type: 'simulation', cmd: 'start', n: Number(document.getElementById('sim-n').value), moi: Number(document.getElementById('sim-moi').value), games: document.getElementById('sim-jeux').value.split(',') });
   if (a === 'simStop') return admin({ type: 'simulation', cmd: 'stop' });
   if (a === 'simErase') return admin({ type: 'simulation', cmd: 'effacer' });
   if (a === 'restaurerCopie') {
