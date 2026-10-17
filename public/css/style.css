@@ -642,7 +642,7 @@ body[data-theme="livre"] .card, body[data-theme="livre"] .mj-rules { background:
 body[data-theme="livre"] .mj-card { background: linear-gradient(160deg, #3b2c1c, #261b11); border-color: #7a5f3c; }
 body[data-theme="livre"] .mj-mot { font-family: Georgia, "Times New Roman", serif; }
 
-/* Le Mime : Paris en noir et blanc, marinière, toits de zinc et tour Eiffel ; une touche de rouge comme le foulard des mimes */
+/* Le Mime : Paris en noir et blanc, marinière, toits de zinc et tour Eiffel ; petits titres en rouge, comme le foulard des mimes */
 body[data-theme="paris"] {
   --ink: #0d0d0d; --panel: #1a1a1a; --panel2: #262626; --line: #4d4d4d;
   --text: #f5f5f5; --muted: #a9a9a9;
@@ -651,7 +651,6 @@ body[data-theme="paris"] {
 }
 body[data-theme="paris"]::before {
   background:
-    linear-gradient(#c8102e, #c8102e) 0 20px / 100% 3px no-repeat,
     repeating-linear-gradient(180deg, #f2f2f2 0 5px, #0d0d0d 5px 10px) top / 100% 20px no-repeat,
     radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(0, 0, 0, .6) 100%),
     repeating-linear-gradient(135deg, transparent 0 38px, rgba(255, 255, 255, .05) 38px 40px) bottom / 100% 20vh no-repeat;
