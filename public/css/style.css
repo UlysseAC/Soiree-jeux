@@ -579,8 +579,8 @@ body[data-theme="paris"]::before, body[data-theme="chalet"]::before, body[data-t
 body[data-theme="quiz"]::after, body[data-theme="dragon"]::after {
   content: ""; position: fixed; top: 0; left: 0; right: 0; z-index: -1; pointer-events: none;
 }
-/* grand motif discret dans un coin (tour Eiffel, feu de cheminée, loupe) */
-body[data-theme="paris"]::after, body[data-theme="chalet"]::after, body[data-theme="detective"]::after {
+/* grand motif discret dans un coin (tour Eiffel, loupe) */
+body[data-theme="paris"]::after, body[data-theme="detective"]::after {
   position: fixed; z-index: -1; pointer-events: none; line-height: 1;
 }
 
@@ -642,7 +642,7 @@ body[data-theme="livre"] .card, body[data-theme="livre"] .mj-rules { background:
 body[data-theme="livre"] .mj-card { background: linear-gradient(160deg, #3b2c1c, #261b11); border-color: #7a5f3c; }
 body[data-theme="livre"] .mj-mot { font-family: Georgia, "Times New Roman", serif; }
 
-/* Le Mime : Paris en noir et blanc, marinière, toits de zinc et tour Eiffel */
+/* Le Mime : Paris en noir et blanc, marinière, toits de zinc et tour Eiffel ; une touche de rouge comme le foulard des mimes */
 body[data-theme="paris"] {
   --ink: #0d0d0d; --panel: #1a1a1a; --panel2: #262626; --line: #4d4d4d;
   --text: #f5f5f5; --muted: #a9a9a9;
@@ -651,15 +651,17 @@ body[data-theme="paris"] {
 }
 body[data-theme="paris"]::before {
   background:
+    linear-gradient(#c8102e, #c8102e) 0 20px / 100% 3px no-repeat,
     repeating-linear-gradient(180deg, #f2f2f2 0 5px, #0d0d0d 5px 10px) top / 100% 20px no-repeat,
     radial-gradient(ellipse at 50% 45%, transparent 55%, rgba(0, 0, 0, .6) 100%),
     repeating-linear-gradient(135deg, transparent 0 38px, rgba(255, 255, 255, .05) 38px 40px) bottom / 100% 20vh no-repeat;
 }
 body[data-theme="paris"]::after { content: "🗼"; right: 3vw; bottom: -3vh; font-size: 52vh; filter: grayscale(1) brightness(1.7); opacity: .09; }
 body[data-theme="paris"] .mj-round { font-family: Georgia, "Times New Roman", serif; font-style: italic; font-weight: 400; text-transform: none; letter-spacing: .02em; color: #fff; }
+body[data-theme="paris"] .mj-kicker { color: #d81e3a; }
 body[data-theme="paris"] .card, body[data-theme="paris"] .mj-rules { background: linear-gradient(160deg, #262626, #121212); border-color: var(--line); }
 
-/* L'Anecdote : chalet, murs en bois et coin du feu */
+/* L'Anecdote : chalet, murs en bois et lueur du coin du feu */
 body[data-theme="chalet"] {
   --ink: #1b0f08; --panel: #2b1a10; --panel2: #3a2415; --line: #6b4428;
   --text: #fbeedd; --muted: #c9a98a;
@@ -672,9 +674,6 @@ body[data-theme="chalet"]::before {
     radial-gradient(ellipse at 50% 40%, transparent 30%, rgba(0, 0, 0, .6) 100%),
     repeating-linear-gradient(90deg, #3d2415 0 118px, #26160c 118px 121px, #452a19 121px 238px, #26160c 238px 241px);
 }
-body[data-theme="chalet"]::after { content: "🔥"; left: 50%; bottom: -4vh; transform: translateX(-50%); font-size: 20vh; opacity: .32; animation: mj-feu 2.4s ease-in-out infinite alternate; }
-@keyframes mj-feu { from { opacity: .26; transform: translateX(-50%) scale(1); } to { opacity: .38; transform: translateX(-50%) scale(1.06); } }
-@media (prefers-reduced-motion: reduce) { body[data-theme="chalet"]::after { animation: none; } }
 body[data-theme="chalet"] .mj-round { font-family: Georgia, "Times New Roman", serif; font-style: italic; font-weight: 400; text-transform: none; color: var(--accent); text-shadow: 0 0 26px rgba(255, 140, 40, .35); }
 body[data-theme="chalet"] .card, body[data-theme="chalet"] .mj-rules { background: linear-gradient(160deg, #3a2415, #22140a); border-color: var(--line); }
 body[data-theme="chalet"] .mj-card { background: linear-gradient(160deg, #3f2716, #26160c); border-color: #7a4f2e; }
