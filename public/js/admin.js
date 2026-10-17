@@ -557,6 +557,10 @@ function partieMiniJeux(g) {
       ${g.finished ? '' : `<div class="row"><button class="btn sm" data-mj="decaler" data-sec="-300">−5 min</button><button class="btn sm" data-mj="decaler" data-sec="300">+5 min</button><button class="btn sm danger" data-mj="terminer" data-confirm="Terminer la journée maintenant ? Les rounds restants sont annulés.">Terminer la journée</button></div>`}</div>
     ${g.late ? '<div class="card danger"><p>La journée a été ouverte après l\'heure de début : les rounds sont répartis à partir de l\'ouverture.</p></div>' : ''}
     ${now}
+    ${a ? '' : `<div class="box"><div class="spread"><h2>Lancer un mini-jeu maintenant</h2><span class="muted">hors programme</span></div>
+      <p class="muted" style="margin:0;font-size:14px">Les joueurs inscrits sur leur téléphone sont tirés au sort. Pas besoin d'attendre l'ordre du programme.</p>
+      <div class="row" style="flex-wrap:wrap"><select class="in" style="width:auto" id="mj-lancer">${MJ_SLOTS.map(s => `<option value="${s}">${esc(V.gameConfig.jeux[s]?.nom || s)}</option>`).join('')}</select>
+        <button class="btn primary" data-mj="lancerMaintenant" ${g.finished ? 'disabled' : ''}>▶ Lancer maintenant</button></div></div>`}
     <div class="box"><h2>Programme</h2><div class="scroll"><table><thead><tr><th>Round</th><th>Heure</th><th>Mini-jeu</th><th>Joueurs</th><th>État</th></tr></thead><tbody>${rounds}</tbody></table></div></div>
     <div class="box"><div class="spread"><h2>Participants</h2><span class="muted">Chacun devrait jouer ${g.attendu.min}${g.attendu.max !== g.attendu.min ? ` à ${g.attendu.max}` : ''} rounds</span></div>
       <div class="scroll"><table><thead><tr><th>Rang</th><th>Nom</th><th>Téléphone</th><th>Rounds</th><th>Points</th></tr></thead><tbody>${joueurs}</tbody></table></div></div>`;
@@ -595,6 +599,7 @@ app.addEventListener('click', async e => {
   if (a === 'liberer') return jeu({ type: 'liberer', nom: t.dataset.nom });
   if (a === 'decaler') return jeu({ type: 'decaler', sec: Number(t.dataset.sec) });
   if (a === 'suivant') return jeu({ type: 'suivant' });
+  if (a === 'lancerMaintenant') return jeu({ type: a, slot: document.getElementById('mj-lancer')?.value });
   return jeu({ type: a, n });
 });
 app.addEventListener('change', e => {

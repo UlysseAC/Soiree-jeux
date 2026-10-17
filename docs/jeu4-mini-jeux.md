@@ -1,6 +1,6 @@
 # Jeu 4 — Les Mini-Jeux (structure)
 
-> Le **Quiz** est le 7e mini-jeu (tout le monde joue) : voir la section « Le Quiz » ci-dessous.
+> Le **Quiz** est un type de mini-jeu (tout le monde joue) : voir la section « Le Quiz » ci-dessous.
 
 Une journée de rounds à heures régulières. À chaque round, un mini-jeu et des joueurs tirés au sort. Chaque mini-jeu a un nom, une page de règles écrite par l'organisateur, un format et des points par place. Un mini-jeu est soit **manuel** (l'organisateur saisit les places à la fin), soit un jeu automatique joué sur les téléphones : pour l'instant **La Définition**, **Le Temple aztèque**, **Le Mime**, **La Chasse au dragon**, **L'Anecdote** et **Qu'est-ce qui a changé ?** (mémoire).
 
@@ -20,6 +20,13 @@ Une journée de rounds à heures régulières. À chaque round, un mini-jeu et d
 3. **« J'ai compris »** : chaque joueur tiré lit les règles et appuie sur « J'ai compris ». Le jeu commence quand **tous** ont appuyé (l'écran et l'admin montrent qui manque). L'admin peut aussi « Commencer maintenant » sans attendre.
 4. **Round manuel** : l'admin donne une place à chaque joueur (ex æquo possibles) et valide : les points s'ajoutent, l'écran affiche les résultats, puis le prochain round est annoncé à son heure. Un round en cours bloque le suivant tant que les résultats ne sont pas saisis. Un round automatique (La Définition) calcule les places lui-même.
 5. **Fin** : après le dernier round, l'écran affiche le podium de la journée.
+
+## Tester avec de vrais joueurs (hors programme)
+
+- Ouvre la journée (« Ouvrir la journée ») : les joueurs choisissent leur nom sur leur téléphone, sans ordre à respecter.
+- Dans « Lancer un mini-jeu maintenant », choisis un des mini-jeux configurés et appuie sur « Lancer maintenant » : les inscrits sont tirés au sort et le round est annoncé tout de suite, à côté du programme.
+- Le round est marqué « hors programme » ; le programme prévu n'est pas modifié.
+- Les rounds prévus à leur heure peuvent toujours se déclencher pendant le test : utilise « Sauter » ou « Terminer la journée » pour les écarter.
 
 ## Tirage au sort
 

@@ -363,6 +363,15 @@ export function adminAction(ctx, g, a) {
       announce(ctx, g, next);
       return ok(`Round ${next.n} annoncé : il commence dans ${Math.round((startAtOf(cfg, next) - now) / 60000) || 1} min.`);
     }
+    case 'lancerMaintenant': { // un mini-jeu choisi tout de suite, hors programme (test avec de vrais joueurs)
+      if (activeRound(g)) return err('Un round est déjà en cours.');
+      if (!SLOTS.includes(a.slot)) return err('Choisis un mini-jeu.');
+      if (!roster(cfg).length) return err('Ajoute d\'abord des participants dans les réglages.');
+      const r = { n: g.rounds.length + 1, jeu: a.slot, at: now, status: 'prevu', joueurs: [], places: null, points: null, annonceAt: 0, debutAt: 0, finAt: 0, hors: true };
+      g.rounds.push(r);
+      announce(ctx, g, r);
+      return ok(`${cfg.jeux[a.slot].nom} annoncé : il commence dès que tout le monde a compris.`);
+    }
     case 'commencer': {
       const act = activeRound(g);
       if (!act || act.status !== 'annonce') return err('Aucun round annoncé.');
