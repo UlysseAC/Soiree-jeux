@@ -54,7 +54,7 @@ function viewFor(sock) {
   if (d.role === 'admin') return { ...soiree.adminView(), simulation: sim.status(), sauvegardeEnLigne: storage.remote, enLigne: !!process.env.RENDER };
   if (d.role === 'ecran') return { ...(d.test ? sim.ecran() : soiree).screenView(), joinUrl: d.test ? `${JOIN_URL}?test` : JOIN_URL, qr: d.test ? qrTest : qr, test: !!d.test };
   if (d.role === 'orga') return soiree.orgaView();
-  return src(sock).playerView(d.token);
+  return d.test ? { ...src(sock).playerView(d.token), simulation: sim.status() } : soiree.playerView(d.token);
 }
 
 // Écran et téléphones de test (?test) : ils suivent la soirée de la simulation quand elle tourne à part.
@@ -134,6 +134,13 @@ io.on('connection', sock => {
   sock.on('joueur', guard('joueur', a => src(sock).player(sock.data.token, a)));
   sock.on('admin', guard('admin', a => (a.type === 'simulation' ? sim.handle(a) : soiree.admin(a))));
   sock.on('orga', guard('orga', a => soiree.orga(a)));
+  // Téléphone de test : lancer (ou arrêter) le test d'un mini-jeu pour y jouer soi-même. Toujours à part, avec le mot de passe admin.
+  sock.on('testMiniJeu', (h = {}, cb = () => {}) => {
+    if (typeof cb !== 'function') return;
+    if (h.password !== ADMIN_PASSWORD) return cb({ ok: false, msg: 'Mot de passe admin incorrect.' });
+    cb(h.cmd === 'stop' ? sim.handle({ cmd: 'stop' }) : sim.handle({ cmd: 'start', games: [`mini:${h.type}`], moi: 1, aPart: true }));
+    broadcast();
+  });
 });
 
 // Tick rapide : le « FEU ! » du face-à-face doit partir au bon moment.

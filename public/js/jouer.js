@@ -677,10 +677,27 @@ function miniJeux() {
 }
 
 // ---------- rendu ----------
+// Téléphone de test : lancer le test d'un mini-jeu d'ici, puis y jouer (le téléphone prend « Incarné 1 » tout seul).
+function testPanel() {
+  const s = V.simulation;
+  if (!TEL_TEST || !s) return '';
+  if (s.running) return `<div class="card test-panel"><strong>🧪 Test en cours</strong><p class="muted" style="margin:0">${esc(s.step)}</p><button class="btn sm" data-act="testArreter">Arrêter le test</button></div>`;
+  ui.testType ??= s.tests[0]?.[0];
+  return `<div class="card test-panel"><strong>🧪 Tester un mini-jeu</strong>
+    <select class="in" id="test-type">${s.tests.map(([k, n]) => `<option value="${k}" ${k === ui.testType ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>
+    <button class="btn primary" data-act="testLancer">▶ Lancer et jouer</button></div>`;
+}
 function draw() {
   if (!V) return;
-  if (V.gameId === 'minijeux') { app.className = 'phone'; SJ.render(app, miniJeux()); return; }
-  if (!V.me) { app.className = 'phone'; if (!document.getElementById('join')) SJ.render(app, joinScreen()); return; }
+  // test lancé d'ici : dès que la place « Incarné 1 » est libre, le téléphone la prend
+  if (ui.autoIncarne && V.game?.claim && V.game.libres?.includes('Incarné 1')) {
+    ui.autoIncarne = false;
+    SJ.emit('reclamer', { nom: 'Incarné 1' }).then(r => { if (r.ok) { SJ.store(CLE_TOKEN, r.token); hello(); } });
+  }
+  // téléphone de test sans test en cours : seulement le panneau (pas les noms de la vraie soirée)
+  if (TEL_TEST && !V.simulation?.running) { app.className = 'phone'; SJ.render(app, testPanel() + '<div class="card"><p style="font-size:18px">Aucun test en cours.</p><p class="muted">Choisis un mini-jeu et lance-le : ce téléphone y jouera comme un vrai joueur.</p></div>'); return; }
+  if (V.gameId === 'minijeux') { app.className = 'phone'; SJ.render(app, testPanel() + miniJeux()); return; }
+  if (!V.me) { app.className = 'phone'; if (!document.getElementById('join')) SJ.render(app, testPanel() + joinScreen()); return; }
   let html;
   if (V.game && !V.game.spectator) {
     html = V.gameId === 'chemin' ? chemin(V.game) : V.gameId === 'grandpari' ? grandpari(V.game) : duel(V.game);
@@ -691,8 +708,23 @@ function draw() {
     app.className = 'phone';
     html = waitingScreen();
   }
-  SJ.render(app, html);
+  SJ.render(app, testPanel() + html);
 }
+
+// Téléphone de test : lancer ou arrêter un test (mot de passe admin demandé une fois, gardé sur ce téléphone).
+app.addEventListener('change', e => { if (e.target.id === 'test-type') ui.testType = e.target.value; });
+app.addEventListener('click', async e => {
+  const t = e.target.closest('[data-act="testLancer"], [data-act="testArreter"]');
+  if (!t) return;
+  const password = SJ.store('sj-admin') || prompt('Mot de passe admin');
+  if (!password) return;
+  const lancer = t.dataset.act === 'testLancer';
+  const r = await SJ.emit('testMiniJeu', lancer ? { password, type: ui.testType } : { password, cmd: 'stop' });
+  SJ.toast(r);
+  if (!r.ok) { if (/mot de passe/i.test(r.msg || '')) SJ.store('sj-admin', null); return; }
+  SJ.store('sj-admin', password);
+  if (lancer) { SJ.store(CLE_TOKEN, null); ui.autoIncarne = true; hello(); } // nouvelle identité de test pour ce test
+});
 
 // Mini-Jeux : le joueur touche son nom dans la liste.
 app.addEventListener('click', async e => {

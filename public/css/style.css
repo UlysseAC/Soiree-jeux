@@ -730,3 +730,4 @@ body[data-theme="detective"] .card, body[data-theme="detective"] .mj-rules { bac
 
 /* Écran de test (/ecran?test) : bien distinct de l'écran public */
 .badge-test { position: fixed; top: 8px; left: 50%; transform: translateX(-50%); z-index: 60; background: var(--danger); color: #fff; font: 700 14px var(--body); padding: 4px 12px; border-radius: 99px; pointer-events: none; }
+.test-panel { gap: 8px; border-color: var(--danger); margin-top: 26px; }

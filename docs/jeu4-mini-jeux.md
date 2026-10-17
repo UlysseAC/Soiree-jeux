@@ -40,6 +40,8 @@ La simulation peut se lancer même pendant une vraie partie : elle tourne alors 
 
 **Incarner des joueurs** (test d'un mini-jeu seulement) : le champ « Joueurs incarnés » garde des places pour de vrais téléphones, à la place de faux joueurs. Sur le téléphone, ouvrir `/jouer?test` (ou scanner le QR code de l'écran de test) et prendre un nom « Incarné 1, 2… » : la partie attend ces téléphones (2 min au plus). Le téléphone de test garde son identité à part : le vrai nom pris sur ce téléphone ne change pas.
 
+**Lancer un test depuis le téléphone** : sur `/jouer?test`, le panneau « Tester un mini-jeu » permet de choisir un mini-jeu et de le lancer (mot de passe admin demandé une fois). Le test tourne toujours à part (écran de test `/ecran?test`), et le téléphone prend tout seul la place « Incarné 1 ».
+
 ## Règles affichées
 
 Si le champ « Règles » d'un mini-jeu est vide, l'annonce affiche les règles de base de son type.

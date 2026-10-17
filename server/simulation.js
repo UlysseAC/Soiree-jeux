@@ -49,7 +49,7 @@ export class Simulation {
   set backup(v) { if (v) this.so.s.simBackup = v; else delete this.so.s.simBackup; }
 
   status() {
-    return { running: this.running, step: this.step, bots: this.bots.length, canErase: !!this.backup && !this.running && !this.aPart, aPart: this.aPart };
+    return { running: this.running, step: this.step, bots: this.bots.length, canErase: !!this.backup && !this.running && !this.aPart, aPart: this.aPart, tests: Object.entries(MINI_NOMS) };
   }
   // Soirée montrée sur l'écran de test (/ecran?test) : celle de la simulation à part, sinon la vraie.
   ecran() { return this.aPart ? this.so : this.reel; }
@@ -71,7 +71,7 @@ export class Simulation {
     if (a.cmd === 'start') {
       if (this.running) return { ok: false, msg: 'Une simulation est déjà en cours.' };
       // Vraie partie en cours : la simulation tourne à part, sans toucher à la soirée ni à l'écran public.
-      this.aPart = !!this.bacASable && ['playing', 'countdown'].includes(this.reel.sess.status);
+      this.aPart = !!this.bacASable && (!!a.aPart || ['playing', 'countdown'].includes(this.reel.sess.status)); // aPart : lancé depuis un téléphone de test
       this.so = this.aPart ? this.bacASable() : this.reel;
       this.bots = [];
       // joueurs incarnés (test d'un mini-jeu seulement) : de vrais téléphones (/jouer?test) prennent la place de faux joueurs
