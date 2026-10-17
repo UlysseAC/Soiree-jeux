@@ -575,7 +575,7 @@ function mjDisparu(e) {
   let h = `<span class="label" style="text-align:center">Manche ${e.manche} / ${e.total}${e.phase === 'question' || e.phase === 'memorise' ? ` · <strong class="mono" data-until="${e.fin}"></strong>` : ''}</span>`;
   if (!e.moi) return h + '<div class="card"><p style="font-size:18px">🧠 Jeu de mémoire en cours : regarde l\'écran !</p></div>';
   if (e.phase === 'memorise') return h + `<div class="card turn center"><div class="huge" style="font-size:44px">👀</div><p style="font-size:20px">Regarde bien l'écran et retiens tous les objets !</p></div>`;
-  if (e.phase === 'noir') return h + `<div class="card center"><div class="huge" style="font-size:44px">🙈</div><p style="font-size:18px">Prépare-toi…</p></div>`;
+  if (e.phase === 'noir') return h + `<div class="card center"><div class="huge" style="font-size:44px">⏳</div><p style="font-size:18px">Prépare-toi…</p></div>`;
   if (e.phase === 'question') {
     if (e.moi.reponse) return h + `<div class="card center"><p style="font-size:18px">✓ Réponse envoyée : <strong>${esc(e.moi.reponse)}</strong></p><p class="muted">On attend les autres…</p></div>`;
     return h + `<div class="card"><p style="font-size:18px;margin:0">Qu'est-ce qui a disparu ?</p><p class="muted" style="margin:0">Une seule réponse : plus tu es rapide, plus tu gagnes de points.</p></div>

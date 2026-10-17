@@ -241,7 +241,7 @@ function mjDisparu(a, e) {
   const tuile = (o, cls = '') => o ? `<div class="me-obj ${cls}"><span class="me-emoji">${esc(o.emoji || '❔')}</span><span class="me-nom">${esc(o.nom)}</span></div>` : '<div class="me-obj vide" aria-label="case vide"></div>';
   const grille = (objs, f = tuile) => `<div class="me-grille" style="--n:${Math.ceil(Math.sqrt(objs.length * 1.6))}">${objs.map(o => f(o)).join('')}</div>`;
   if (e.phase === 'memorise') return `${head}<div class="mj-round">Regardez bien !</div><div class="sc-sub">${e.scene.length} objets · encore <strong class="mono" data-until="${e.fin}"></strong></div>${grille(e.scene)}`;
-  if (e.phase === 'noir') return `${head}<div class="me-noir">🙈 Fermez les yeux…</div>`;
+  if (e.phase === 'noir') return `${head}<div class="me-noir" aria-hidden="true"></div>`; // courte pause : la scène disparaît, sans consigne
   if (e.phase === 'question') {
     return `${head}<div class="mj-round">Qu'est-ce qui a disparu ?</div>
       <div class="sc-sub">À vos téléphones ! · <strong class="mono" data-until="${e.fin}"></strong> · ${e.repondu} / ${e.joueurs.length} ont répondu</div>${grille(e.apres)}`;
