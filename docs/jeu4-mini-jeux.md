@@ -9,7 +9,7 @@ Une journée de rounds à heures régulières. À chaque round, un mini-jeu et d
 - **Participants** : un nom par ligne.
 - **Journée** : heure de début, heure de fin, nombre de rounds. Les rounds sont répartis à intervalles égaux (8 h et 12 rounds = un round toutes les 40 min). L'admin voit combien de rounds chacun jouera.
 - **Programme** : le mini-jeu de chaque round, dans l'ordre (un mini-jeu peut revenir). « Remplir automatiquement » enchaîne en boucle les mini-jeux cochés « utilisés ».
-- **Les 6 mini-jeux** : nom (libre), **type** (manuel, La Définition, Le Temple aztèque, Le Mime, La Chasse au dragon, L'Anecdote ou Qu'est-ce qui a changé ?), page de règles (affichée en grand sur l'écran et sur les téléphones avant le jeu), **format**, durée indicative, points par place (ex. « 10, 6, 3, 1 »).
+- **Les 7 mini-jeux** : nom (libre), **type** (manuel, La Définition, Le Temple aztèque, Le Mime, La Chasse au dragon, L'Anecdote ou Qu'est-ce qui a changé ?), page de règles (affichée en grand sur l'écran et sur les téléphones avant le jeu), **format**, durée indicative, points par place (ex. « 10, 6, 3, 1 »).
 - **Format** : vide = chacun pour soi, avec un nombre de joueurs par round (0 = tout le monde) ; ou des équipes : `1v1v1v1` (4 joueurs, chacun pour soi), `2v2`, `3v1`, `2v1`, `2v2v2`, `3v3`… (8 équipes et 10 joueurs par équipe au plus). Les équipes s'appellent Rouges, Bleus, Verts, Jaunes… Les places se donnent par équipe et chaque membre reçoit les points de la place de son équipe.
 - Réglages pris en compte tout de suite : participants, noms, règles, points. Horaires, nombre de rounds et programme : fixés à l'ouverture de la journée.
 
@@ -114,7 +114,7 @@ Une journée de rounds à heures régulières. À chaque round, un mini-jeu et d
 
 Classement de la journée, séparé du classement de la soirée des 3 autres jeux : somme des points de chaque round, affiché sur l'écran et sur chaque téléphone.
 
-## À définir avec les 6 mini-jeux
+## À définir avec les mini-jeux
 
 - Départage des ex æquo au classement final.
 

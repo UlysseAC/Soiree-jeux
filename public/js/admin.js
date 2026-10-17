@@ -290,7 +290,7 @@ function partie() {
 }
 
 // ---------- jeu 4 : Les Mini-Jeux ----------
-const MJ_SLOTS = ['mj1', 'mj2', 'mj3', 'mj4', 'mj5', 'mj6'];
+const MJ_SLOTS = ['mj1', 'mj2', 'mj3', 'mj4', 'mj5', 'mj6', 'mj7'];
 const MJ_TYPE_NOMS = { manuel: 'Manuel', definition: 'La Définition', temple: 'Le Temple aztèque', mime: 'Le Mime', dragon: 'La Chasse au dragon', anecdote: 'L\'Anecdote', disparu: 'Qu\'est-ce qui a changé ?', quiz: 'Le Quiz' };
 const hhmm = ts => new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 // Même logique que le serveur (server/games/minijeux.js) pour prévisualiser avant d'ouvrir la journée.
@@ -360,7 +360,7 @@ function reglagesMiniJeux(c) {
     <div class="box"><div class="spread"><h2>Programme des rounds</h2><button class="btn sm" data-mj="auto" data-confirm="Remplacer le programme par les mini-jeux utilisés, en boucle ?">Remplir automatiquement</button></div>
       <div class="scroll"><table><thead><tr><th>Round</th><th>Heure prévue</th><th>Mini-jeu</th><th>Joueurs</th></tr></thead><tbody>${rows}</tbody></table></div>
     </div>
-    <h2 style="margin-top:8px">Les 6 mini-jeux</h2>
+    <h2 style="margin-top:8px">Les ${MJ_SLOTS.length} mini-jeux</h2>
     <p class="muted" style="margin:0;font-size:14px">Format : laisse vide pour « chacun pour soi » (avec le nombre de joueurs), ou écris des équipes : <strong>1v1v1v1</strong> (4 joueurs, chacun pour soi), <strong>2v2</strong>, <strong>3v1</strong>, 2v2v2… Les points se donnent par place d'équipe : chaque membre reçoit les points de son équipe.</p>
     <datalist id="mj-formats"><option value="1v1"><option value="1v1v1"><option value="1v1v1v1"><option value="2v2"><option value="3v1"><option value="2v1"><option value="3v3"><option value="2v2v2"><option value="4v4"></datalist>
     ${jeux}`;

@@ -23,7 +23,7 @@ export const name = 'Les Mini-Jeux';
 export const minPlayers = 0;
 export const classementSoiree = false; // classement de la journée, séparé de celui de la soirée
 
-export const SLOTS = ['mj1', 'mj2', 'mj3', 'mj4', 'mj5', 'mj6'];
+export const SLOTS = ['mj1', 'mj2', 'mj3', 'mj4', 'mj5', 'mj6', 'mj7'];
 const MAX_ROSTER = 200;
 const MAX_ROUNDS = 60;
 
