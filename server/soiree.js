@@ -24,6 +24,7 @@ export function defaultState() {
     session: newSession('chemin'),
     history: [],
     bonus: {},
+    soirees: [], // soirées précédentes : { fin, parties, top } (le classement de chacune, figé)
     show: null, // null | 'classement' | 'final' : classement affiché sur l'écran public
   };
 }
@@ -182,6 +183,17 @@ export class Soiree {
         this.s.config = restore({ config: c }).config;
         this.s.reglagesMaj = this.now();
         return { ok: true, msg: 'Réglages importés.' };
+      }
+      case 'nouvelleSoiree': { // archive le classement de la soirée en cours, puis repart de zéro
+        if (sess.status !== 'idle' && sess.status !== 'finished') return { ok: false, msg: 'Termine d\'abord la partie en cours.' };
+        this.archive();
+        const c = this.classement();
+        this.s.soirees.push({ fin: this.now(), parties: this.s.history.length, top: c.rows.slice(0, 3).map(r => ({ name: r.name, total: r.total })) });
+        this.s.history = [];
+        this.s.bonus = {};
+        this.s.show = null;
+        this.s.session = newSession(sess.gameId);
+        return { ok: true, msg: 'Nouvelle soirée : le classement repart de zéro.' };
       }
       case 'reinitialiserSoiree':
         this.s.history = [];
@@ -372,6 +384,7 @@ export class Soiree {
       show: this.s.show,
       fullConfig: this.s.config,
       reglagesMaj: this.s.reglagesMaj || 0,
+      soirees: this.s.soirees || [],
       classement: this.classement(),
       people: Object.values(this.s.people).map(p => ({ pid: p.id, name: p.name })).sort((a, b) => a.name.localeCompare(b.name, 'fr')),
       gameConfig: this.gameCfg(),

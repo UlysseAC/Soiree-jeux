@@ -638,7 +638,9 @@ function classementTab() {
     ${cfgInput('classement.duel.min', k.duel.min, 'num', { scope: 'soiree', label: 'Duel : dernier' })}
     ${cfgInput('classement.bonusMax', k.bonusMax, 'num', { scope: 'soiree', label: 'Bonus jeu raté (max)' })}
   </div><p class="muted" style="margin:0;font-size:14px">Bonus jeu raté = points max des jeux joués à la soirée ÷ points max des jeux joués par le joueur, plafonné. Égalités : jeux gagnés, puis résultat au Duel.</p>
-  <button class="btn sm danger" data-act="reinitialiserSoiree" data-confirm="Remettre à zéro le classement de la soirée ?" style="align-self:flex-start">Remettre le classement à zéro</button></div>`;
+  ${V.soirees?.length ? `<div><h2>Soirées précédentes</h2>${V.soirees.map((s, i) => `<p class="muted" style="margin:0;font-size:14px">Soirée ${i + 1} · ${new Date(s.fin).toLocaleDateString('fr-FR')} · ${s.parties} partie${s.parties > 1 ? 's' : ''} · ${s.top.length ? s.top.map((r, k) => `${k + 1}. ${esc(r.name)} (${r.total})`).join(' · ') : 'pas de points'}</p>`).join('')}</div>` : ''}
+  <div class="row"><button class="btn primary" data-act="nouvelleSoiree" data-confirm="Commencer une nouvelle soirée ? Le classement actuel est archivé et repart de zéro.">Nouvelle soirée</button>
+  <button class="btn sm danger" data-act="reinitialiserSoiree" data-confirm="Remettre à zéro le classement de la soirée sans l'archiver ?">Remettre le classement à zéro</button></div></div>`;
   return h;
 }
 
