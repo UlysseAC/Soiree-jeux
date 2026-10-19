@@ -69,7 +69,7 @@ async function saveCfg(el) {
   if (r.ok) { cur.classList.add('saved'); setTimeout(() => cur.classList.remove('saved'), 1500); }
   // Mini-Jeux : les heures sont celles du fuseau de ce navigateur.
 }
-app.addEventListener('change', e => { if (e.target.dataset.cfg) saveCfg(e.target); });
+app.addEventListener('change', e => { if (e.target.dataset.cfg) saveCfg(e.target); if (e.target.id === 'reprise-pid') ui.reprisePid = e.target.value; });
 app.addEventListener('input', e => {
   const el = e.target;
   if (!el.dataset.cfg || !['text', 'area'].includes(el.dataset.kind)) return;
@@ -167,6 +167,11 @@ ${[[-300, '−5 min'], [-60, '−1 min'], [60, '+1 min'], [300, '+5 min']].map((
           <td><input class="in" style="width:90px" inputmode="numeric" id="dos-${p.pid}" data-dossard="${p.pid}" value="${esc(p.dossard)}" aria-label="Maillot de ${esc(p.name)}"></td>
           <td><button class="btn sm" data-act="retirerInscrit" data-pid="${p.pid}" aria-label="Retirer ${esc(p.name)}">✕</button></td></tr>`).join('')}</tbody></table></div>` :
       V.registered.length ? `<div class="row">${V.registered.map(p => `<span class="pill">${esc(p.name)} <button class="btn sm" style="padding:0 6px;border:0;background:none" data-act="retirerInscrit" data-pid="${p.pid}" aria-label="Retirer ${esc(p.name)}">✕</button></span>`).join('')}</div>` : '<p class="muted" style="margin:0">Personne pour l\'instant.</p>'}
+      <h2 style="margin-top:8px">Joueur sur un autre téléphone</h2>
+      <p class="muted" style="margin:0;font-size:14px">Quelqu'un a changé de téléphone ou de navigateur et ne retrouve plus son compte ? Donne-lui un code : sur son téléphone, il touche « J'étais déjà inscrit sur un autre téléphone », puis écrit son prénom et le code. Il retrouve son inscription, son rôle et ses points.</p>
+      <div class="row"><select class="in" id="reprise-pid" style="width:auto;min-width:180px"><option value="">Choisis le joueur</option>${V.people.map(p => `<option value="${p.pid}" ${ui.reprisePid === p.pid ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>
+        <button class="btn" data-act="codeReprise">Donner un code</button></div>
+      ${ui.reprise ? `<p style="margin:0;font-size:20px">Code pour <strong>${esc(ui.reprise.name)}</strong> : <strong class="mono" style="font-size:28px">${ui.reprise.code}</strong> <span class="muted" style="font-size:14px">(valable 10 min, une fois)</span></p>` : ''}
       <h2 style="margin-top:8px">Liens</h2>
       <div class="stack" style="gap:6px;font-size:14px">
         <div>📺 Écran public : <a href="/ecran" target="_blank" class="mono">${location.origin}/ecran</a></div>
@@ -902,7 +907,7 @@ function confirmed(el) {
   return false;
 }
 
-app.addEventListener('click', e => {
+app.addEventListener('click', async e => {
   const t = e.target.closest('[data-tab],[data-act],[data-jeu],[data-team-tab],[data-parti],[data-regler],[data-prog]');
   if (!t || t.disabled) return;
   if (t.dataset.tab) { ui.tab = t.dataset.tab; SJ.store('sj-admin-tab', ui.tab); return draw(); }
@@ -917,6 +922,12 @@ app.addEventListener('click', e => {
   if (a === 'ajuster') return admin({ type: 'ajuster', sec: Number(t.dataset.sec) });
   if (a === 'inscriptions') return admin({ type: 'inscriptions', value: t.dataset.v });
   if (a === 'retirerInscrit') return admin({ type: 'retirerInscrit', pid: t.dataset.pid });
+  if (a === 'codeReprise') {
+    if (!ui.reprisePid) return SJ.toast({ ok: false, msg: 'Choisis le joueur.' });
+    const r = await admin({ type: 'codeReprise', pid: ui.reprisePid });
+    if (r.ok) { ui.reprise = { name: r.name, code: r.code }; draw(); }
+    return;
+  }
   if (a === 'bonus') return admin({ type: 'bonus', pid: t.dataset.pid, delta: Number(t.dataset.delta) });
   if (a === 'bonusLibre') {
     const pid = document.getElementById('bonus-pid').value, delta = Number(document.getElementById('bonus-val').value);

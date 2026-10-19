@@ -133,13 +133,23 @@ export class Soiree {
     if (clean.length < 2) return { ok: false, msg: 'Écris ton prénom (2 lettres minimum).' };
     let me = this.identify(token);
     const taken = Object.values(this.s.people).find(p => normName(p.name) === normName(clean) && p !== me);
-    if (taken) return { ok: false, msg: 'Ce prénom est déjà pris : ajoute l\'initiale de ton nom (ex. « Léa M. »).' };
+    if (taken) return { ok: false, msg: 'Ce prénom est déjà pris : ajoute l\'initiale de ton nom (ex. « Léa M. »). Si c\'est toi sur un autre téléphone, touche « J\'étais déjà inscrit sur un autre téléphone ».' };
     if (!me) {
       // Jeton déjà présent sur le téléphone (serveur redémarré sans sauvegarde) : on le garde.
       me = { id: uid(), token: /^[a-f0-9]{32}$/.test(token || '') ? token : uid(16), name: clean };
       this.s.people[me.id] = me;
     } else me.name = clean;
     return { ok: true, token: me.token, pid: me.id };
+  }
+
+  // Retrouver son compte depuis un autre téléphone : prénom + code donné par l'admin (valable 10 min, une seule fois).
+  // Le nouveau téléphone reçoit le même jeton : il retrouve inscription, rôle et points.
+  reprendre(name, code) {
+    const p = Object.values(this.s.people).find(x => normName(x.name) === normName(String(name ?? '').trim()));
+    const r = p && this.reprises?.[p.id];
+    if (!p || !r || r.exp < this.now() || r.code !== String(code ?? '').trim()) return { ok: false, msg: 'Prénom ou code incorrect. Demande un nouveau code à l\'organisateur.' };
+    delete this.reprises[p.id];
+    return { ok: true, token: p.token, msg: `Bon retour ${p.name} !` };
   }
 
   register(pid, on = true) {
@@ -270,6 +280,14 @@ export class Soiree {
         // Partie déjà lancée : le numéro va aussi dans le jeu.
         if (sess.game && this.module.id === 'duel') return this.module.adminAction(this.ctx(), sess.game, { type: 'num', pid: a.pid, value: v });
         return { ok: true };
+      }
+      case 'codeReprise': { // un joueur a changé de téléphone ou de navigateur : code à 4 chiffres pour retrouver son compte
+        const p = this.s.people[a.pid];
+        if (!p) return { ok: false, msg: 'Joueur introuvable.' };
+        this.reprises ??= {};
+        const code = String(Math.floor(1000 + Math.random() * 9000));
+        this.reprises[p.id] = { code, exp: now + 10 * 60e3 };
+        return { ok: true, code, name: p.name };
       }
       case 'retirerInscrit':
         sess.registered = sess.registered.filter(x => x !== a.pid);

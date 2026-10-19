@@ -124,6 +124,13 @@ io.on('connection', sock => {
     broadcast();
   });
 
+  sock.on('reprendre', (h = {}, cb = () => {}) => {
+    if (typeof cb !== 'function') return;
+    const r = src(sock).reprendre(h.name, h.code);
+    if (r.ok) sock.data.token = r.token;
+    cb(r);
+  });
+
   sock.on('reclamer', (h = {}, cb = () => {}) => {
     if (typeof cb !== 'function') return;
     let r;

@@ -10,6 +10,7 @@ Cahier des charges validé. Maquette : [`maquettes/le-chemin.html`](maquettes/le
 - Prénoms uniques : un prénom déjà pris est refusé (ajouter l'initiale, ex. « Léa M. »).
 - Contrôles admin : démarrer, pause, ±1 min, ouvrir/fermer les inscriptions, lancer le jeu tout de suite.
 - Un téléphone qui recharge sa page retrouve son rôle (reconnexion automatique).
+- **Autre téléphone ou autre navigateur** (téléphone déchargé, onglet privé, page ouverte depuis l'appareil photo…) : dans l'admin, onglet Soirée, « Joueur sur un autre téléphone » → choisir le joueur → « Donner un code » (4 chiffres, valable 10 min, une fois). Sur le nouveau téléphone, la personne touche « J'étais déjà inscrit sur un autre téléphone », écrit son prénom et le code : elle retrouve son inscription, son rôle et ses points.
 
 ## Équipes et rôles
 

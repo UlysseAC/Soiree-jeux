@@ -134,7 +134,13 @@ function joinScreen() {
     <form id="join" class="stack">
       <label class="field"><span class="label">Ton prénom</span><input class="in" id="nom" name="nom" autocomplete="given-name" maxlength="24" required style="font-size:20px"></label>
       <button class="btn primary big">Rejoindre</button>
-    </form>`;
+    </form>
+    ${ui.reprise ? `<form id="reprise" class="card stack"><p style="margin:0;font-size:18px">Tu étais déjà inscrit sur un autre téléphone ?</p>
+      <p class="muted" style="margin:0;font-size:14px">Demande ton code à l'organisateur, puis écris ton prénom et ce code.</p>
+      <label class="field"><span class="label">Ton prénom</span><input class="in" id="reprise-nom" maxlength="24" required></label>
+      <label class="field"><span class="label">Code</span><input class="in" id="reprise-code" inputmode="numeric" maxlength="4" required style="font-size:24px;letter-spacing:.2em"></label>
+      <button class="btn primary">Retrouver mon compte</button></form>`
+    : '<button class="btn sm" data-act="reprise" style="align-self:center">J\'étais déjà inscrit sur un autre téléphone</button>'}`;
 }
 
 function waitingScreen() {
@@ -757,6 +763,18 @@ app.addEventListener('input', e => {
 app.addEventListener('change', e => { const m = e.target.dataset.mjLien; if (m != null) { ui.mjLiens[m] = e.target.value; draw(); } });
 
 app.addEventListener('submit', async e => {
+  if (e.target.id === 'reprise') {
+    e.preventDefault();
+    const name = document.getElementById('reprise-nom').value;
+    const r = await SJ.emit('reprendre', { name, code: document.getElementById('reprise-code').value });
+    SJ.toast(r);
+    if (!r.ok) return;
+    ui.reprise = false;
+    SJ.store(CLE_TOKEN, r.token);
+    SJ.store('sj-nom', name.trim());
+    hello();
+    return;
+  }
   if (e.target.id !== 'join') return;
   e.preventDefault();
   const r = await SJ.emit('rejoindre', { name: document.getElementById('nom').value });
@@ -790,6 +808,7 @@ app.addEventListener('click', e => {
     return draw();
   }
   const a = t.dataset.act;
+  if (a === 'reprise') { ui.reprise = true; SJ.render(app, testPanel() + joinScreen()); return; }
   if (a === 'mjCompris') { act({ type: 'compris' }); return; }
   if (a === 'mjInscrire') { act({ type: 'inscrire' }); return; }
   if (a === 'meRepondre') { act({ type: 'repondre', choix: Number(t.dataset.choix) }); return; }

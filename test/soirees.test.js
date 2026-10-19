@@ -60,3 +60,19 @@ test('démarrer la soirée : les joueurs restent dans la base, mais doivent se r
   so.admin({ type: 'lancerJeu' });
   assert.equal(Object.keys(state.session.game.claims).length, 0, 'il faut se réinscrire au jeu');
 });
+
+test('retrouver son compte depuis un autre téléphone : prénom + code de l\'admin, une seule fois, 10 min', () => {
+  let t = Date.UTC(2026, 9, 13, 20, 0);
+  const so = new Soiree(defaultState(), { now: () => t });
+  const { token, pid } = so.join(undefined, 'Mélusine');
+  assert.equal(so.reprendre('Mélusine', '1234').ok, false, 'pas de code demandé');
+  const { code } = so.admin({ type: 'codeReprise', pid });
+  assert.equal(so.reprendre('Mélusine', '0000' === code ? '1111' : '0000').ok, false, 'mauvais code');
+  const r = so.reprendre(' mélusine ', code);
+  assert.equal(r.ok, true);
+  assert.equal(r.token, token, 'le nouveau téléphone retrouve le même compte');
+  assert.equal(so.reprendre('Mélusine', code).ok, false, 'une seule fois');
+  const c2 = so.admin({ type: 'codeReprise', pid }).code;
+  t += 11 * 60e3;
+  assert.equal(so.reprendre('Mélusine', c2).ok, false, 'code expiré');
+});
