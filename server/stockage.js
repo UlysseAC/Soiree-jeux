@@ -2,11 +2,12 @@
 // (indispensable en ligne sur Render gratuit, dont le disque est effacé à chaque redémarrage).
 import { readFileSync, writeFileSync, mkdirSync, renameSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
+import edition from './edition.js';
 
-// Par défaut : la soirée unique (clé « soiree-jeux », fichier soiree.json), comme avant les espaces.
+// Par défaut : la soirée unique (clé de l'édition, ou variable STORAGE_KEY ; fichier soiree.json), comme avant les espaces.
 // Un espace (site à plusieurs soirées) a sa propre clé et son propre fichier.
-export function makeStorage(dataDir, env = process.env, { key = 'soiree-jeux', fichier = 'soiree.json' } = {}) {
-  const KEY = key;
+export function makeStorage(dataDir, env = process.env, { key = null, fichier = 'soiree.json' } = {}) {
+  const KEY = key ?? (env.STORAGE_KEY || edition.cleSauvegarde);
   const file = join(dataDir, fichier);
   const url = env.UPSTASH_REDIS_REST_URL?.replace(/\/$/, '');
   const token = env.UPSTASH_REDIS_REST_TOKEN;
@@ -19,7 +20,7 @@ export function makeStorage(dataDir, env = process.env, { key = 'soiree-jeux', f
   async function load() {
     if (remote) {
       try {
-        const r = await fetch(`${url}/get/${KEY}`, { headers: { Authorization: `Bearer ${token}` } });
+        const r = await fetch(`${url}/get/${encodeURIComponent(KEY)}`, { headers: { Authorization: `Bearer ${token}` } });
         const j = await r.json();
         if (j.result) { console.log('  Sauvegarde en ligne retrouvée.'); return JSON.parse(j.result); }
       } catch (e) { console.error('Sauvegarde en ligne injoignable :', e.message); }
@@ -44,7 +45,7 @@ export function makeStorage(dataDir, env = process.env, { key = 'soiree-jeux', f
       remoteTimer = setTimeout(async () => {
         remoteTimer = null;
         try {
-          await fetch(`${url}/set/${KEY}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: light(pending()) });
+          await fetch(`${url}/set/${encodeURIComponent(KEY)}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: light(pending()) });
         } catch (e) { console.error('Sauvegarde en ligne impossible :', e.message); }
       }, 3000);
     }
@@ -61,7 +62,7 @@ export function makeStorage(dataDir, env = process.env, { key = 'soiree-jeux', f
     } catch (e) { console.error('Sauvegarde locale impossible :', e.message); }
     if (remote) {
       try {
-        await fetch(`${url}/set/${KEY}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: light(getState()) });
+        await fetch(`${url}/set/${encodeURIComponent(KEY)}`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: light(getState()) });
       } catch (e) { console.error('Sauvegarde en ligne impossible :', e.message); }
     }
   }

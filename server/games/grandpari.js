@@ -4,6 +4,7 @@ import { randomInt } from 'node:crypto';
 import * as chevaux from './sports/chevaux.js';
 import * as foot from './sports/foot.js';
 import * as boxe from './sports/boxe.js';
+import edition from '../edition.js';
 
 export const id = 'grandpari';
 export const name = 'Le Grand Pari';
@@ -35,7 +36,11 @@ export function defaultConfig() {
       duree: 150,
       coteVainqueur: 2,
       marge: 0.1,
-      equipes: [
+      // Version commerciale : équipes et joueurs fictifs (pas de vrais clubs ni de vrais joueurs).
+      equipes: edition.equipesFictives ? [
+        { nom: 'Les Aigles', couleur: '#d7263d', bord: '#1b1b3a', joueurs: [J('Rocco', .1, .7), J('Dario', .35, .8), J('Matteo', .55, .6), J('Nino', .8, .4), J('Enzo', .9, .3)] },
+        { nom: 'Les Lions', couleur: '#f5f5f5', bord: '#e5a83b', joueurs: [J('Axel', .1, .7), J('Bruno', .3, .8), J('Sacha', .55, .6), J('Tomas', .8, .4), J('Lucas', .9, .3)] },
+      ] : [
         { nom: 'FC Barcelone', couleur: '#a50044', bord: '#004d98', joueurs: [J('Joan García', .1, .7), J('Cubarsí', .35, .8), J('Olmo', .55, .6), J('Raphinha', .8, .4), J('Lamine Yamal', .9, .3)] },
         { nom: 'Real Madrid', couleur: '#f5f5f5', bord: '#c9a227', joueurs: [J('Courtois', .1, .7), J('Rüdiger', .3, .8), J('Valverde', .55, .6), J('Vinícius', .8, .4), J('Mbappé', .9, .3)] },
       ],

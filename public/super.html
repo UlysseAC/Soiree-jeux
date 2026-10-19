@@ -44,11 +44,14 @@ function draw() {
         <label class="field"><span class="label">Code</span><input class="in" id="c-code" placeholder="mariage-lea" autocomplete="off"></label>
         <label class="field"><span class="label">Nom</span><input class="in" id="c-nom" placeholder="Mariage de Léa et Hugo"></label>
         <label class="field"><span class="label">Mot de passe admin du client</span><input class="in" id="c-pw" autocomplete="new-password"></label>
+        <fieldset class="field" style="border:0;padding:0;margin:0"><span class="label">Jeux achetés</span>
+          <div class="row" style="flex-wrap:wrap">${L.catalogue.map(j => `<label class="row" style="gap:6px"><input type="checkbox" name="c-jeu" value="${j.id}" checked> ${esc(j.nom)}</label>`).join('')}</div></fieldset>
         <button class="btn primary" style="align-self:end">Créer l'espace</button>
       </form></div>
     <div class="box"><h2>Espaces (${L.espaces.length})</h2>
-      ${L.espaces.length ? `<div class="scroll"><table><thead><tr><th>Code</th><th>Nom</th><th>État</th><th>Liens</th></tr></thead><tbody>
+      ${L.espaces.length ? `<div class="scroll"><table><thead><tr><th>Code</th><th>Nom</th><th>Jeux</th><th>État</th><th>Liens</th></tr></thead><tbody>
         ${L.espaces.map(e => `<tr><td class="mono">${esc(e.code)}</td><td>${esc(e.nom)}</td>
+          <td><div class="row" style="flex-wrap:wrap;gap:8px">${L.catalogue.map(j => `<label class="row" style="gap:4px;font-size:14px"><input type="checkbox" data-jeu-espace="${esc(e.code)}" value="${j.id}" ${e.jeux.includes(j.id) ? 'checked' : ''}> ${esc(j.nom)}</label>`).join('')}</div></td>
           <td>${e.charge ? `<span class="pill ok">${e.appareils} appareil${e.appareils > 1 ? 's' : ''}${e.statut && e.statut !== 'idle' ? ` · ${esc(e.statut)}` : ''}</span>` : '<span class="pill">en veille</span>'}</td>
           <td class="nowrap"><a href="${lien(e.code, 'admin')}" target="_blank">admin</a> · <a href="${lien(e.code, 'ecran')}" target="_blank">écran</a> · <a href="${lien(e.code, 'jouer')}" target="_blank">joueurs</a></td></tr>`).join('')}
       </tbody></table></div>` : '<p class="muted" style="margin:0">Aucun espace pour l\'instant.</p>'}
@@ -59,10 +62,20 @@ app.addEventListener('submit', async e => {
   e.preventDefault();
   if (e.target.id === 'login') return charger(document.getElementById('pw').value);
   if (e.target.id === 'creer') {
-    const r = await SJ.emit('super', { password: SJ.store('sj-super'), cmd: 'creer', code: document.getElementById('c-code').value, nom: document.getElementById('c-nom').value, motDePasse: document.getElementById('c-pw').value });
+    const jeux = [...document.querySelectorAll('input[name=c-jeu]:checked')].map(x => x.value);
+    const r = await SJ.emit('super', { password: SJ.store('sj-super'), cmd: 'creer', code: document.getElementById('c-code').value, nom: document.getElementById('c-nom').value, motDePasse: document.getElementById('c-pw').value, jeux });
     SJ.toast(r);
     if (r.ok) { e.target.reset(); charger(); }
   }
+});
+// Jeux d'un client existant : enregistrés dès qu'on coche ou décoche.
+app.addEventListener('change', async e => {
+  const code = e.target.dataset.jeuEspace;
+  if (!code) return;
+  const jeux = [...document.querySelectorAll(`input[data-jeu-espace="${CSS.escape(code)}"]:checked`)].map(x => x.value);
+  const r = await SJ.emit('super', { password: SJ.store('sj-super'), cmd: 'modifier', code, jeux });
+  SJ.toast(r);
+  charger();
 });
 app.addEventListener('click', e => {
   const a = e.target.closest('[data-act]')?.dataset.act;

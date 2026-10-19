@@ -84,6 +84,8 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 
 // ---------- programme de la soirée ----------
 const nomJeu = id => V.games.find(g => g.id === id)?.name ?? id;
+// Jeux simulables ensemble (hors mini-jeux), parmi ceux de la soirée.
+const simTrois = () => ['chemin', 'grandpari', 'duel'].filter(id => V.games.some(g => g.id === id));
 
 function programme() {
   const prog = V.programme, started = V.soiree?.started;
@@ -192,7 +194,7 @@ ${[[-300, '−5 min'], [-60, '−1 min'], [60, '+1 min'], [300, '+5 min']].map((
       ${V.simulation?.running ? `<div class="row"><span class="pill accent">▶ ${esc(V.simulation.step)}</span><span class="muted">${V.simulation.bots} faux joueurs</span><button class="btn sm danger" data-act="simStop">Arrêter</button></div>` : `
       <div class="row"><label class="field" style="max-width:120px"><span class="label">Faux joueurs</span><input class="in" id="sim-n" inputmode="numeric" value="50"></label>
         <label class="field" style="max-width:150px"><span class="label">Joueurs incarnés (mini-jeu)</span><input class="in" id="sim-moi" inputmode="numeric" value="0"></label>
-        <label class="field" style="max-width:220px"><span class="label">Jeux</span><select class="in" id="sim-jeux"><option value="chemin,grandpari,duel">Les 3 jeux (~25 min)</option>${V.games.filter(g => g.id !== 'minijeux').map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join('')}<optgroup label="Tester un mini-jeu (faux joueurs, quelques minutes)">${[["definition", "La Définition"], ["anecdote", "L'Anecdote"], ["temple", "Le Temple aztèque"], ["mime", "Le Mime"], ["dragon", "La Chasse au dragon"], ["disparu", "Qu'est-ce qui a changé ?"], ["quiz", "Le Quiz"]].map(([v, l]) => `<option value="mini:${v}">${l}</option>`).join('')}</optgroup></select></label>
+        <label class="field" style="max-width:220px"><span class="label">Jeux</span><select class="in" id="sim-jeux">${simTrois().length > 1 ? `<option value="${simTrois().join(',')}">${simTrois().length === 3 ? 'Les 3 jeux (~25 min)' : 'Les jeux de la soirée'}</option>` : ''}${V.games.filter(g => g.id !== 'minijeux').map(g => `<option value="${g.id}">${esc(g.name)}</option>`).join('')}${V.games.some(g => g.id === 'minijeux') ? `<optgroup label="Tester un mini-jeu (faux joueurs, quelques minutes)">${[["definition", "La Définition"], ["anecdote", "L'Anecdote"], ["temple", "Le Temple aztèque"], ["mime", "Le Mime"], ["dragon", "La Chasse au dragon"], ["disparu", "Qu'est-ce qui a changé ?"], ["quiz", "Le Quiz"]].map(([v, l]) => `<option value="mini:${v}">${l}</option>`).join('')}</optgroup>` : ''}</select></label>
         <button class="btn primary" data-act="simStart" style="align-self:flex-end">▶ Lancer la simulation</button></div>
       ${V.simulation?.canErase ? `<div class="row"><span class="muted">${esc(V.simulation.step)}</span><button class="btn sm danger" data-act="simErase" data-confirm="Effacer les faux joueurs et leurs points ?">Effacer la simulation</button></div>` : ''}`}
       <h2 style="margin-top:8px">Sauvegarde des réglages</h2>

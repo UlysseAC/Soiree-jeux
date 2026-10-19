@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { Server } from 'socket.io';
 import { creerGestion, CODE_ESPACE } from './espaces.js';
+import edition from './edition.js';
+import { GAMES } from './soiree.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DATA = process.env.DATA_DIR || join(ROOT, 'data');
@@ -13,9 +15,9 @@ const PORT = Number(process.env.PORT) || 3000;
 // En ligne, pas de mot de passe par défaut : s'il manque, on en tire un au hasard (visible dans les logs).
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || (process.env.RENDER ? Math.random().toString(36).slice(2, 10) : 'soiree');
 
-// Site à plusieurs soirées (pour les clients) : ESPACES=1. Sinon (par défaut), une seule soirée, comme avant.
-const MULTI = process.env.ESPACES === '1';
-const SUPER_PASSWORD = process.env.SUPER_ADMIN_PASSWORD || '';
+// Site à plusieurs soirées (pour les clients) : édition commerciale ou ESPACES=1. Sinon, une seule soirée, comme avant.
+const MULTI = edition.espaces || process.env.ESPACES === '1';
+const SUPER_PASSWORD = process.env.SUPER_ADMIN_PASSWORD || (edition.superAvecAdmin ? ADMIN_PASSWORD : '');
 
 // ---------- adresse pour les téléphones ----------
 function lanAddress() {
@@ -38,6 +40,12 @@ const io = new Server(http, { perMessageDeflate: { threshold: 1024 } });
 const espaces = await creerGestion({ dataDir: DATA, publicUrl: PUBLIC_URL, io, adminPassword: ADMIN_PASSWORD, multi: MULTI, infos: () => ({ enLigne: !!process.env.RENDER }) });
 const defaut = espaces.defaut;
 const storage = defaut.storage;
+
+// Pages en plus de l'édition (version commerciale : présentation, réservations, guides…), avant les pages des jeux.
+if (edition.extension) {
+  const ext = await import(edition.extension);
+  await ext.installer({ app, express, espaces, ADMIN_PASSWORD, DATA, ROOT, PUBLIC_URL });
+}
 
 const pub = join(ROOT, 'public');
 app.use(express.static(pub, { extensions: ['html'] }));
@@ -134,11 +142,12 @@ io.on('connection', sock => {
     cb(E.src(sock).data(q));
   }));
   sock.on('joueur', guard('joueur', (E, a) => E.src(sock).player(sock.data.token, a)));
-  sock.on('admin', guard('admin', (E, a) => (a.type === 'simulation' ? E.sim.handle(a) : E.soiree.admin(a))));
+  sock.on('admin', guard('admin', (E, a) => (a.type === 'simulation' ? E.simulation(a) : E.soiree.admin(a))));
   sock.on('orga', guard('orga', (E, a) => E.soiree.orga(a)));
   // Téléphone de test : lancer (ou arrêter) le test d'un mini-jeu pour y jouer soi-même. Toujours à part, avec le mot de passe admin.
   sock.on('testMiniJeu', avec((E, h, cb) => {
     if (!E.motDePasse(h.password)) return cb({ ok: false, msg: 'Mot de passe admin incorrect.' });
+    if (h.cmd !== 'stop' && !E.soiree.autorise('minijeux')) return cb({ ok: false, msg: 'Les mini-jeux ne sont pas inclus dans cette soirée.' });
     cb(h.cmd === 'stop' ? E.testeur.handle({ cmd: 'stop' }) : E.testeur.handle({ cmd: 'start', games: [`mini:${h.type}`], moi: Math.max(1, Math.min(10, Math.round(Number(h.moi)) || 1)), aPart: true }));
     E.broadcast();
   }));
@@ -149,7 +158,8 @@ io.on('connection', sock => {
     if (!MULTI || !SUPER_PASSWORD) return cb({ ok: false, msg: 'Ce site n\'accueille qu\'une soirée.' });
     if (h.password !== SUPER_PASSWORD) return cb({ ok: false, msg: 'Mot de passe incorrect.' });
     if (h.cmd === 'creer') return cb(espaces.creer(h));
-    cb({ ok: true, espaces: espaces.liste(), base: PUBLIC_URL });
+    if (h.cmd === 'modifier') return cb(espaces.modifier(h));
+    cb({ ok: true, espaces: espaces.liste(), base: PUBLIC_URL, catalogue: Object.values(GAMES).map(m => ({ id: m.id, nom: m.name })) });
   });
 });
 

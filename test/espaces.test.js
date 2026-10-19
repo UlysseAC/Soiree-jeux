@@ -143,3 +143,27 @@ test('serveur, plusieurs soirées : chaque espace ne voit et ne reçoit que sa s
     assert.deepEqual(liste.espaces.map(e => [e.code, e.appareils]).sort(), [['anniv-tom', 3], ['mariage-lea', 3]]);
   } finally { S.fin(); }
 });
+
+test('jeux achetés : un client ne voit et ne lance que ses jeux ; on peut lui en ajouter', async () => {
+  const G = await creerGestion({ dataDir: tmp(), env: sansEnLigne, publicUrl: 'http://x', adminPassword: 'base', multi: true });
+  assert.equal(G.creer({ code: 'anniv-tom', motDePasse: 'abcdef', jeux: [] }).ok, false, 'au moins un jeu');
+  assert.equal(G.creer({ code: 'anniv-tom', motDePasse: 'abcdef', jeux: ['minijeux', 'inconnu'] }).ok, true);
+  const e = await G.ouvrir('anniv-tom');
+  assert.deepEqual(e.soiree.jeux, ['minijeux']);
+  assert.equal(e.soiree.sess.gameId, 'minijeux', 'la soirée se place sur un jeu acheté');
+  assert.deepEqual(e.soiree.common().games.map(g => g.id), ['minijeux']);
+  assert.deepEqual(e.soiree.s.config.programme, ['minijeux']);
+  assert.equal(e.soiree.admin({ type: 'choisirJeu', gameId: 'chemin' }).ok, false);
+  e.soiree.admin({ type: 'programme', ids: ['chemin', 'minijeux'] });
+  assert.deepEqual(e.soiree.s.config.programme, ['minijeux']);
+  assert.equal(e.simulation({ cmd: 'start', games: ['chemin'] }).ok, false, 'pas de simulation d\'un jeu non acheté');
+  // le client achète Le Chemin en plus
+  assert.equal(G.modifier({ code: 'anniv-tom', jeux: ['chemin', 'minijeux'] }).ok, true);
+  assert.deepEqual(e.soiree.common().games.map(g => g.id), ['chemin', 'minijeux']);
+  assert.equal(e.soiree.admin({ type: 'choisirJeu', gameId: 'chemin' }).ok, true);
+  assert.deepEqual(G.liste()[0].jeux, ['chemin', 'minijeux']);
+  // par défaut (site de base, espace créé sans choix) : tous les jeux
+  assert.deepEqual(G.defaut.soiree.jeux, ['chemin', 'duel', 'grandpari', 'minijeux']);
+  G.creer({ code: 'tout', motDePasse: 'abcdef' });
+  assert.deepEqual((await G.ouvrir('tout')).soiree.jeux, ['chemin', 'duel', 'grandpari', 'minijeux']);
+});

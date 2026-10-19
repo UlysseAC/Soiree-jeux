@@ -84,11 +84,25 @@ export function decaler(o, delta, depuis) {
 }
 
 export class Soiree {
-  constructor(state, { now = Date.now, onSfx } = {}) {
+  // jeux : les jeux autorisés (soirée d'un client qui a acheté certains jeux) ; par défaut, tous les jeux.
+  constructor(state, { now = Date.now, onSfx, jeux = null } = {}) {
     this.s = state;
     this.now = now;
     this.onSfx = onSfx;
+    this.autoriser(jeux);
   }
+
+  // Jeux autorisés : seuls ceux-là apparaissent dans l'admin, le programme et les réglages.
+  autoriser(jeux) {
+    const ok = Array.isArray(jeux) ? jeux.filter(id => GAMES[id]) : [];
+    this.jeux = ok.length ? Object.keys(GAMES).filter(id => ok.includes(id)) : Object.keys(GAMES);
+    const c = this.s.config;
+    const avant = c.programme || [];
+    c.programme = avant.filter(id => this.jeux.includes(id));
+    if (avant.length && !c.programme.length) c.programme = [...this.jeux]; // aucun jeu du programme n'est inclus : on met ceux qui le sont
+    if (!this.jeux.includes(this.sess.gameId) && this.sess.status !== 'playing') this.s.session = newSession(this.jeux[0]);
+  }
+  autorise(id) { return this.jeux.includes(id); }
 
   get sess() { return this.s.session; }
   get module() { return GAMES[this.sess.gameId]; }
@@ -179,6 +193,7 @@ export class Soiree {
     switch (a.type) {
       case 'choisirJeu':
         if (!GAMES[a.gameId]) return { ok: false, msg: 'Jeu inconnu.' };
+        if (!this.autorise(a.gameId)) return { ok: false, msg: 'Ce jeu n\'est pas inclus dans cette soirée.' };
         if (sess.status === 'playing') return { ok: false, msg: 'Termine d\'abord la partie en cours.' };
         this.archive();
         this.s.session = newSession(a.gameId); // chaque nouveau jeu : il faut se réinscrire
@@ -226,7 +241,7 @@ export class Soiree {
         this.s.show = ['classement', 'final'].includes(a.mode) ? a.mode : null;
         return { ok: true };
       case 'programme':
-        this.s.config.programme = cleanProgramme(a.ids);
+        this.s.config.programme = cleanProgramme(a.ids).filter(id => this.autorise(id));
         this.s.reglagesMaj = this.now();
         return { ok: true };
       case 'demarrerSoiree': {
@@ -436,7 +451,7 @@ export class Soiree {
       sessionId: sess.id || '',
       boot: BOOT,
       gameName: this.gameName(),
-      games: Object.values(GAMES).map(m => ({ id: m.id, name: this.gameName(m.id) })),
+      games: this.jeux.map(id => ({ id, name: this.gameName(id) })),
       status: sess.status,
       paused: !!sess.countdown.pausedAt || (sess.status === 'playing' && !!sess.jeuPause),
       jeuPause: sess.status === 'playing' ? sess.jeuPause || 0 : 0,

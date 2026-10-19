@@ -22,13 +22,13 @@ export function verifier(motDePasse, chiffre) {
 export class Espace {
   // code : '' pour l'espace par défaut ; storage : sa sauvegarde ; saved : l'état relu ; motDePasse(p) : vérifie le mot de passe admin ;
   // liens : { joinUrl, qr, qrTest } ; io : le serveur Socket.IO (pour les sons de l'écran) ; infos : ajouté à la vue admin.
-  constructor({ code = '', nom = '', storage, saved, motDePasse, liens, io, infos = () => ({}) }) {
+  constructor({ code = '', nom = '', storage, saved, motDePasse, liens, io, infos = () => ({}), jeux = null }) {
     Object.assign(this, { code, nom, storage, motDePasse, liens, io, infos });
     this.sockets = new Set();
     this.salle = `esp:${code}`;
     this.activite = Date.now();
     const son = salle => name => io?.to(`${this.salle}:${salle}`).emit('sfx', name);
-    this.soiree = new Soiree(restore(saved), { onSfx: son('ecran') });
+    this.soiree = new Soiree(restore(saved), { onSfx: son('ecran'), jeux });
     // Pendant une vraie partie, la simulation de l'admin tourne dans une soirée séparée (mêmes réglages, jamais sauvegardée),
     // visible sur l'écran de test.
     this.sim = new Simulation(this.soiree, () => this.broadcast(), () => new Soiree(restore({ config: clone(this.soiree.s.config) }), { onSfx: son('ecran-test') }));
@@ -77,6 +77,16 @@ export class Espace {
   sortir(sock) {
     this.sockets.delete(sock);
     this.activite = Date.now();
+  }
+
+  // Simulation lancée par l'admin : seulement avec les jeux inclus dans cette soirée.
+  simulation(a) {
+    if (a.cmd === 'start') {
+      const jeux = (a.games?.length ? a.games : ['chemin', 'grandpari', 'duel']).filter(g => this.soiree.autorise(String(g).startsWith('mini:') ? 'minijeux' : g));
+      if (!jeux.length) return { ok: false, msg: 'Ce jeu n\'est pas inclus dans cette soirée.' };
+      a = { ...a, games: jeux };
+    }
+    return this.sim.handle(a);
   }
 
   // Horloge des jeux (décompte, chronos, simulations).
