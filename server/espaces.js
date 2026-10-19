@@ -55,14 +55,15 @@ export async function creerGestion({ dataDir, env = process.env, publicUrl, io =
     return chargements.get(code);
   }
 
-  function creer({ code, nom, motDePasse, jeux }) {
+  // source : d'où vient l'espace (ex. la demande de réservation qui l'a fait créer), pour s'y retrouver.
+  function creer({ code, nom, motDePasse, jeux, source }) {
     if (!multi) return { ok: false, msg: 'Ce site n\'accueille qu\'une soirée.' };
     code = String(code ?? '').trim().toLowerCase();
     if (!CODE_ESPACE.test(code)) return { ok: false, msg: 'Code : 3 à 40 caractères, minuscules, chiffres et tirets (ex. mariage-lea).' };
     if (registre.espaces[code]) return { ok: false, msg: 'Ce code existe déjà.' };
     if (String(motDePasse ?? '').length < 6) return { ok: false, msg: 'Mot de passe admin : 6 caractères au moins.' };
     if (jeux !== undefined && !jeuxValides(jeux)) return { ok: false, msg: 'Choisis au moins un jeu.' };
-    registre.espaces[code] = { code, nom: String(nom ?? '').trim().slice(0, 60) || code, motDePasse: chiffrer(motDePasse), jeux: jeuxValides(jeux) || [...JEUX], creeLe: Date.now() };
+    registre.espaces[code] = { code, nom: String(nom ?? '').trim().slice(0, 60) || code, motDePasse: chiffrer(motDePasse), jeux: jeuxValides(jeux) || [...JEUX], creeLe: Date.now(), ...(source ? { source: String(source).slice(0, 80) } : {}) };
     stRegistre.save(() => registre);
     return { ok: true, msg: `Espace « ${code} » créé.`, code };
   }
@@ -86,9 +87,9 @@ export async function creerGestion({ dataDir, env = process.env, publicUrl, io =
     return { ok: true, msg: `Espace « ${meta.code} » modifié.` };
   }
 
-  const liste = () => Object.values(registre.espaces).map(({ code, nom, jeux, creeLe }) => {
+  const liste = () => Object.values(registre.espaces).map(({ code, nom, jeux, creeLe, source }) => {
     const e = ouverts.get(code);
-    return { code, nom, jeux: jeux || [...JEUX], creeLe, charge: !!e, appareils: e?.sockets.size || 0, statut: e?.soiree.sess.status || null };
+    return { code, nom, jeux: jeux || [...JEUX], creeLe, source: source || null, charge: !!e, appareils: e?.sockets.size || 0, statut: e?.soiree.sess.status || null };
   });
 
   function tick() { for (const e of ouverts.values()) e.tick(); }

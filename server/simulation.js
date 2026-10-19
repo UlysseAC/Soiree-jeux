@@ -16,7 +16,11 @@ const MINI_TESTS = {
   temple: { n: 5, reglages: { etapes: 3, tempsChoix: 12, tempsPiege: 5, cheminsEtapes: '2:1,3:1,4:2' } },
   mime: { n: 4, reglages: { tempsMime: 15, tempsPret: 3 } },
   dragon: { n: 4, reglages: { attaqueMin: 8, attaqueMax: 10, dureeTir: 90, pvDragon: 6 } },
-  quiz: { n: 5, reglages: { tempsQuestion: 8, tempsRevelation: 4, questions: [1, 2, 3].map(k => `Question de test ${k} ?\nRéponse A\n*Réponse B\nRéponse C\nRéponse D`).join('\n\n') } },
+  quiz: { n: 5, reglages: { tempsQuestion: 8, tempsRevelation: 4, questions: [
+    'Quelle est la capitale de l\'Australie ?\nSydney\n*Canberra\nMelbourne\nPerth',
+    'Quel est l\'animal terrestre le plus rapide ?\nLe lion\nL\'antilope\n*Le guépard\nLe lévrier',
+    'Combien de cordes a une guitare classique ?\nQuatre\nCinq\n*Six\nSept',
+  ].join('\n\n') } },
   disparu: { n: 5, reglages: { manchesMemo: 2, objetsDepart: 4, objetsPlus: 1, tempsMemo: 6, tempsReponse: 12, melangeDes: 2 } },
 };
 

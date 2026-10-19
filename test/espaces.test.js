@@ -9,6 +9,7 @@ import { spawn } from 'node:child_process';
 import { io } from 'socket.io-client';
 import { creerGestion } from '../server/espaces.js';
 import { chiffrer, verifier } from '../server/espace.js';
+import edition from '../server/edition.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const tmp = () => mkdtempSync(join(tmpdir(), 'espaces-'));
@@ -87,7 +88,8 @@ async function serveur(env) {
 }
 const attendre = ms => new Promise(r => setTimeout(r, ms));
 
-test('serveur, site de base : tout marche comme avant, pas d\'adresse /s/…', async () => {
+// (version commerciale : toujours plusieurs soirées, ce cas ne s'applique pas)
+test('serveur, site de base : tout marche comme avant, pas d\'adresse /s/…', { skip: edition.espaces }, async () => {
   const S = await serveur({});
   try {
     const admin = await S.appareil({ role: 'admin', password: 'base' });
@@ -162,6 +164,8 @@ test('jeux achetés : un client ne voit et ne lance que ses jeux ; on peut lui e
   assert.deepEqual(e.soiree.common().games.map(g => g.id), ['chemin', 'minijeux']);
   assert.equal(e.soiree.admin({ type: 'choisirJeu', gameId: 'chemin' }).ok, true);
   assert.deepEqual(G.liste()[0].jeux, ['chemin', 'minijeux']);
+  G.creer({ code: 'resa', motDePasse: 'abcdef', source: '2026-10-19T10:00:00.000Z' });
+  assert.equal(G.liste().find(x => x.code === 'resa').source, '2026-10-19T10:00:00.000Z', 'l\'espace garde sa demande de réservation');
   // par défaut (site de base, espace créé sans choix) : tous les jeux
   assert.deepEqual(G.defaut.soiree.jeux, ['chemin', 'duel', 'grandpari', 'minijeux']);
   G.creer({ code: 'tout', motDePasse: 'abcdef' });
