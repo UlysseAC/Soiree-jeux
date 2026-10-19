@@ -152,6 +152,13 @@ export class Soiree {
     return { ok: true, token: p.token, msg: `Bon retour ${p.name} !` };
   }
 
+  // Journal des désinscriptions et ajouts en cours de partie, visible dans l'admin : on sait toujours ce qui s'est passé.
+  noter(pid, quoi) {
+    this.s.journal ??= [];
+    this.s.journal.unshift({ at: this.now(), nom: this.s.people[pid]?.name ?? '?', jeu: this.gameName(), quoi });
+    this.s.journal.length = Math.min(this.s.journal.length, 50);
+  }
+
   register(pid, on = true) {
     const r = this.sess.registered;
     if (on) {
@@ -160,6 +167,7 @@ export class Soiree {
       return { ok: true, msg: 'Tu es inscrit !' };
     }
     if (this.sess.status === 'playing') return { ok: false, msg: 'La partie a commencé.' };
+    if (r.includes(pid)) this.noter(pid, 'désinscrit par le joueur (son téléphone)');
     this.sess.registered = r.filter(x => x !== pid);
     return { ok: true, msg: 'Désinscrit.' };
   }
@@ -290,8 +298,20 @@ export class Soiree {
         return { ok: true, code, name: p.name };
       }
       case 'retirerInscrit':
+        if (sess.registered.includes(a.pid)) this.noter(a.pid, 'retiré par l\'admin');
         sess.registered = sess.registered.filter(x => x !== a.pid);
         return { ok: true };
+      case 'ajouterEnCours': { // rattrapage : un joueur rejoint une partie déjà lancée
+        const p = this.s.people[a.pid];
+        if (!p) return { ok: false, msg: 'Choisis un joueur.' };
+        if (sess.status !== 'playing' || !sess.game) return { ok: false, msg: 'Aucune partie en cours : il peut simplement s\'inscrire.' };
+        if (!this.module.ajouterJoueur) return { ok: false, msg: 'Ce jeu ne permet pas d\'ajouter un joueur en cours de partie.' };
+        const r = this.module.ajouterJoueur(this.ctx(), sess.game, p.id);
+        if (!r.ok) return r;
+        if (!sess.registered.includes(p.id)) sess.registered.push(p.id);
+        this.noter(p.id, `ajouté en cours de partie par l'admin${r.detail ? ` (${r.detail})` : ''}`);
+        return { ok: true, msg: `${p.name} rejoint la partie${r.detail ? ` : ${r.detail}` : ''}.` };
+      }
       case 'config': {
         const done = a.scope === 'soiree'
           ? setPath(this.s.config, a.path, a.value)
@@ -476,6 +496,7 @@ export class Soiree {
       reglagesMaj: this.s.reglagesMaj || 0,
       soirees: this.s.soirees || [],
       classement: this.classement(),
+      journal: (this.s.journal || []).slice(0, 20),
       people: Object.values(this.s.people).map(p => ({ pid: p.id, name: p.name })).sort((a, b) => a.name.localeCompare(b.name, 'fr')),
       gameConfig: this.gameCfg(),
       registered: sess.registered.map(p => ({ pid: p, name: this.s.people[p]?.name, dossard: sess.dossards?.[p] || '' })),

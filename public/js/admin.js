@@ -69,7 +69,7 @@ async function saveCfg(el) {
   if (r.ok) { cur.classList.add('saved'); setTimeout(() => cur.classList.remove('saved'), 1500); }
   // Mini-Jeux : les heures sont celles du fuseau de ce navigateur.
 }
-app.addEventListener('change', e => { if (e.target.dataset.cfg) saveCfg(e.target); if (e.target.id === 'reprise-pid') ui.reprisePid = e.target.value; });
+app.addEventListener('change', e => { if (e.target.dataset.cfg) saveCfg(e.target); if (e.target.id === 'reprise-pid') ui.reprisePid = e.target.value; if (e.target.id === 'ajout-pid') ui.ajoutPid = e.target.value; });
 app.addEventListener('input', e => {
   const el = e.target;
   if (!el.dataset.cfg || !['text', 'area'].includes(el.dataset.kind)) return;
@@ -165,8 +165,14 @@ ${[[-300, '−5 min'], [-60, '−1 min'], [60, '+1 min'], [300, '+5 min']].map((
       ${V.gameId === 'duel' && V.registered.length ? `<p class="muted" style="margin:0;font-size:14px">Saisis le numéro du maillot de chacun dès qu'il vient le chercher. ${V.registered.filter(p => !p.dossard).length ? `<strong style="color:var(--danger)">${V.registered.filter(p => !p.dossard).length} sans numéro.</strong>` : '<strong style="color:var(--ok)">Tout le monde a son numéro.</strong>'}</p>
         <div class="scroll"><table><thead><tr><th>Joueur</th><th>Maillot</th><th></th></tr></thead><tbody>${V.registered.map(p => `<tr><td>${esc(p.name)}</td>
           <td><input class="in" style="width:90px" inputmode="numeric" id="dos-${p.pid}" data-dossard="${p.pid}" value="${esc(p.dossard)}" aria-label="Maillot de ${esc(p.name)}"></td>
-          <td><button class="btn sm" data-act="retirerInscrit" data-pid="${p.pid}" aria-label="Retirer ${esc(p.name)}">✕</button></td></tr>`).join('')}</tbody></table></div>` :
-      V.registered.length ? `<div class="row">${V.registered.map(p => `<span class="pill">${esc(p.name)} <button class="btn sm" style="padding:0 6px;border:0;background:none" data-act="retirerInscrit" data-pid="${p.pid}" aria-label="Retirer ${esc(p.name)}">✕</button></span>`).join('')}</div>` : '<p class="muted" style="margin:0">Personne pour l\'instant.</p>'}
+          <td><button class="btn sm" data-act="retirerInscrit" data-pid="${p.pid}" data-confirm="Retirer ${esc(p.name)} des inscrits ?" aria-label="Retirer ${esc(p.name)}">✕</button></td></tr>`).join('')}</tbody></table></div>` :
+      V.registered.length ? `<div class="row">${V.registered.map(p => `<span class="pill">${esc(p.name)} <button class="btn sm" style="padding:0 6px;border:0;background:none" data-act="retirerInscrit" data-pid="${p.pid}" data-confirm="Retirer ${esc(p.name)} des inscrits ?" aria-label="Retirer ${esc(p.name)}">✕</button></span>`).join('')}</div>` : '<p class="muted" style="margin:0">Personne pour l\'instant.</p>'}
+      ${V.status === 'playing' ? `<h2 style="margin-top:8px">Ajouter à la partie en cours</h2>
+      <p class="muted" style="margin:0;font-size:14px">Quelqu'un n'est pas dans la partie alors qu'il devait jouer ? Ajoute-le : au Chemin, il entre comme détective (la chaîne ne change pas) ; au Grand Pari, il reçoit l'argent de départ ; au Duel, seulement avant les premiers duels.</p>
+      <div class="row"><select class="in" id="ajout-pid" style="width:auto;min-width:180px"><option value="">Choisis le joueur</option>${V.people.filter(p => !V.registered.some(r => r.pid === p.pid)).map(p => `<option value="${p.pid}" ${ui.ajoutPid === p.pid ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>
+        <button class="btn" data-act="ajouterEnCours">Ajouter à la partie</button></div>` : ''}
+      ${V.journal?.length ? `<h2 style="margin-top:8px">Désinscriptions et ajouts</h2>
+      <div class="stack" style="gap:2px;font-size:14px">${V.journal.map(j => `<div><span class="mono muted">${new Date(j.at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span> · <strong>${esc(j.nom)}</strong> · ${esc(j.jeu)} : ${esc(j.quoi)}</div>`).join('')}</div>` : ''}
       <h2 style="margin-top:8px">Joueur sur un autre téléphone</h2>
       <p class="muted" style="margin:0;font-size:14px">Quelqu'un a changé de téléphone ou de navigateur et ne retrouve plus son compte ? Donne-lui un code : sur son téléphone, il touche « J'étais déjà inscrit sur un autre téléphone », puis écrit son prénom et le code. Il retrouve son inscription, son rôle et ses points.</p>
       <div class="row"><select class="in" id="reprise-pid" style="width:auto;min-width:180px"><option value="">Choisis le joueur</option>${V.people.map(p => `<option value="${p.pid}" ${ui.reprisePid === p.pid ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select>
@@ -922,6 +928,12 @@ app.addEventListener('click', async e => {
   if (a === 'ajuster') return admin({ type: 'ajuster', sec: Number(t.dataset.sec) });
   if (a === 'inscriptions') return admin({ type: 'inscriptions', value: t.dataset.v });
   if (a === 'retirerInscrit') return admin({ type: 'retirerInscrit', pid: t.dataset.pid });
+  if (a === 'ajouterEnCours') {
+    if (!ui.ajoutPid) return SJ.toast({ ok: false, msg: 'Choisis le joueur.' });
+    const r = await admin({ type: 'ajouterEnCours', pid: ui.ajoutPid });
+    if (r.ok) ui.ajoutPid = null;
+    return;
+  }
   if (a === 'codeReprise') {
     if (!ui.reprisePid) return SJ.toast({ ok: false, msg: 'Choisis le joueur.' });
     const r = await admin({ type: 'codeReprise', pid: ui.reprisePid });

@@ -122,6 +122,18 @@ export function start(ctx, pids) {
   return g;
 }
 
+// Rattrapage pendant la partie : le joueur entre comme détective (la chaîne n'est pas modifiée), dans l'équipe la moins nombreuse.
+export function ajouterJoueur(ctx, g, p) {
+  if (g.roles[p]) return { ok: false, msg: 'Ce joueur est déjà dans la partie.' };
+  if (g.finished) return { ok: false, msg: 'La partie est terminée.' };
+  const taille = T => Object.values(g.roles).filter(r => r.team === T).length;
+  const T = taille('A') <= taille('B') ? 'A' : 'B';
+  g.roles[p] = { team: T, role: 'detective' };
+  g.det[p] = { inv: {}, notes: [], visions: [] };
+  g.st[p] = { block: null, immuneUntil: 0, safeUntil: 0, errors: 0, lockUntil: 0 };
+  return { ok: true, detail: `détective de l'équipe ${T}` };
+}
+
 // ---------- état ----------
 const isBlocked = (g, p, now) => {
   const b = g.st[p]?.block;

@@ -830,7 +830,11 @@ app.addEventListener('click', e => {
   }
   if (a === 'mjPasMoi') { if (confirm('Changer de nom ? Tu pourras choisir le bon dans la liste.')) act({ type: 'pasMoi' }); return; }
   if (a === 'inscrire') act({ type: 'inscription', on: true });
-  if (a === 'desinscrire') { SJ.store('sj-inscrit', null); act({ type: 'inscription', on: false }); }
+  if (a === 'desinscrire') {
+    if (!confirm('Tu ne joueras pas à ce jeu. Te désinscrire ?')) return;
+    SJ.store('sj-inscrit', null);
+    act({ type: 'inscription', on: false });
+  }
   if (a === 'aideAsk') { ui.aideConfirm = true; draw(); }
   if (a === 'aideNon') { ui.aideConfirm = false; draw(); }
   if (a === 'aide') act({ type: 'aide' }).then(() => { ui.aideConfirm = false; draw(); });

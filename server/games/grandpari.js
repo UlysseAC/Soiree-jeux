@@ -147,6 +147,15 @@ export function start(ctx, pids) {
   return g;
 }
 
+// Rattrapage pendant la partie : le joueur reçoit l'argent de départ et peut parier dès la prochaine course.
+export function ajouterJoueur(ctx, g, p) {
+  if (g.wallets[p] != null) return { ok: false, msg: 'Ce joueur est déjà dans la partie.' };
+  if (g.finished) return { ok: false, msg: 'La partie est terminée.' };
+  g.order.push(p);
+  g.wallets[p] = ctx.cfg.argentDepart;
+  return { ok: true, detail: `${ctx.cfg.argentDepart} $ de départ` };
+}
+
 const cur = g => g.sports[g.k];
 const closeAt = (g, cfg) => cur(g).at - cfg.fermeture * 1000;
 const bettingOpen = (g, ctx) => g.phase === 'entre' && ctx.now() < closeAt(g, ctx.cfg);

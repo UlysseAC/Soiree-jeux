@@ -76,3 +76,27 @@ test('retrouver son compte depuis un autre téléphone : prénom + code de l\'ad
   t += 11 * 60e3;
   assert.equal(so.reprendre('Mélusine', c2).ok, false, 'code expiré');
 });
+
+test('journal des désinscriptions et ajout d\'un joueur à une partie du Chemin déjà lancée (comme détective)', () => {
+  let t = Date.UTC(2026, 9, 13, 20, 0);
+  const so = new Soiree(defaultState(), { now: () => t });
+  so.admin({ type: 'choisirJeu', gameId: 'chemin' });
+  so.admin({ type: 'inscriptions', value: 'open' });
+  const p = ['Léa', 'Hugo', 'Inès', 'Malik', 'Chloé', 'Tom', 'Vesa'].map(n => so.join(undefined, n));
+  for (const x of p) so.player(x.token, { type: 'inscription', on: true });
+  const vesa = p[6];
+  so.player(vesa.token, { type: 'inscription', on: false });
+  so.admin({ type: 'retirerInscrit', pid: p[5].pid });
+  const j = so.adminView().journal;
+  assert.deepEqual(j.map(x => [x.nom, x.quoi]), [['Tom', 'retiré par l\'admin'], ['Vesa', 'désinscrit par le joueur (son téléphone)']]);
+  assert.equal(so.admin({ type: 'ajouterEnCours', pid: vesa.pid }).ok, false, 'pas de partie en cours');
+  so.admin({ type: 'lancerJeu' });
+  assert.equal(so.sess.status, 'playing');
+  assert.equal(so.playerView(vesa.token).game.spectator, true, 'Vesa n\'est pas dans la partie');
+  const r = so.admin({ type: 'ajouterEnCours', pid: vesa.pid });
+  assert.equal(r.ok, true, r.msg);
+  assert.equal(so.sess.game.roles[vesa.pid].role, 'detective');
+  assert.equal(so.playerView(vesa.token).game.spectator, undefined, 'Vesa joue maintenant');
+  assert.equal(so.admin({ type: 'ajouterEnCours', pid: vesa.pid }).ok, false, 'déjà dans la partie');
+  assert.match(so.adminView().journal[0].quoi, /ajouté en cours de partie/);
+});

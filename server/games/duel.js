@@ -47,6 +47,16 @@ const at = (arr, i) => arr[Math.min(i, arr.length - 1)];
 const ok = msg => ({ ok: true, msg });
 const err = msg => ({ ok: false, msg });
 
+// Rattrapage : possible seulement avant les premiers duels (phase de préparation), avec son numéro de maillot.
+export function ajouterJoueur(ctx, g, p) {
+  if (g.players[p]) return { ok: false, msg: 'Ce joueur est déjà dans la partie.' };
+  if (g.phase !== 'prep') return { ok: false, msg: 'Les duels ont commencé : on ne peut plus ajouter de joueur.' };
+  g.players[p] = { num: cleanCode(ctx.dossards?.[p]), lives: ctx.cfg.vies, alive: true, wins: 0, elimRound: null, elimLabel: null, prime: 0, bonus: 0, errors: 0, bet: null, lastOpp: null, met: [] };
+  g.n0 = Object.keys(g.players).length;
+  g.simRounds = simRoundsFor(ctx.cfg, g.n0);
+  return { ok: true, detail: g.players[p].num ? `maillot ${g.players[p].num}` : 'pense à saisir son numéro de maillot' };
+}
+
 export function start(ctx, pids) {
   const cfg = ctx.cfg;
   const players = {};
