@@ -159,6 +159,13 @@ function progress(team) {
   return team.done.filter((d, i) => d && !team.skipped[i]).length;
 }
 
+// Historique de la partie, pour l'admin : étapes validées et actions de l'admin, avec l'heure.
+function histo(g, ctx, T, text) {
+  g.histo ??= [];
+  g.histo.unshift({ t: ctx.now(), team: T, text });
+  g.histo.length = Math.min(g.histo.length, 200);
+}
+
 function feed(g, ctx, text) {
   g.feed.unshift({ t: ctx.now(), text });
   g.feed.length = Math.min(g.feed.length, 30);
@@ -293,6 +300,7 @@ export function playerAction(ctx, g, p, a) {
     if (a.type === 'numero') {
       if (s.lockUntil > now) return err('Trop d\'erreurs, attends un peu.');
       if (mine && team.stage === 'number' && v === team.nums[i]) {
+        histo(g, ctx, T, `${ctx.name(p)} a tapé son numéro : il voit l'indice de l'étape ${stepOf(cfg, T, i, team.chain.length).label}`);
         team.stage = 'hint';
         s.errors = 0;
         team.hintAt = team.penalty ? now + cfg.penaliteIndice * 1000 : 0;
@@ -311,6 +319,7 @@ export function playerAction(ctx, g, p, a) {
     if (mine && team.stage === 'hint' && team.hintAt > now) return err('Attends la fin de la pénalité.');
     if (mine && team.stage === 'hint' && v && v === cleanCode(step.conf.code)) {
       team.done[i] = now;
+      histo(g, ctx, T, `${ctx.name(p)} a validé l'étape ${step.label} avec le bon code`);
       advance(g, ctx, T, i);
       if (!g.finished) feed(g, ctx, `✅ Équipe ${T} : étape ${progress(team)} / ${team.chain.length}`);
       return ok('Code correct !');
@@ -441,11 +450,22 @@ export function adminAction(ctx, g, a) {
     return ok('Libéré.');
   }
   if (a.type === 'validerEtape') {
-    const team = g.teams[a.team];
+    // Débloquer : si le joueur attend seulement son numéro (le précédent a trouvé son code mais n'a pas pu le lui donner),
+    // on lui donne son numéro : il voit son indice et fait SON étape. Sinon, on valide l'étape en cours sans le code.
+    const T = a.team, team = g.teams[T];
     if (!team || team.cur >= team.chain.length) return err('Rien à valider.');
-    team.done[team.cur] = now;
-    advance(g, ctx, a.team, team.cur);
-    return ok('Étape validée.');
+    const i = team.cur, nom = ctx.name(team.chain[i]), label = stepOf(ctx.cfg, T, i, team.chain.length).label;
+    if (team.stage === 'number') {
+      team.stage = 'hint';
+      team.hintAt = team.penalty ? now + ctx.cfg.penaliteIndice * 1000 : 0;
+      team.penalty = false;
+      histo(g, ctx, T, `Admin : numéro donné à ${nom}, il voit l'indice de l'étape ${label}`);
+      return ok(`${nom} a reçu son numéro : il voit l'indice de l'étape ${label}.`);
+    }
+    team.done[i] = now;
+    histo(g, ctx, T, `Admin : étape ${label} de ${nom} validée sans le code`);
+    advance(g, ctx, T, i);
+    return ok(`Étape ${label} de ${nom} validée.`);
   }
   if (a.type === 'remplacer' && a.remplacant === 'auto') {
     // Joueur parti : les étapes à venir sont redistribuées à tour de rôle entre les autres randoms de l'équipe
@@ -463,6 +483,7 @@ export function adminAction(ctx, g, a) {
     if (ordre.length > 1 && ordre[0] === team.chain[debut - 1]) ordre.push(ordre.shift());
     for (let i = debut; i < team.chain.length; i++) team.chain[i] = ordre[(i - debut) % ordre.length];
     if (!n) return err("Ce joueur n'a plus d'étape à jouer.");
+    histo(g, ctx, T, `Admin : ${ctx.name(a.pid)} parti, ${n} étape${n > 1 ? 's' : ''} réparties entre les autres`);
     return ok(`${n} étape${n > 1 ? 's' : ''} de ${ctx.name(a.pid)} réparties entre les autres joueurs.`);
   }
   if (a.type === 'remplacer') {
@@ -472,6 +493,7 @@ export function adminAction(ctx, g, a) {
     let n = 0;
     team.chain.forEach((p, i) => { if (p === a.pid && i >= team.cur) { team.chain[i] = a.remplacant; n++; } });
     if (!n) return err("Ce joueur n'a plus d'étape à jouer.");
+    histo(g, ctx, T, `Admin : ${ctx.name(a.remplacant)} remplace ${ctx.name(a.pid)} (${n} étape${n > 1 ? 's' : ''})`);
     return ok(`${ctx.name(a.remplacant)} remplace ${ctx.name(a.pid)}.`);
   }
   if (a.type === 'sauter') {
@@ -485,6 +507,7 @@ export function adminAction(ctx, g, a) {
       n++;
     });
     if (!n) return err("Ce joueur n'a plus d'étape à jouer.");
+    histo(g, ctx, T, `Admin : ${n} étape${n > 1 ? 's' : ''} de ${ctx.name(a.pid)} sautée${n > 1 ? 's' : ''}`);
     if (team.skipped[team.cur]) {
       advance(g, ctx, T, team.cur);
       team.penalty = false;
@@ -610,6 +633,10 @@ export function adminView(ctx, g) {
         pid: p, name: ctx.name(p), inv: Object.keys(g.det[p].inv).map(k => WEAPONS[k].icon).join(' '),
       })),
       keysUsed: g.keysUsed[T].length,
+      // ce que fera le bouton « Débloquer »
+      debloquer: t.cur >= t.chain.length ? null : t.stage === 'number'
+        ? `Donner son numéro à ${ctx.name(t.chain[t.cur])} (${t.nums[t.cur]}) : il voit l'indice de l'étape ${stepOf(ctx.cfg, T, t.cur, t.chain.length).label}`
+        : `Valider l'étape ${stepOf(ctx.cfg, T, t.cur, t.chain.length).label} de ${ctx.name(t.chain[t.cur])} sans le code`,
     };
   }
   const players = Object.keys(g.roles).map(p => {
@@ -621,7 +648,7 @@ export function adminView(ctx, g) {
       immuneUntil: s.immuneUntil > now ? s.immuneUntil : 0,
     };
   }).sort((a, b) => a.name.localeCompare(b.name, 'fr'));
-  return { teams, players, feed: g.feed.slice(0, 15), endsAt: g.endsAt, finished: g.finished, winner: g.winner };
+  return { teams, players, feed: g.feed.slice(0, 15), histo: (g.histo || []).slice(0, 60), endsAt: g.endsAt, finished: g.finished, winner: g.winner };
 }
 
 export function orgaView(ctx, g) {

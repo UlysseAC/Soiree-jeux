@@ -200,3 +200,21 @@ test('joueur parti : ses étapes sont réparties entre les autres, jamais deux d
   const nb = Object.values(team.chain.reduce((m, p) => ({ ...m, [p]: (m[p] || 0) + 1 }), {}));
   assert.ok(Math.max(...nb) - Math.min(...nb) <= 1, 'toujours bien réparti');
 });
+
+test('débloquer : donne le numéro au joueur qui l\'attend (il fait SON étape), sinon valide l\'étape sans le code ; tout est dans l\'historique', () => {
+  const { g, ctx } = setup(10, c => { for (const T of ['A', 'B']) c.teams[T].steps.forEach((s, i) => { s.code = String(1000 + i); }); return c; });
+  const team = g.teams.A, [p0, p1] = team.chain;
+  assert.equal(chemin.playerAction(ctx, g, p0, { type: 'code', value: '1000' }).ok, true);
+  assert.equal(team.stage, 'number', `${ctx.name(p1)} attend son numéro`);
+  let v = chemin.adminView(ctx, g).teams.A;
+  assert.match(v.debloquer, new RegExp(`^Donner son numéro à ${ctx.name(p1)}`));
+  assert.equal(chemin.adminAction(ctx, g, { type: 'validerEtape', team: 'A' }).ok, true);
+  assert.equal(team.cur, 1, 'l\'étape de p1 n\'est pas sautée');
+  assert.equal(team.stage, 'hint', 'p1 voit son indice');
+  v = chemin.adminView(ctx, g).teams.A;
+  assert.match(v.debloquer, new RegExp(`^Valider l'étape 2 de ${ctx.name(p1)} sans le code`));
+  chemin.adminAction(ctx, g, { type: 'validerEtape', team: 'A' });
+  assert.equal(team.cur, 2);
+  const h = chemin.adminView(ctx, g).histo.map(x => x.text);
+  assert.deepEqual(h, [`Admin : étape 2 de ${ctx.name(p1)} validée sans le code`, `Admin : numéro donné à ${ctx.name(p1)}, il voit l'indice de l'étape 2`, `${ctx.name(p0)} a validé l'étape 1 avec le bon code`]);
+});

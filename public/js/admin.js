@@ -219,7 +219,7 @@ function partieChemin(g) {
       ${t.chain.map(c => `<tr><td class="mono">${c.step}</td><td>${nm(c.name)}</td><td class="mono">${c.numero ?? '—'}</td><td>${c.state === 'faite' ? '<span class="pill ok">✓</span>' : c.state ? `<span class="pill accent">${c.state}</span>` : ''}${c.aide ? ' <span title="Indice bonus utilisé">💡</span>' : ''}</td></tr>`).join('')}
       </tbody></table></div>
       <div><span class="label">Détectives</span><p style="margin:4px 0 0">${t.detectives.map(d => `${nm(d.name)} ${d.inv}`).join(' · ') || '—'}</p></div>
-      <button class="btn sm" data-jeu="validerEtape" data-team="${T}" data-confirm="Valider l'étape en cours de l'équipe ${T} ?">Débloquer l'étape en cours</button>
+      ${t.debloquer ? `<button class="btn sm" data-jeu="validerEtape" data-team="${T}" data-confirm="${esc(t.debloquer)} ?">🔓 ${esc(t.debloquer)}</button>` : ''}
     </div>`;
   };
   const players = g.players.map(p => {
@@ -239,6 +239,8 @@ function partieChemin(g) {
       <div class="row"><button class="btn sm" data-act="masquer">${ui.hideNames ? 'Afficher les noms' : 'Masquer les noms'}</button><button class="btn sm danger" data-jeu="terminer" data-confirm="Terminer la partie maintenant ? L'équipe la plus avancée gagne.">Terminer la partie</button></div></div>
     <div class="grid-auto" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">${team('A')}${team('B')}</div>
     <div class="box"><h2>Joueurs</h2><div class="scroll"><table><thead><tr><th>Joueur</th><th>Équipe</th><th>Rôle</th><th>État</th><th>Actions</th></tr></thead><tbody>${players}</tbody></table></div></div>
+    <div class="box"><h2>Historique des étapes</h2><p class="muted" style="margin:0;font-size:14px">Qui a validé quelle étape, et chaque action de l'admin (débloquer, remplacer, sauter).</p>
+      <div style="max-height:320px;overflow:auto">${ui.hideNames ? '<p class="muted">Masqué (noms cachés).</p>' : (g.histo || []).map(h => `<div style="font-size:14px"><span class="mono muted">${new Date(h.t).toLocaleTimeString('fr-FR')}</span> <span class="pill ${h.team.toLowerCase()}">${h.team}</span> ${esc(h.text)}</div>`).join('') || '<p class="muted">Rien pour l\'instant.</p>'}</div></div>
     <div class="box"><h2>Fil des événements</h2>${g.feed.map(f => `<div class="muted" style="font-size:14px">${new Date(f.t).toLocaleTimeString('fr-FR')} · ${esc(f.text)}</div>`).join('') || '<p class="muted">Rien pour l\'instant.</p>'}</div>`;
 }
 

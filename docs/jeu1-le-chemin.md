@@ -87,6 +87,13 @@ Règles d'attaque :
 - Bouton **Joueur parti** dans l'admin → par défaut **« Répartir entre les autres randoms »** : les étapes à venir sont redistribuées à tour de rôle entre les randoms restants (autant chacun à une près, jamais deux de suite ; l'étape en cours d'un autre joueur ne change pas). On peut aussi choisir un **remplaçant** de la même équipe, qui reprend toutes ses étapes. Le remplaçant reçoit l'étape et doit la valider ; le message du joueur précédent pointe vers le remplaçant.
 - Sans remplaçant, l'étape peut être sautée : l'équipe ne peut alors plus gagner en finissant, elle ne compte qu'à la durée max, avec une étape en moins.
 
+## Débloquer et historique
+
+- Le bouton **🔓 Débloquer** de chaque équipe (onglet Partie en cours) dit exactement ce qu'il va faire :
+  - **« Donner son numéro à Jules (5910) : il voit l'indice de l'étape 5 »** quand le joueur précédent a trouvé son code mais n'a pas pu donner le numéro (déconnecté, parti…). Jules fait ensuite **son** étape normalement.
+  - **« Valider l'étape 5 de Jules sans le code »** quand le joueur en cours est bloqué sur son indice.
+- **Historique des étapes** (même onglet) : chaque numéro tapé, chaque étape validée (par qui, à quelle heure) et chaque action de l'admin (débloquer, remplacer, sauter, joueur parti).
+
 ## Écrans
 
 - **Admin** : décompte, répartition complète (chaîne dans l'ordre + détectives, régénérer avant le départ, masquer les noms), joueurs et états (safe zone, libérer, débloquer étape, joueur parti), étapes, armes et antidotes, réglages.
