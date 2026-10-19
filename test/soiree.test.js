@@ -6,7 +6,7 @@ const nouvelle = () => new Soiree(defaultState());
 
 test('programme : tous les jeux par défaut, jeux inconnus et doublons ignorés', () => {
   const so = nouvelle();
-  assert.deepEqual(so.s.config.programme, ['chemin', 'duel', 'grandpari', 'minijeux']);
+  assert.deepEqual(so.s.config.programme, ['chemin', 'duel', 'grandpari', 'minijeux', 'enquete']);
   assert.ok(so.admin({ type: 'programme', ids: ['grandpari', 'inconnu', 'chemin', 'grandpari'] }).ok);
   assert.deepEqual(so.s.config.programme, ['grandpari', 'chemin']);
   assert.deepEqual(so.adminView().programme, ['grandpari', 'chemin']);
@@ -15,7 +15,7 @@ test('programme : tous les jeux par défaut, jeux inconnus et doublons ignorés'
 test('ancienne sauvegarde sans programme : tous les jeux ; programme sauvegardé conservé', () => {
   const ancienne = defaultState();
   delete ancienne.config.programme;
-  assert.deepEqual(restore(JSON.parse(JSON.stringify(ancienne))).config.programme, ['chemin', 'duel', 'grandpari', 'minijeux']);
+  assert.deepEqual(restore(JSON.parse(JSON.stringify(ancienne))).config.programme, ['chemin', 'duel', 'grandpari', 'minijeux', 'enquete']);
   const s = defaultState();
   s.config.programme = ['duel'];
   assert.deepEqual(restore(JSON.parse(JSON.stringify(s))).config.programme, ['duel']);

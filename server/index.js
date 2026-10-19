@@ -5,6 +5,7 @@ import { networkInterfaces } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { Server } from 'socket.io';
+import QRCode from 'qrcode';
 import { creerGestion, CODE_ESPACE } from './espaces.js';
 import edition from './edition.js';
 import { GAMES } from './soiree.js';
@@ -53,9 +54,15 @@ app.get('/vendor/morphdom.js', (_, res) => res.sendFile(join(ROOT, 'node_modules
 app.get('/', (_, res) => res.redirect('/jouer'));
 app.get('/infos', (_, res) => res.json({ joinUrl: JOIN_URL, qr: defaut.liens.qr }));
 app.get('/ping', (_, res) => res.type('text').send('ok'));
+// QR code en SVG (tablettes de L'Enquête : il change toutes les 30 s, inutile de passer par le serveur de jeu)
+app.get('/qr.svg', async (req, res) => {
+  const d = String(req.query.d ?? '').slice(0, 300);
+  if (!d) return res.status(400).end();
+  res.type('image/svg+xml').set('Cache-Control', 'public, max-age=300').send(await QRCode.toString(d, { type: 'svg', margin: 1, color: { dark: '#17110c', light: '#ffffff' } }));
+});
 // Pages d'un espace client : les mêmes pages, sous /s/<code>/… (le code est relu par la page elle-même).
 if (MULTI) {
-  app.get('/s/:code/:page', (req, res, next) => (['jouer', 'ecran', 'admin', 'orga'].includes(req.params.page) && CODE_ESPACE.test(req.params.code) ? res.sendFile(join(pub, `${req.params.page}.html`)) : next()));
+  app.get('/s/:code/:page', (req, res, next) => (['jouer', 'ecran', 'admin', 'orga', 'salle'].includes(req.params.page) && CODE_ESPACE.test(req.params.code) ? res.sendFile(join(pub, `${req.params.page}.html`)) : next()));
   app.get('/s/:code', (req, res) => res.redirect(`/s/${req.params.code}/jouer`));
 }
 
@@ -86,13 +93,15 @@ io.on('connection', sock => {
     if (!E) return cb({ ok: false, msg: 'Soirée introuvable : vérifie l\'adresse.' });
     const role = h.role;
     if (role === 'admin' && !E.motDePasse(h.password)) return cb({ ok: false, msg: 'Mot de passe incorrect.' });
-    if (role === 'orga' && String(h.code) !== String(E.soiree.s.config.orgaCode)) return cb({ ok: false, msg: 'Code orga incorrect.' });
-    if (!['admin', 'ecran', 'orga', 'joueur'].includes(role)) return cb({ ok: false, msg: 'Rôle inconnu.' });
+    // tablette d'une salle (L'Enquête) : elle affiche le code de la salle, donc protégée par le code orga
+    if ((role === 'orga' || role === 'salle') && String(h.code) !== String(E.soiree.s.config.orgaCode)) return cb({ ok: false, msg: 'Code orga incorrect.' });
+    if (!['admin', 'ecran', 'orga', 'joueur', 'salle'].includes(role)) return cb({ ok: false, msg: 'Rôle inconnu.' });
     if (sock.data.espace && sock.data.espace !== E) sock.data.espace.sortir(sock);
     sock.data.espace = E;
     E.entrer(sock);
     sock.data.role = role;
     sock.data.token = h.token;
+    sock.data.salle = Math.max(0, Math.round(Number(h.salle)) || 0);
     sock.data.test = (role === 'ecran' || role === 'joueur') && !!h.test;
     for (const salle of sock.rooms) if (salle !== sock.id) sock.leave(salle);
     if (role === 'ecran') sock.join(`${E.salle}:${sock.data.test ? 'ecran-test' : 'ecran'}`);

@@ -167,7 +167,7 @@ test('jeux achetés : un client ne voit et ne lance que ses jeux ; on peut lui e
   G.creer({ code: 'resa', motDePasse: 'abcdef', source: '2026-10-19T10:00:00.000Z' });
   assert.equal(G.liste().find(x => x.code === 'resa').source, '2026-10-19T10:00:00.000Z', 'l\'espace garde sa demande de réservation');
   // par défaut (site de base, espace créé sans choix) : tous les jeux
-  assert.deepEqual(G.defaut.soiree.jeux, ['chemin', 'duel', 'grandpari', 'minijeux']);
+  assert.deepEqual(G.defaut.soiree.jeux, ['chemin', 'duel', 'grandpari', 'minijeux', 'enquete']);
   G.creer({ code: 'tout', motDePasse: 'abcdef' });
-  assert.deepEqual((await G.ouvrir('tout')).soiree.jeux, ['chemin', 'duel', 'grandpari', 'minijeux']);
+  assert.deepEqual((await G.ouvrir('tout')).soiree.jeux, ['chemin', 'duel', 'grandpari', 'minijeux', 'enquete']);
 });

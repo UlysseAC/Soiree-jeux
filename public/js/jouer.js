@@ -37,6 +37,7 @@ SJ.sock.on('etat', v => {
   document.body.dataset.theme = v.gameId === 'minijeux' ? MJ_THEMES[v.game?.actif?.type] || '' : '';
   draw();
   buzz(before, v);
+  eqEntrer();
 });
 
 // Le Mime : envoyer un essai (bouton ou touche Entrée), puis vider le champ en gardant le clavier ouvert.
@@ -88,6 +89,8 @@ function buzz(a, b) {
   if (g0?.etat?.type === 'temple' && g0.etat.phase === 'choix' && g1.etat?.phase === 'resultat' && g1.etat.joueurs.find(p => p.nom === g1.nom)?.perdu) setTimeout(() => navigator.vibrate?.([500, 100, 500]), 2400); // piège ! (après le suspense)
   if (g0?.random?.stage !== 'hint' && g1.random?.stage === 'hint') { navigator.vibrate?.(150); ui.aideConfirm = false; }
   if (g0?.random?.attente && g1.random?.stage === 'hint' && !g1.random.attente) navigator.vibrate?.(150);
+  if (g1.aRepondre?.length > (g0?.aRepondre?.length || 0)) navigator.vibrate?.([300, 100, 300]); // L'Enquête : on m'interroge
+  if (g0?.attente && !g1.attente) navigator.vibrate?.(150); // L'Enquête : réponse à ma question
 }
 
 // ---------- pavé numérique ----------
@@ -425,6 +428,140 @@ function grandpari(g) {
   return h;
 }
 
+// ---------- jeu 5 : L'Enquête ----------
+const EQ_ICONES = { salle: '🚪', perso: '👤', arme: '🗡' };
+const eqCarte = c => `<span class="eq-carte" data-type="${c.type}">${c.type === 'perso' ? `<i class="eq-pastille" style="--c:${c.couleur}"></i>` : EQ_ICONES[c.type]} ${esc(c.nom)}</span>`;
+const eqOptions = (liste, val, vide) => `<option value="">${vide}</option>${liste.map(c => `<option value="${c.id}" ${c.id === val ? 'selected' : ''}>${esc(c.nom)}</option>`).join('')}`;
+const EQ_STATUTS = { main: ['✋', 'ma carte'], vu: ['👁', 'vue'], indice: ['💡', 'indice'], coche: ['✗', 'barrée'] };
+
+// QR code d'une tablette scanné : /jouer?salle=3&c=4821 → le téléphone entre dans la salle (une seule fois).
+const EQ_SCAN = (() => { const q = new URLSearchParams(location.search); return q.has('c') ? { salle: q.get('salle'), code: q.get('c') } : null; })();
+let eqScan = EQ_SCAN;
+function eqEntrer() {
+  if (!eqScan || V?.gameId !== 'enquete' || !V.game || V.game.spectator) return;
+  const s = eqScan;
+  eqScan = null;
+  history.replaceState(null, '', location.pathname + (TEL_TEST ? '?test' : ''));
+  if (V.game.phase === 'intro' || V.game.finished) return; // trop tôt ou trop tard : le code ne vaut plus rien
+  act({ type: 'entrer', salle: s.salle, code: s.code }).then(r => { if (r.ok) { ui.eqTab = 'salle'; ui.eqCode = false; draw(); } });
+}
+PAD_ACTIONS.salle = v => act({ type: 'entrer', code: v }).then(r => { if (r.ok) { ui.eqCode = false; draw(); } });
+
+function eqRepondre(g) {
+  return g.aRepondre.map(q => `<div class="card accent eq-urgent"><p style="margin:0;font-size:18px">❓ <strong>${esc(q.de)}</strong> t'interroge dans ${esc(q.salle)} :</p>
+    <p style="margin:0">« ${esc(q.perso)}, avec ${esc(q.arme)}, dans ${esc(q.salle)} ? »</p>
+    <div class="label">Montre-lui une de ces cartes (lui seul la verra)</div>
+    <div class="eq-choix">${q.choix.map(c => `<button class="btn big" data-eqmontrer="${q.id}" data-carte="${c.id}">${eqCarte(c)}</button>`).join('')}</div>
+    <p class="muted" style="margin:0;font-size:13px">Sinon, une carte au hasard dans <span class="mono" data-until="${q.fin}"></span></p></div>`).join('');
+}
+
+function eqSalle(g) {
+  let h = '';
+  if (!g.salle || ui.eqCode) {
+    h += `<div class="card center"><p style="font-size:18px;margin:0">📷 Scanne le QR code de la tablette de la salle où tu es.</p>
+      <p class="muted" style="margin:0">Ou tape le code à 4 chiffres affiché dessous :</p></div>${pad('salle', 'Entrer')}`;
+    if (g.salle) h += `<button class="btn" data-act="eqCodeNon">Rester dans : ${esc(g.salle.nom)}</button>`;
+    return h;
+  }
+  h += `<div class="card"><div class="row" style="justify-content:space-between"><span style="font-size:20px">📍 <strong>${esc(g.salle.nom)}</strong></span><button class="btn sm" data-act="eqCode">Changer de salle</button></div>
+    <div class="label">Avec toi</div><div class="pions">${g.presents.map(p => `<span class="pion" style="--c:${p.perso.couleur}">${esc(p.name)}</span>`).join('') || '<span class="muted">Personne</span>'}</div></div>`;
+  // indice de la tablette
+  h += g.indicesRestants
+    ? `<button class="btn big" data-act="eqIndice">💡 Demander un indice à la salle${g.indicesRestants > 1 ? ` (${g.indicesRestants})` : ''}</button>`
+    : '<p class="muted center" style="margin:0">💡 Indice de cette salle déjà pris.</p>';
+  // question
+  const libres = g.presents.filter(p => !p.dernier);
+  if (!libres.some(p => p.pid === ui.eqCible)) ui.eqCible = null;
+  let bloque = '';
+  if (g.attente) bloque = 'Attends la réponse à ta question…';
+  else if (g.nextAsk) bloque = `Prochaine question dans <span class="mono" data-until="${g.nextAsk}"></span>`;
+  h += `<div class="card"><strong>🗣 Interroger quelqu'un</strong>
+    ${g.presents.length ? `<div class="pions">${g.presents.map(p => `<button class="pion choix" style="--c:${p.perso.couleur}" data-eqcible="${p.pid}" aria-pressed="${ui.eqCible === p.pid}" ${p.dernier ? 'disabled title="Tu viens de l\'interroger"' : ''}>${esc(p.name)}</button>`).join('')}</div>
+    <select class="in" id="eq-perso">${eqOptions(g.persos, ui.eqPerso, 'Personnage…')}</select>
+    <select class="in" id="eq-arme">${eqOptions(g.armes, ui.eqArme, 'Arme…')}</select>
+    <p class="muted" style="margin:0;font-size:14px">Lieu : ${esc(g.salle.nom)} (la salle où tu es)</p>
+    ${bloque ? `<p class="center" style="margin:0">${bloque}</p>` : `<button class="btn primary big" data-act="eqInterroger" ${ui.eqCible && ui.eqPerso && ui.eqArme ? '' : 'disabled'}>Poser la question</button>`}`
+    : '<p class="muted" style="margin:0">Personne d\'autre dans cette salle.</p>'}</div>`;
+  return h + eqJournal(g);
+}
+
+function eqJournal(g) {
+  let h = '';
+  if (g.mesQuestions.length) {
+    h += `<div class="label">Mes questions</div><div class="list">${g.mesQuestions.map(q => `<div class="li"><span>${esc(q.a)} · ${esc(q.perso)}, ${esc(q.arme)}, ${esc(q.salle)}</span>
+      <span>${q.etat === 'attente' ? '<span class="muted">…</span>' : q.carte ? eqCarte(q.carte) : q.etat === 'annulee' ? '<span class="muted">—</span>' : '<span class="muted">aucune carte</span>'}</span></div>`).join('')}</div>`;
+  }
+  if (g.notes.length) h += `<div class="label">Mes indices</div><div class="list">${g.notes.map(n => `<div class="li"><span>💡 ${esc(n.texte)}</span></div>`).join('')}</div>`;
+  return h;
+}
+
+function eqFiche(g) {
+  const groupe = (titre, liste) => `<div class="label">${titre}</div><div class="list eq-fiche">${liste.map(c => {
+    const f = g.fiche[c.id] || {}, st = EQ_STATUTS[f.statut];
+    return `<button data-eqcocher="${c.id}" class="${f.statut ? 'barre' : ''}"><span>${eqCarte(c)}</span><span class="muted">${st ? `${st[0]} ${st[1]}${f.par?.length ? ` (${esc(f.par.join(', '))})` : ''}` : ''}</span></button>`;
+  }).join('')}</div>`;
+  return `<p class="muted" style="margin:0;font-size:14px">Touche une carte pour la barrer à la main. ✋ ta carte · 👁 montrée par quelqu'un · 💡 éliminée par un indice.</p>`
+    + groupe('Personnages', g.persos) + groupe('Armes', g.armes) + groupe('Salles', g.salles);
+}
+
+function eqAccuser(g) {
+  if (g.accuse) return `<div class="card danger center"><p style="font-size:20px;margin:0">❌ Ton accusation était fausse.</p><p class="muted" style="margin:0">Tu ne peux plus accuser, mais continue de répondre aux questions.</p></div>`;
+  const a = ui.eqAcc || {};
+  return `<div class="card"><p style="margin:0">Tu penses avoir trouvé ? <strong>Une seule accusation</strong> par joueur : si elle est juste, tu gagnes l'enquête ; sinon, tu ne pourras plus accuser.</p>
+    <select class="in" id="eq-acc-perso">${eqOptions(g.persos, a.perso, 'Qui ?')}</select>
+    <select class="in" id="eq-acc-arme">${eqOptions(g.armes, a.arme, 'Avec quoi ?')}</select>
+    <select class="in" id="eq-acc-salle">${eqOptions(g.salles, a.salle, 'Où ?')}</select>
+    <button class="btn primary big" data-act="eqAccuser" ${a.perso && a.arme && a.salle ? '' : 'disabled'}>⚖️ J'accuse !</button></div>`;
+}
+
+function enquete(g) {
+  app.className = 'phone';
+  let h = head(`<span class="pion" style="--c:${g.moi.couleur}">${esc(g.moi.nom)}</span>`);
+  const main = `<div class="label">Mes cartes (personne d'autre ne les a… sauf peut-être un joueur)</div><div class="eq-main">${g.main.map(eqCarte).join('')}</div>`;
+  if (g.finished) {
+    const r = g.revelation;
+    h += `<div class="card accent center">${g.gagne ? '<div class="huge">🏆</div><p style="font-size:22px;margin:0">Tu as résolu l\'enquête !</p>' : g.winner ? `<p style="font-size:20px;margin:0">🏆 ${esc(g.winner)} a résolu l'enquête.</p>` : '<p style="font-size:20px;margin:0">Personne n\'a trouvé…</p>'}
+      ${r ? `<div class="label">La vérité</div><p style="font-size:18px;margin:0">${eqCarte(r.perso)} avec ${eqCarte(r.arme)} dans ${eqCarte(r.salle)}</p>` : ''}
+      ${g.tueur ? '<p style="font-size:20px;margin:0">🔪 C\'était toi le tueur… sans le savoir !</p>' : r?.tueur ? `<p class="muted" style="margin:0">Le tueur était ${esc(r.tueur)}.</p>` : ''}
+      <p class="muted" style="margin:0">${g.indices} indice${g.indices > 1 ? 's' : ''} obtenu${g.indices > 1 ? 's' : ''}</p></div>`;
+    return h + main + eqJournal(g);
+  }
+  if (g.phase === 'intro') return h + `<div class="card center"><p style="font-size:20px;margin:0">Tu es <strong>${esc(g.moi.nom)}</strong>.</p><p class="muted" style="margin:0">Regarde l'écran : l'enquête va commencer.</p></div>` + main;
+  h += `<div class="row" style="justify-content:space-between"><span class="muted">⏳ <span class="mono" data-until="${g.endsAt}"></span></span>${g.phase === 'finale' ? '<span class="pill accent">⚡ Phase finale : indices doublés</span>' : ''}</div>`;
+  h += eqRepondre(g);
+  ui.eqTab ??= 'salle';
+  const tabs = [['salle', g.salle ? '📍 Salle' : '📷 Salle'], ['fiche', '📋 Fiche'], ['accuser', '⚖️ Accuser']];
+  h += `<nav class="tabs" style="justify-content:stretch">${tabs.map(([k, l]) => `<button role="tab" style="flex:1" data-eqtab="${k}" aria-selected="${ui.eqTab === k}">${l}</button>`).join('')}</nav>`;
+  h += ui.eqTab === 'fiche' ? main + eqFiche(g) : ui.eqTab === 'accuser' ? eqAccuser(g) : eqSalle(g) + main;
+  return h;
+}
+app.addEventListener('change', e => {
+  const id = e.target.id;
+  if (id === 'eq-perso') ui.eqPerso = e.target.value;
+  else if (id === 'eq-arme') ui.eqArme = e.target.value;
+  else if (id.startsWith('eq-acc-')) (ui.eqAcc ??= {})[id.slice(7)] = e.target.value;
+  else return;
+  draw();
+});
+app.addEventListener('click', e => {
+  const t = e.target.closest('[data-eqtab],[data-eqcible],[data-eqmontrer],[data-eqcocher],[data-act^="eq"]');
+  if (!t) return;
+  if (t.dataset.eqtab) { ui.eqTab = t.dataset.eqtab; return draw(); }
+  if (t.dataset.eqcible) { ui.eqCible = t.dataset.eqcible; return draw(); }
+  if (t.dataset.eqmontrer) return act({ type: 'montrer', q: t.dataset.eqmontrer, carte: t.dataset.carte });
+  if (t.dataset.eqcocher) return act({ type: 'cocher', carte: t.dataset.eqcocher });
+  const a = t.dataset.act;
+  if (a === 'eqCode') { ui.eqCode = true; draw(); }
+  if (a === 'eqCodeNon') { ui.eqCode = false; draw(); }
+  if (a === 'eqIndice') act({ type: 'indice' });
+  if (a === 'eqInterroger') act({ type: 'interroger', cible: ui.eqCible, perso: ui.eqPerso, arme: ui.eqArme }).then(r => { if (r.ok) { ui.eqCible = null; draw(); } });
+  if (a === 'eqAccuser') {
+    const c = ui.eqAcc || {}, n = id => [...V.game.persos, ...V.game.armes, ...V.game.salles].find(x => x.id === id)?.nom;
+    if (!confirm(`Accuser : ${n(c.perso)}, avec ${n(c.arme)}, dans ${n(c.salle)} ?\nTu n'as droit qu'à une seule accusation.`)) return;
+    act({ type: 'accuser', ...c });
+  }
+});
+
 // ---------- jeu 4 : Les Mini-Jeux ----------
 const hm = ts => new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 const MJ_TEAMS = ['Rouges', 'Bleus', 'Verts', 'Jaunes', 'Violets', 'Orange', 'Roses', 'Gris'];
@@ -721,7 +858,7 @@ function draw() {
   if (!V.me) { app.className = 'phone'; if (!document.getElementById('join')) SJ.render(app, testPanel() + joinScreen()); return; }
   let html;
   if (V.game && !V.game.spectator) {
-    html = V.gameId === 'chemin' ? chemin(V.game) : V.gameId === 'grandpari' ? grandpari(V.game) : duel(V.game);
+    html = V.gameId === 'chemin' ? chemin(V.game) : V.gameId === 'grandpari' ? grandpari(V.game) : V.gameId === 'enquete' ? enquete(V.game) : duel(V.game);
   } else if (V.status === 'playing' || V.status === 'finished') {
     app.className = 'phone';
     html = head() + `<div class="card"><p style="font-size:18px">${V.status === 'playing' ? 'Partie en cours.' : 'Partie terminée.'}</p><p class="muted">Tu n'es pas inscrit à ce jeu. Regarde l'écran !</p></div>`;

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14110f">
+<title>L'Enquête — salle</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Rye&display=swap">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-game="enquete">
+<main class="tablette" id="app"><p class="muted">Connexion…</p></main>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/vendor/morphdom.js"></script>
+<script src="/js/common.js"></script>
+<script>
+// Tablette d'une salle (L'Enquête) : le nom de la salle et son QR code, qui change toutes les 30 s.
+// Le joueur le scanne avec l'appareil photo : il arrive sur sa page de jeu, placé dans cette salle.
+// Adresse : /salle?n=0 … /salle?n=10 (numéro de la salle dans la liste des réglages).
+const app = document.getElementById('app');
+const { esc } = SJ;
+const n = Math.max(0, Math.round(Number(new URLSearchParams(location.search).get('n'))) || 0);
+let V = null, authed = false;
+
+async function login(code) {
+  const r = await SJ.emit('hello', { role: 'salle', code, salle: n });
+  authed = r.ok;
+  if (r.ok) { SJ.store('sj-orga', code); SJ.keepAwake(); } else { SJ.store('sj-orga', null); SJ.toast(r); }
+  draw();
+}
+SJ.sock.on('connect', () => { const c = SJ.store('sj-orga'); if (c) login(c); else draw(); });
+SJ.sock.on('etat', v => { V = v; draw(); });
+
+function draw() {
+  if (!authed) {
+    if (!document.getElementById('code')) SJ.render(app, `<div class="tab-login"><h1 class="tab-nom">Tablette de salle n° ${n + 1}</h1>
+      <form id="login" class="stack"><label class="field"><span class="label">Code orga</span><input class="in" id="code" inputmode="numeric" style="font-size:22px"></label><button class="btn primary big">Entrer</button></form></div>`);
+    return;
+  }
+  if (!V) return;
+  const s = V.salle;
+  if (!s) return SJ.render(app, `<div class="tab-attente"><h1 class="tab-nom">L'Enquête</h1><p class="muted">Salle n° ${n + 1} — en attente de la partie…</p></div>`);
+  if (s.inconnue) return SJ.render(app, `<div class="tab-attente"><h1 class="tab-nom">Salle n° ${n + 1} ?</h1><p class="muted">Cette salle n'existe pas dans les réglages.</p></div>`);
+  const qui = s.joueurs.length ? s.joueurs.map(j => `<span class="pion" style="--c:${j.couleur}">${esc(j.name)}</span>`).join('') : '<span class="muted">Personne pour l\'instant</span>';
+  let centre;
+  if (s.finished) centre = `<p class="tab-msg">L'enquête est terminée.<br>Regardez l'écran !</p>`;
+  else if (!s.code) centre = `<p class="tab-msg">L'enquête va commencer…</p>`;
+  else {
+    const lien = `${V.joinUrl}?salle=${s.n}&c=${s.code}`;
+    centre = `<img class="tab-qr" src="/qr.svg?d=${encodeURIComponent(lien)}" alt="QR code de la salle" width="420" height="420">
+      <div class="tab-code">Code : <b class="mono">${s.code}</b></div>
+      ${s.change ? `<div class="muted">Nouveau code dans <span class="mono" data-until="${s.change}"></span></div>` : ''}`;
+  }
+  SJ.render(app, `<h1 class="tab-nom">${esc(s.nom)}</h1>
+    <div class="tab-centre">${centre}</div>
+    <div class="tab-pied"><div class="label">Dans la salle</div><div class="pions">${qui}</div></div>`);
+}
+
+app.addEventListener('submit', e => { if (e.target.id === 'login') { e.preventDefault(); login(document.getElementById('code').value); } });
+</script>
+</body>
+</html>

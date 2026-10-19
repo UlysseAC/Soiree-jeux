@@ -3,10 +3,11 @@ import * as chemin from './games/chemin.js';
 import * as duel from './games/duel.js';
 import * as grandpari from './games/grandpari.js';
 import * as minijeux from './games/minijeux.js';
+import * as enquete from './games/enquete.js';
 import { uid, normName, setPath, mergeDefaults, cleanCode } from './util.js';
 import * as classement from './classement.js';
 
-export const GAMES = { chemin, duel, grandpari, minijeux };
+export const GAMES = { chemin, duel, grandpari, minijeux, enquete };
 // Jeux qui comptent dans le classement de la soirée (les Mini-Jeux ont leur propre classement de la journée).
 const inSoiree = id => GAMES[id]?.classementSoiree !== false;
 
@@ -491,6 +492,14 @@ export class Soiree {
     if (row) v.me.soiree = { rank: row.rank, total: row.total, mult: row.mult, count: c.rows.length };
     if (sess.game && (sess.status === 'playing' || sess.status === 'finished')) v.game = this.module.playerView(this.ctx(), sess.game, me.id);
     return v;
+  }
+
+  // Tablette d'une salle (L'Enquête) : nom de la salle, code du moment pour le QR code, joueurs présents.
+  salleView(n) {
+    const sess = this.sess;
+    const base = { ...this.common(), salle: null };
+    if (sess.gameId !== 'enquete' || !sess.game || !this.module.salleView) return base;
+    return { ...base, salle: this.module.salleView(this.ctx(), sess.game, Number(n)) };
   }
 
   orgaView() {

@@ -47,6 +47,7 @@ export class Espace {
     if (d.role === 'admin') return { ...this.soiree.adminView(), simulation: this.sim.status(), sauvegardeEnLigne: this.storage.remote, ...this.infos() };
     if (d.role === 'ecran') return { ...this.src(sock).screenView(), joinUrl: d.test ? `${joinUrl}?test` : joinUrl, qr: d.test ? qrTest : qr, test: !!d.test };
     if (d.role === 'orga') return this.soiree.orgaView();
+    if (d.role === 'salle') return { ...this.soiree.salleView(d.salle), joinUrl };
     return d.test ? { ...this.src(sock).playerView(d.token), simulation: this.simTest().status() } : this.soiree.playerView(d.token);
   }
 

@@ -5,12 +5,13 @@ export function defaultConfig() {
     chemin: { gagnant: 60, perdant: 25 },
     grandpari: { max: 60, min: 10 },
     duel: { max: 90, min: 15 },
+    enquete: { max: 90, min: 15 },
     bonusMax: 1.5,
     ordre: 'duel', // jeu qui départage les égalités (le dernier de la soirée)
   };
 }
 
-const GAME_NAMES = { chemin: 'Le Chemin', duel: 'Duel au Far West', grandpari: 'Le Grand Pari' };
+const GAME_NAMES = { chemin: 'Le Chemin', duel: 'Duel au Far West', grandpari: 'Le Grand Pari', enquete: "L'Enquête" };
 
 // Points max d'un jeu (sert au calcul du bonus pour un jeu raté).
 function maxOf(cfg, gameId) {
@@ -36,6 +37,8 @@ export function gamePoints(cfg, rec) {
   }
   if (rec.gameId === 'duel') return byRank(res, r => (r.prime || 0) + (r.paris || 0) + (r.won ? 1e9 : 0), cfg.duel, r => !!r.won);
   if (rec.gameId === 'grandpari') return byRank(res, r => r.argent || 0, cfg.grandpari);
+  // L'Enquête : celui qui a résolu l'enquête d'abord, puis les autres selon les indices obtenus.
+  if (rec.gameId === 'enquete') return byRank(res, r => (r.won ? 1e9 : 0) + (r.indices || 0), cfg.enquete ?? { max: 90, min: 15 }, r => !!r.won);
   return {};
 }
 

@@ -203,7 +203,7 @@ ${[[-300, '−5 min'], [-60, '−1 min'], [60, '+1 min'], [300, '+5 min']].map((
         <label class="btn" style="cursor:pointer">⬆ Importer un fichier<input type="file" id="import-file" accept="application/json,.json" hidden></label></div>
       <h2 style="margin-top:8px">Noms des jeux</h2>
       <p class="muted" style="margin:0;font-size:14px">Affichés partout : écran public, téléphones, classement. Laisse vide pour revenir au nom d'origine.</p>
-      <div class="grid-auto">${V.games.map((g, i) => cfgInput(`nomsJeux.${g.id}`, V.config.nomsJeux?.[g.id] ?? g.name, 'text', { scope: 'soiree', label: { chemin: 'Jeu de la chaîne et des détectives', duel: 'Jeu des cowboys', grandpari: 'Jeu des paris sportifs', minijeux: 'Journée de mini-jeux' }[g.id] || `Jeu ${i + 1}` })).join('')}</div>
+      <div class="grid-auto">${V.games.map((g, i) => cfgInput(`nomsJeux.${g.id}`, V.config.nomsJeux?.[g.id] ?? g.name, 'text', { scope: 'soiree', label: { chemin: 'Jeu de la chaîne et des détectives', duel: 'Jeu des cowboys', grandpari: 'Jeu des paris sportifs', minijeux: 'Journée de mini-jeux', enquete: 'Cluedo grandeur nature' }[g.id] || `Jeu ${i + 1}` })).join('')}</div>
     </div>
   </div>`;
 }
@@ -310,7 +310,57 @@ function partie() {
 function partieJeu() {
   if (V.gameId === 'minijeux') return partieMiniJeux(V.game);
   if (!V.game) return `<div class="box"><p class="muted" style="margin:0">Aucune partie en cours. Lance le décompte dans l'onglet Soirée.</p></div>`;
-  return V.gameId === 'chemin' ? partieChemin(V.game) : V.gameId === 'grandpari' ? partieGrandPari(V.game) : partieDuel(V.game);
+  return V.gameId === 'chemin' ? partieChemin(V.game) : V.gameId === 'grandpari' ? partieGrandPari(V.game) : V.gameId === 'enquete' ? partieEnquete(V.game) : partieDuel(V.game);
+}
+
+// ---------- jeu 5 : L'Enquête ----------
+const eqLignes = t => String(t || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+const eqTablettes = n => `<div class="row" style="flex-wrap:wrap">${Array.from({ length: n }, (_, i) => `<a class="btn sm" href="${SJ.base}/salle?n=${i}" target="_blank" rel="noopener">Tablette ${i + 1}</a>`).join('')}</div>
+  <p class="muted" style="margin:0;font-size:14px">Ouvre chaque lien sur la tablette de sa salle (le code orga est demandé une fois : ${esc(V.config.orgaCode)}). Le QR code change toutes les ${esc(V.fullConfig.games.enquete.rotationQr)} s : une photo du QR code ne marche pas longtemps.</p>`;
+function partieEnquete(g) {
+  const phase = g.finished ? 'Terminée' : { intro: 'Introduction (texte à l\'écran)', enquete: 'Enquête en cours', finale: '⚡ Phase finale' }[g.phase];
+  let h = `<div class="spread"><div class="row"><span class="pill accent">${phase}</span>${g.endsAt && !g.finished ? `<span class="muted">fin dans <span class="mono" data-until="${g.endsAt}"></span>${g.finaleAt && g.phase === 'enquete' ? ` · phase finale dans <span class="mono" data-until="${g.finaleAt}"></span>` : ''}</span>` : ''}</div>
+    <div class="row">
+      ${g.phase === 'intro' && !g.finished ? '<button class="btn primary" data-jeu="lancer">▶ Lancer l\'enquête</button>' : ''}
+      ${g.phase === 'enquete' && !g.finished ? '<button class="btn" data-jeu="finale" data-confirm="Lancer la phase finale (indices doublés) ?">⚡ Phase finale</button>' : ''}
+      ${!g.finished ? '<button class="btn sm danger" data-jeu="terminer" data-confirm="Terminer l\'enquête et révéler la solution ?">Terminer</button>' : ''}</div></div>`;
+  h += `<div class="box"><div class="spread"><h2>Solution</h2><button class="btn sm" data-act="eqSolution">${ui.eqSolution ? 'Cacher' : 'Montrer'}</button></div>
+    ${ui.eqSolution ? `<p style="margin:0;font-size:18px">${esc(g.solution.perso)} · ${esc(g.solution.arme)} · ${esc(g.solution.salle)}</p><p class="muted" style="margin:0">Le tueur (sans le savoir) : <strong>${esc(g.tueur)}</strong></p>` : '<p class="muted" style="margin:0">Cachée (pour ne pas la voir par hasard).</p>'}</div>`;
+  h += `<div class="box"><h2>Tablettes des salles</h2>${eqTablettes(g.salles.length)}</div>`;
+  if (g.attente.length) h += `<div class="box"><h2>Questions en attente de réponse</h2>${g.attente.map(q => `<p style="margin:0">${esc(q.de)} → ${esc(q.a)} <span class="muted">(${esc(q.salle)})</span></p>`).join('')}</div>`;
+  h += `<div class="box"><h2>Enquêteurs (${g.liste.length})</h2><div class="scroll"><table><thead><tr><th>Joueur</th><th>Personnage</th><th>Cartes</th><th>Salle</th><th>Indices</th><th>Accusation</th></tr></thead><tbody>${g.liste.map(p => `<tr>
+      <td>${nm(p.name)}</td><td><span class="pion" style="--c:${p.perso.couleur}">${esc(p.perso.nom)}</span></td><td class="muted">${ui.eqSolution ? p.main.map(esc).join(', ') : '•••'}</td>
+      <td><select class="in" data-eqplacer="${p.pid}" style="width:auto">${p.salle ? '' : '<option value="">—</option>'}${g.salles.map(s => `<option value="${s.id}" ${s.nom === p.salle ? 'selected' : ''}>${esc(s.nom)}</option>`).join('')}</select></td>
+      <td class="mono">${p.indices}</td><td>${p.accuse === 'juste' ? '<span class="pill ok">juste</span>' : p.accuse === 'fausse' ? '<span class="pill danger">fausse</span>' : ''}</td></tr>`).join('')}</tbody></table></div>
+    <p class="muted" style="margin:0;font-size:14px">Un QR code ne passe pas ? Choisis la salle du joueur ici.</p></div>`;
+  h += `<div class="box"><h2>En direct</h2><div class="feed">${g.feed.map(f => `<div><time>${hhmm(f.t)}</time><span>${esc(f.text)}</span></div>`).join('')}</div></div>`;
+  return h;
+}
+app.addEventListener('change', e => { const pid = e.target.dataset.eqplacer; if (pid && e.target.value) jeu({ type: 'placer', pid, salle: e.target.value }); });
+
+function reglagesEnquete(c) {
+  const salles = eqLignes(c.salles);
+  const d = (p, l) => cfgInput(p, c[p], 'dur', { label: l });
+  const n = (p, l) => cfgInput(p, c[p], 'num', { label: l });
+  return `<div class="box"><h2>Histoire</h2><label class="field"><span class="label">Texte d'introduction affiché à l'écran (une ligne = un paragraphe)</span><textarea class="in" rows="7" id="c-jeu-enquete-intro" data-cfg="intro" data-kind="area" data-scope="jeu" data-game="enquete">${esc(c.intro)}</textarea></label></div>
+    <div class="box"><h2>Salles, personnages, armes</h2><div class="grid-auto">
+      <label class="field"><span class="label">Salles (une par ligne) · ${salles.length}</span><textarea class="in" rows="12" id="c-jeu-enquete-salles" data-cfg="salles" data-kind="area" data-scope="jeu" data-game="enquete">${esc(c.salles)}</textarea></label>
+      <label class="field"><span class="label">Personnages = couleurs des joueurs (un par ligne) · ${eqLignes(c.personnages).length}</span><textarea class="in" rows="15" id="c-jeu-enquete-personnages" data-cfg="personnages" data-kind="area" data-scope="jeu" data-game="enquete">${esc(c.personnages)}</textarea></label>
+      <label class="field"><span class="label">Armes (une par ligne) · ${eqLignes(c.armes).length}</span><textarea class="in" rows="12" id="c-jeu-enquete-armes" data-cfg="armes" data-kind="area" data-scope="jeu" data-game="enquete">${esc(c.armes)}</textarea></label>
+    </div><p class="muted" style="margin:0;font-size:14px">Chaque joueur reçoit le personnage suivant dans la liste (12 joueurs = les 12 premiers). Les changements servent au lancement de la partie.</p></div>
+    <div class="box"><h2>Solution</h2><div class="grid-auto">
+      ${cfgInput('solution.perso', c.solution.perso, 'text', { label: 'Personnage (le tueur)', ph: 'au hasard' })}${cfgInput('solution.arme', c.solution.arme, 'text', { label: 'Arme', ph: 'au hasard' })}${cfgInput('solution.salle', c.solution.salle, 'text', { label: 'Salle', ph: 'au hasard' })}
+    </div><p class="muted" style="margin:0;font-size:14px">Vide = tiré au hasard. Sinon le nom exact d'une ligne des listes (utile si tes indices écrits parlent de la solution).</p></div>
+    <div class="box"><h2>Temps et règles</h2><div class="grid-auto">
+      ${d('dureeMax', 'Durée max de l\'enquête')}${d('finaleApres', 'Phase finale au bout de (0:00 = à la main)')}${d('delaiQuestion', 'Délai entre deux questions')}${d('delaiReponse', 'Temps pour montrer une carte')}
+      ${n('rotationQr', 'QR code changé toutes les … s (0 = fixe)')}${n('indicesParSalle', 'Indices par salle et par joueur')}${n('indicesFinale', 'Indices par salle en phase finale')}
+    </div></div>
+    <div class="box"><h2>Indices des tablettes</h2>
+      <p class="muted" style="margin:0;font-size:14px">Une ligne = un indice, donné dans l'ordre (le 1er au 1er passage du joueur dans la salle, le 2e en phase finale…). Quand il n'y a plus d'indice écrit, c'est l'indice automatique.
+      Dans un texte : <span class="mono">{carte}</span> = une carte qui n'est pas dans la solution (et que le joueur ne connaît pas encore), <span class="mono">{perso}</span>, <span class="mono">{arme}</span>, <span class="mono">{salle}</span> = idem pour un type. Elle est barrée sur sa fiche. En phase finale, chaque <span class="mono">{…}</span> donne deux cartes.</p>
+      ${cfgInput('modele', c.modele, 'text', { label: 'Indice automatique' })}
+      <div class="grid-auto" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">${c.indices.map((t, i) => cfgInput(`indices.${i}`, t, 'area', { label: `${i + 1}. ${salles[i] || '(pas de salle)'}`, ph: 'vide = indice automatique' })).join('')}</div></div>
+    <div class="box"><h2>Tablettes</h2>${eqTablettes(salles.length)}</div>`;
 }
 
 // ---------- jeu 4 : Les Mini-Jeux ----------
@@ -721,6 +771,7 @@ function classementTab() {
     ${cfgInput('classement.grandpari.min', k.grandpari.min, 'num', { scope: 'soiree', label: 'Grand Pari : dernier' })}
     ${cfgInput('classement.duel.max', k.duel.max, 'num', { scope: 'soiree', label: 'Duel : 1er' })}
     ${cfgInput('classement.duel.min', k.duel.min, 'num', { scope: 'soiree', label: 'Duel : dernier' })}
+    ${k.enquete ? `${cfgInput('classement.enquete.max', k.enquete.max, 'num', { scope: 'soiree', label: 'L\'Enquête : 1er' })}${cfgInput('classement.enquete.min', k.enquete.min, 'num', { scope: 'soiree', label: 'L\'Enquête : dernier' })}` : ''}
     ${cfgInput('classement.bonusMax', k.bonusMax, 'num', { scope: 'soiree', label: 'Bonus jeu raté (max)' })}
   </div><p class="muted" style="margin:0;font-size:14px">Bonus jeu raté = points max des jeux joués à la soirée ÷ points max des jeux joués par le joueur, plafonné. Égalités : jeux gagnés, puis résultat au Duel.</p>
   ${V.soirees?.length ? `<div><h2>Soirées précédentes</h2>${V.soirees.map((s, i) => `<p class="muted" style="margin:0;font-size:14px">Soirée ${i + 1} · ${new Date(s.fin).toLocaleDateString('fr-FR')} · ${s.parties} partie${s.parties > 1 ? 's' : ''} · ${s.top.length ? s.top.map((r, k) => `${k + 1}. ${esc(r.name)} (${r.total})`).join(' · ') : 'pas de points'}</p>`).join('')}</div>` : ''}
@@ -863,7 +914,7 @@ function reglages() {
       : 'Jeu actuel de la soirée.';
   const html = `<div class="row">${V.games.map(g => `<button class="btn ${g.id === id ? 'primary' : ''}" data-regler="${g.id}">${esc(g.name)}${g.id === V.gameId ? ' ●' : ''}${V.programme.includes(g.id) ? '' : ' <span class="muted">(pas au programme)</span>'}</button>`).join('')}</div>
     <p class="muted" style="margin:0">${note}</p>` +
-    (id === 'chemin' ? reglagesChemin(c) : id === 'grandpari' ? reglagesGrandPari(c) : id === 'minijeux' ? reglagesMiniJeux(c) : reglagesDuel(c));
+    (id === 'chemin' ? reglagesChemin(c) : id === 'grandpari' ? reglagesGrandPari(c) : id === 'minijeux' ? reglagesMiniJeux(c) : id === 'enquete' ? reglagesEnquete(c) : reglagesDuel(c));
   cfgGame = null;
   return html;
 }
@@ -928,6 +979,7 @@ app.addEventListener('click', async e => {
   if (!confirmed(t)) return;
   const a = t.dataset.act;
   if (a === 'masquer') { ui.hideNames = !ui.hideNames; return draw(); }
+  if (a === 'eqSolution') { ui.eqSolution = !ui.eqSolution; return draw(); }
   if (a === 'choisirJeu') return admin({ type: 'choisirJeu', gameId: t.dataset.id });
   if (a === 'ajuster') return admin({ type: 'ajuster', sec: Number(t.dataset.sec) });
   if (a === 'inscriptions') return admin({ type: 'inscriptions', value: t.dataset.v });

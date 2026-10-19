@@ -455,6 +455,31 @@ function minijeux(g) {
   return `${head(`${pos} · ${g.inscrits} / ${g.participants.length} connectés`)}<div class="mj-grid"><section class="mj-main">${main}</section>${mjSide(g)}</div>`;
 }
 
+// ---------- jeu 5 : L'Enquête ----------
+const eqCarteE = c => `<span class="eq-carte">${c.type === 'perso' ? `<i class="eq-pastille" style="--c:${c.couleur}"></i>` : c.type === 'salle' ? '🚪' : '🗡'} ${esc(c.nom)}</span>`;
+function enquete(g) {
+  if (g.phase === 'intro' && !g.finished) {
+    return `<div class="eq-intro"><div class="label" style="font-size:18px">${esc(V.gameName)}</div>
+      <div class="eq-recit">${esc(g.intro).split(/\r?\n/).filter(Boolean).map(l => `<p>${l}</p>`).join('')}</div>
+      <p class="muted">${g.joueurs} enquêteurs · regardez votre téléphone : votre personnage et vos 3 cartes vous attendent.</p></div>`;
+  }
+  const r = g.revelation;
+  if (g.finished && r) {
+    return `<div class="eq-fin"><div class="label" style="font-size:18px">${esc(V.gameName)} · la vérité</div>
+      <h2 class="eq-titre">${g.winner ? `🏆 ${esc(g.winner)} a résolu l'enquête !` : "Personne n'a trouvé…"}</h2>
+      <div class="eq-solution">${eqCarteE(r.perso)}<span class="muted">avec</span>${eqCarteE(r.arme)}<span class="muted">dans</span>${eqCarteE(r.salle)}</div>
+      ${r.tueur ? `<p class="eq-tueur">🔪 Le tueur était <strong>${esc(r.tueur)}</strong>… sans le savoir.</p>` : ''}
+      <div class="label">Classement</div>
+      <ol class="eq-classement">${r.classement.map(c => `<li><span class="pion" style="--c:${c.perso.couleur}">${esc(c.name)}</span><span class="mono">${c.won ? '🏆' : `${c.indices} 💡`}</span></li>`).join('')}</ol></div>`;
+  }
+  const sub = `${g.phase === 'finale' ? '<strong style="color:var(--accent)">⚡ Phase finale : indices doublés</strong> · ' : ''}Fin dans <span class="mono" data-until="${g.endsAt}"></span>`;
+  return `${head(sub)}<div class="eq-ecran">
+    <div class="eq-salles">${g.salles.map(s => `<div class="eq-salle ${s.joueurs.length ? 'occupee' : ''}"><strong>${esc(s.nom)}</strong>
+      <div class="pions">${s.joueurs.map(j => `<span class="pion" style="--c:${j.couleur}">${esc(j.name)}</span>`).join('')}</div></div>`).join('')}</div>
+    <div class="stack"><div class="label">En direct</div><div class="feed">${g.feed.map(f => `<div><time>${hm(f.t)}</time><span>${esc(f.text)}</span></div>`).join('')}</div></div>
+  </div>`;
+}
+
 // ---------- jeu 1 : Le Chemin ----------
 function chemin(g) {
   const track = T => {
@@ -786,6 +811,7 @@ function draw() {
   if (g && (V.status === 'playing' || V.status === 'finished')) {
     if (V.gameId === 'minijeux') html = minijeux(g);
     else if (V.gameId === 'chemin') html = chemin(g);
+    else if (V.gameId === 'enquete') html = enquete(g);
     else if (V.gameId === 'grandpari') {
       trackBettors(g.richest);
       html = grandpari(g);
