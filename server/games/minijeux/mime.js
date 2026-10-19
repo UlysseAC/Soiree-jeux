@@ -2,7 +2,7 @@
 // Dans chaque duo, l'un mime un mot (affiché sur son téléphone) sans faire de bruit, l'autre écrit ce qu'il devine.
 // Accents, majuscules et petites fautes d'orthographe ne comptent pas. Celui qui mime peut passer au mot suivant.
 // Chacun mime 45 s (réglable), puis les rôles s'inversent. Le duo qui a fait trouver le plus de mots gagne.
-import { shuffle } from '../../util.js';
+import { shuffle, usage, moinsUtilises } from '../../util.js';
 
 export const id = 'mime';
 export const label = 'Le Mime';
@@ -61,14 +61,13 @@ export function correspond(essai, mot) {
   return distance(a, b) <= tolere || distance(a.replace(/[sx]$/, ''), b.replace(/[sx]$/, '')) <= tolere;
 }
 
-// Mot suivant : jamais deux fois dans le même round, et d'abord ceux qui ont le moins servi dans la journée.
-function nextMot(g, r, sc) {
+// Mot suivant, au hasard : jamais deux fois dans le même round, et d'abord ceux qui ont le moins servi dans la soirée
+// (tous jeux confondus) : un mot ne revient qu'une fois toute la liste passée.
+function nextMot(ctx, g, r, sc) {
   const m = r.mi;
-  g.motsMimeUtilises ??= {};
-  const pool = shuffle(wordsOf(sc).filter(w => !m.vus.includes(w))).sort((a, b) => (g.motsMimeUtilises[a] || 0) - (g.motsMimeUtilises[b] || 0));
-  m.mot = pool[0] || null;
+  m.mot = moinsUtilises(wordsOf(sc).filter(w => !m.vus.includes(w)), usage(ctx, g, 'motsMime'), 1)[0] || null;
   m.essais = [];
-  if (m.mot) { m.vus.push(m.mot); g.motsMimeUtilises[m.mot] = (g.motsMimeUtilises[m.mot] || 0) + 1; }
+  if (m.mot) m.vus.push(m.mot);
 }
 
 const cur = r => r.mi.tours[r.mi.tour];
@@ -114,7 +113,7 @@ export function tick(ctx, g, r, sc) {
   if (m.phase === 'pret' && now >= m.fin) {
     m.phase = 'mime';
     m.fin = now + clampInt(sc.tempsMime, 45, 5, 600) * 1000;
-    nextMot(g, r, sc);
+    nextMot(ctx, g, r, sc);
     return { changed: true };
   }
   if (m.phase === 'mime' && (now >= m.fin || !m.mot)) {
@@ -143,7 +142,7 @@ export function playerAction(ctx, g, r, nom, a, sc) {
     if (nom !== c.mime) return err('Seul celui qui mime peut passer.');
     if (m.phase !== 'mime' || !m.mot) return err("Ce n'est pas le moment.");
     finMot(ctx, r, false);
-    nextMot(g, r, sc);
+    nextMot(ctx, g, r, sc);
     return ok(m.mot ? 'Mot suivant !' : 'Plus de mots !');
   }
   if (a.type === 'deviner') {
@@ -154,7 +153,7 @@ export function playerAction(ctx, g, r, nom, a, sc) {
     if (correspond(t, m.mot)) {
       const trouve = m.mot;
       finMot(ctx, r, true, nom);
-      nextMot(g, r, sc);
+      nextMot(ctx, g, r, sc);
       return ok(`Bravo ! C'était « ${trouve} »`);
     }
     m.essais = [...m.essais, t].slice(-6);

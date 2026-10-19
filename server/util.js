@@ -1,5 +1,19 @@
 import { randomBytes, randomInt } from 'node:crypto';
 
+// Compteurs d'usage (mots, questions) gardés pour toute la soirée, d'un jeu à l'autre : ctx.memoire vient de la soirée.
+// Sans soirée (tests), on les garde dans l'état du jeu.
+export function usage(ctx, g, cle) {
+  if (ctx.memoire) return (ctx.memoire[cle] ??= {});
+  return (g[cle] ??= {});
+}
+
+// Tirage : d'abord ce qui a le moins servi, au hasard parmi les ex æquo ; on note l'usage de ce qui est pris.
+export function moinsUtilises(liste, compteur, n) {
+  const pris = shuffle(liste).sort((a, b) => (compteur[a] || 0) - (compteur[b] || 0)).slice(0, n);
+  for (const x of pris) compteur[x] = (compteur[x] || 0) + 1;
+  return pris;
+}
+
 export function shuffle(arr) {
   const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {

@@ -117,6 +117,8 @@ Sur l'écran, l'annonce d'un round commence par une machine à sous, à la place
 
 ## Le Mime
 
+- **Mots au hasard, sans répétition dans la soirée** : un mot n'est jamais tiré deux fois dans un round, et d'un jeu à l'autre (même après une nouvelle journée de mini-jeux), les mots déjà sortis ne reviennent qu'une fois toute la liste passée. Pareil pour les mots de La Définition et, quand un nombre de questions est réglé, pour les questions du Quiz.
+
 - Toujours **4 joueurs, en 2 duos** (2 contre 2). S'il manque des joueurs sous la limite de rounds, le tirage complète avec d'autres connectés.
 - **Réglages** : la liste des **mots à mimer** (un par ligne ; une liste d'exemples est déjà remplie), le nombre de duos, le temps pour mimer (45 s chacun) et le temps pour se préparer (10 s).
 - **Déroulement** : le premier de chaque duo mime, duo après duo, puis les rôles s'inversent (2 duos = 4 tours). Avant chaque tour, l'écran annonce qui mime et qui devine ; celui qui mime peut lancer tout de suite avec « C'est parti ! ».

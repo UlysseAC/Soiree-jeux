@@ -8,7 +8,7 @@
 // Les spectateurs sont classés selon leurs bonnes réponses : le premier tiers gagne un bonus (1 point par défaut).
 // Le même moteur sert à « L'Anecdote » (r.type === 'anecdote', voir anecdote.js) : pas de mot, chacun écrit une anecdote
 // sur lui ; les cartes s'appellent A, B, C… et c'est le joueur qu'on a le MOINS souvent retrouvé qui gagne.
-import { shuffle } from '../../util.js';
+import { shuffle, usage, moinsUtilises } from '../../util.js';
 
 export const id = 'definition';
 export const label = 'La Définition';
@@ -32,13 +32,10 @@ export function wordsOf(sc) {
 
 const manchesOf = sc => Math.max(1, Math.min(10, Math.round(Number(sc.manches) || 3)));
 
-// Mots tirés au sort : d'abord ceux qui n'ont pas encore servi dans la journée.
-function pickWords(g, sc, n) {
-  g.motsUtilises ??= {};
-  const pool = shuffle(wordsOf(sc)).sort((a, b) => (g.motsUtilises[a] || 0) - (g.motsUtilises[b] || 0));
-  const out = pool.slice(0, n);
+// Mots tirés au sort : d'abord ceux qui ont le moins servi dans la soirée (tous jeux confondus).
+function pickWords(ctx, g, sc, n) {
+  const out = moinsUtilises(wordsOf(sc), usage(ctx, g, 'motsDefinition'), n);
   while (out.length < n) out.push(`Mot mystère n°${out.length + 1}`);
-  for (const w of out) g.motsUtilises[w] = (g.motsUtilises[w] || 0) + 1;
   return out;
 }
 
@@ -47,7 +44,7 @@ function nextManche(ctx, g, r, sc) {
   d.manche++;
   const anecdote = r.type === 'anecdote';
   // L'Anecdote : chaque joueur reçoit au hasard une lettre de carte (A, B, C…), affichées dans l'ordre alphabétique
-  const w = anecdote ? shuffle(r.joueurs.map((_, i) => String.fromCharCode(65 + i))) : pickWords(g, sc, r.joueurs.length);
+  const w = anecdote ? shuffle(r.joueurs.map((_, i) => String.fromCharCode(65 + i))) : pickWords(ctx, g, sc, r.joueurs.length);
   const mots = Object.fromEntries(r.joueurs.map((p, i) => [p, w[i]]));
   d.cur = { mots, defs: {}, votes: {}, ordre: anecdote ? [...w].sort() : shuffle(r.joueurs).map(p => mots[p]), trouves: null };
   // La Définition se dit à l'oral (pas d'écriture), chacun son tour : « parole » = ordre de passage (sans rapport avec l'ordre des mots).

@@ -101,6 +101,7 @@ export class Soiree {
       name: pid => this.s.people[pid]?.name ?? '?',
       sfx: name => this.onSfx?.(name),
       dossards: this.sess.dossards || {},
+      memoire: (this.s.memoire ??= {}), // mots et questions déjà sortis dans la soirée, d'un jeu à l'autre
     };
   }
 

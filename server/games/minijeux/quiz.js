@@ -5,7 +5,7 @@
 // Points à chaque question, ajoutés en direct au classement des mini-jeux : le premier qui répond juste gagne 2 points,
 // les autres bonnes réponses 1 point. Dernière question : 5 points au premier, 4 au 2e, 3 au 3e… (au moins 1 point).
 // Classement du round : le plus de points, puis le plus de bonnes réponses, puis le plus rapide.
-import { shuffle } from '../../util.js';
+import { shuffle, usage, moinsUtilises } from '../../util.js';
 
 export const id = 'quiz';
 export const pointsDirects = true; // les points sont donnés à chaque question, pas selon la place à la fin
@@ -42,8 +42,9 @@ export function parseQuestions(texte) {
 export function start(ctx, g, r, sc) {
   // ordre aléatoire, chaque question une seule fois ; on n'en garde que le nombre réglé (0 = toutes)
   const n = Math.round(Number(sc.nombreQuestions)) || 0;
-  const tirees = shuffle(parseQuestions(sc.questions).questions);
-  const questions = n > 0 ? tirees.slice(0, n) : tirees;
+  // avec un nombre réglé : d'abord les questions pas encore posées dans la soirée
+  const toutes = parseQuestions(sc.questions).questions;
+  const questions = n > 0 ? moinsUtilises(toutes.map(q => q.question), usage(ctx, g, 'questionsQuiz'), n).map(t => toutes.find(q => q.question === t)) : shuffle(toutes);
   r.qz = { questions, k: -1, phase: null, fin: 0, debutQ: 0, reponses: [], score: {}, temps: {}, points: {}, gains: [], fini: false };
   for (const p of r.joueurs) { r.qz.score[p] = 0; r.qz.temps[p] = 0; r.qz.points[p] = 0; }
   if (!questions.length) r.qz.fini = true; else nextQuestion(ctx, r, sc);
