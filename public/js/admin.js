@@ -228,7 +228,7 @@ function partieChemin(g) {
       : p.immuneUntil ? `<span class="pill">Immunisé <span class="mono" data-until="${p.immuneUntil}"></span></span>` : '<span class="pill">En jeu</span>';
     const mates = g.players.filter(x => x.team === p.team && x.pid !== p.pid);
     const parti = ui.parti === p.pid
-      ? `<select class="in" id="rempl-${p.pid}" style="width:auto"><option value="">Remplaçant…</option>${mates.map(x => `<option value="${x.pid}">${esc(x.name)}</option>`).join('')}</select>
+      ? `<select class="in" id="rempl-${p.pid}" style="width:auto"><option value="auto">Répartir entre les autres randoms</option>${mates.map(x => `<option value="${x.pid}">${esc(x.name)}</option>`).join('')}</select>
          <button class="btn sm" data-jeu="remplacer" data-pid="${p.pid}">Remplacer</button><button class="btn sm danger" data-jeu="sauter" data-pid="${p.pid}" data-confirm="Sauter son étape ? L'équipe ne pourra plus gagner en finissant.">Sauter</button>`
       : `<button class="btn sm danger" data-parti="${p.pid}">Joueur parti</button>`;
     return `<tr><td>${nm(p.name)}</td><td><span class="pill ${p.team.toLowerCase()}">${p.team}</span></td><td>${p.role === 'random' ? 'Random' : 'Détective'}</td><td>${state}</td>
@@ -969,7 +969,7 @@ app.addEventListener('click', async e => {
   const action = { type: j, pid: t.dataset.pid, team: t.dataset.team, duel: t.dataset.duel, winner: t.dataset.winner, sec: t.dataset.sec };
   if (j === 'remplacer') {
     action.remplacant = document.getElementById('rempl-' + t.dataset.pid)?.value;
-    if (!action.remplacant) return SJ.toast({ ok: false, msg: 'Choisis un remplaçant.' });
+    if (!action.remplacant) action.remplacant = 'auto';
   }
   jeu(action).then(r => { if (r.ok && (j === 'remplacer' || j === 'sauter')) { ui.parti = null; draw(); } });
 });

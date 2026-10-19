@@ -12,7 +12,7 @@ function setup(n, tweak = c => c) {
   return { g, ctx, cfg, advance: ms => { t += ms; chemin.tick(ctx, g); } };
 }
 
-test('répartition : détectives proportionnels et même nombre d\'étapes', () => {
+test('répartition : détectives proportionnels, toujours 15 étapes par équipe', () => {
   assert.equal(chemin.detectivesFor(2), 0);
   assert.equal(chemin.detectivesFor(3), 1);
   assert.equal(chemin.detectivesFor(8), 1);
@@ -22,8 +22,36 @@ test('répartition : détectives proportionnels et même nombre d\'étapes', () 
   assert.equal(chemin.detectivesFor(20), 5);
   assert.equal(chemin.detectivesFor(24), 9);
   const s = chemin.split(Array.from({ length: 17 }, (_, i) => i));
-  assert.equal(s.A.randoms.length, s.B.randoms.length);
   assert.equal(s.A.randoms.length + s.A.detectives.length + s.B.randoms.length + s.B.detectives.length, 17);
+  assert.deepEqual([s.A.detectives.length, s.B.detectives.length], [1, 1], '9 et 8 joueurs : 1 détective chacun, plus de détective « en trop »');
+  for (const n of [4, 9, 17, 31, 40]) {
+    const { g } = setup(n);
+    for (const T of ['A', 'B']) assert.equal(g.teams[T].chain.length, 15, `${n} joueurs : 15 étapes pour l'équipe ${T}`);
+  }
+});
+
+test('étapes à tour de rôle : jamais deux de suite, bien espacées, autant chacun à une près', () => {
+  const r = ['a', 'b', 'c', 'd', 'e', 'f'];
+  const ch = chemin.chaineDe(r);
+  assert.deepEqual(ch, ['a', 'b', 'c', 'd', 'e', 'f', 'a', 'b', 'c', 'd', 'e', 'f', 'a', 'b', 'c']);
+  for (const n of [2, 3, 4, 5, 7, 8, 11, 14, 15]) {
+    const c = chemin.chaineDe(r.concat('ghijklmnop'.split('')).slice(0, n));
+    const nb = c.reduce((m, p) => ({ ...m, [p]: (m[p] || 0) + 1 }), {});
+    assert.ok(Math.max(...Object.values(nb)) - Math.min(...Object.values(nb)) <= 1, `${n} randoms : autant d'étapes chacun à une près`);
+    assert.ok(c.every((p, i) => i === 0 || p !== c[i - 1]), `${n} randoms : jamais deux étapes de suite`);
+    assert.equal(Object.keys(nb).length, n, 'tout le monde a au moins une étape');
+  }
+});
+
+test('un seul random : il enchaîne les 15 étapes sans se donner de numéro', () => {
+  const { g, ctx } = setup(2, c => { c.teams.A.steps.forEach((s, i) => { s.code = String(1000 + i); }); c.final.code = '9999'; return c; });
+  const team = g.teams.A, p = team.chain[0];
+  assert.ok(team.chain.every(x => x === p));
+  for (let i = 0; i < 15; i++) {
+    assert.equal(team.stage, 'hint', `étape ${i + 1} : indice tout de suite`);
+    assert.equal(chemin.playerAction(ctx, g, p, { type: 'code', value: i === 14 ? '9999' : String(1000 + i) }).ok, true);
+  }
+  assert.equal(g.winner, 'A');
 });
 
 test('la dernière étape est toujours l\'étape 15', () => {
@@ -158,4 +186,17 @@ test('indice bonus : le joueur suivant attend la pénalité avant de voir son in
   assert.ok(chemin.playerAction(ctx, g, p1, { type: 'code', value: '1001' }).ok);
   assert.ok(chemin.playerAction(ctx, g, p2, { type: 'numero', value: team.nums[2] }).ok);
   assert.equal(chemin.playerView(ctx, g, p2).random.attente, undefined);
+});
+
+test('joueur parti : ses étapes sont réparties entre les autres, jamais deux de suite', () => {
+  const { g, ctx } = setup(12); // 6 randoms par équipe (avant 1 détective) : 5 randoms, 3 étapes chacun
+  const team = g.teams.A, parti = team.chain[1];
+  const avant = team.chain.filter(x => x === parti).length;
+  assert.ok(avant >= 2);
+  const r = chemin.adminAction(ctx, g, { type: 'remplacer', pid: parti, remplacant: 'auto' });
+  assert.equal(r.ok, true, r.msg);
+  assert.ok(!team.chain.includes(parti));
+  assert.ok(team.chain.every((p, i) => i === 0 || p !== team.chain[i - 1]), team.chain.join(' '));
+  const nb = Object.values(team.chain.reduce((m, p) => ({ ...m, [p]: (m[p] || 0) + 1 }), {}));
+  assert.ok(Math.max(...nb) - Math.min(...nb) <= 1, 'toujours bien réparti');
 });

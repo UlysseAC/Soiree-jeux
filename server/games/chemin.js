@@ -59,15 +59,28 @@ export function detectivesFor(n) {
   return Math.max(1, n - 15);
 }
 
-// Répartition : 2 équipes, même nombre de randoms (étapes) dans chacune.
+// Toutes les étapes sont toujours jouées : 14 étapes, puis l'étape 15 commune aux deux équipes.
+export const ETAPES = 15;
+
+// Répartition : 2 équipes tirées au hasard ; dans chacune, les détectives (detectivesFor), puis les randoms.
 export function split(pids) {
   const s = shuffle(pids);
   const half = Math.ceil(s.length / 2);
   const groups = { A: s.slice(0, half), B: s.slice(half) };
-  const R = Math.min(...TEAMS.map(t => groups[t].length - detectivesFor(groups[t].length)));
   const out = {};
-  for (const t of TEAMS) out[t] = { randoms: groups[t].slice(0, R), detectives: groups[t].slice(R) };
+  for (const t of TEAMS) {
+    const R = groups[t].length - detectivesFor(groups[t].length);
+    out[t] = { randoms: groups[t].slice(0, R), detectives: groups[t].slice(R) };
+  }
   return out;
+}
+
+// Chaîne de 15 étapes, à tour de rôle : chaque random fait une étape, puis on recommence dans le même ordre.
+// Avec 6 randoms : 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3. Personne n'enchaîne deux étapes de suite, les étapes de chacun
+// sont espacées régulièrement, et chacun a autant d'étapes à une près (les premiers de l'ordre tiré au hasard ont la de plus).
+export function chaineDe(randoms, n = ETAPES) {
+  if (!randoms.length) return [];
+  return Array.from({ length: n }, (_, i) => randoms[i % randoms.length]);
 }
 
 // Étape affichée et config de l'étape pour l'index `i` d'une chaîne de longueur R.
@@ -96,7 +109,7 @@ export function start(ctx, pids) {
     feed: [],
   };
   for (const t of TEAMS) {
-    const chain = parts[t].randoms;
+    const chain = chaineDe(parts[t].randoms);
     const R = chain.length;
     const taken = new Set();
     const nums = chain.map((_, i) => {
@@ -112,7 +125,7 @@ export function start(ctx, pids) {
       aideUsed: chain.map(() => false), penalty: false, hintAt: 0,
       finishedAt: null, protectUntil: 0, pending: [],
     };
-    for (const p of chain) g.roles[p] = { team: t, role: 'random' };
+    for (const p of parts[t].randoms) g.roles[p] = { team: t, role: 'random' };
     for (const p of parts[t].detectives) {
       g.roles[p] = { team: t, role: 'detective' };
       g.det[p] = { inv: {}, notes: [], visions: [] };
@@ -159,6 +172,13 @@ function advance(g, ctx, T, fromIndex) {
   team.stage = 'number';
   // Indice bonus utilisé : le joueur suivant attendra avant de voir son indice.
   team.penalty = !!team.aideUsed?.[fromIndex];
+  // Le même joueur fait aussi l'étape suivante (une seule personne dans la chaîne, ou après un remplacement) :
+  // pas de numéro à se donner à soi-même, il voit directement son indice.
+  if (j < team.chain.length && team.chain[j] === team.chain[fromIndex]) {
+    team.stage = 'hint';
+    team.hintAt = team.penalty ? ctx.now() + ctx.cfg.penaliteIndice * 1000 : 0;
+    team.penalty = false;
+  }
   if (j >= team.chain.length) {
     team.finishedAt = ctx.now();
     const clean = !team.skipped.some(Boolean);
@@ -426,6 +446,24 @@ export function adminAction(ctx, g, a) {
     team.done[team.cur] = now;
     advance(g, ctx, a.team, team.cur);
     return ok('Étape validée.');
+  }
+  if (a.type === 'remplacer' && a.remplacant === 'auto') {
+    // Joueur parti : les étapes à venir sont redistribuées à tour de rôle entre les autres randoms de l'équipe
+    // (comme au départ) : autant chacun à une près, jamais deux de suite. L'étape en cours d'un autre joueur ne bouge pas.
+    const T = g.roles[a.pid]?.team;
+    if (!T) return err('Joueur inconnu.');
+    const team = g.teams[T];
+    const autres = Object.keys(g.roles).filter(x => x !== a.pid && g.roles[x].team === T && g.roles[x].role === 'random');
+    if (!autres.length) return err('Personne pour reprendre ses étapes : choisis un remplaçant ou saute ses étapes.');
+    const n = team.chain.filter((c, i) => c === a.pid && i >= team.cur).length;
+    const debut = team.chain[team.cur] === a.pid ? team.cur : team.cur + 1;
+    // ordre de passage : d'abord ceux qui devaient jouer le plus tôt
+    const prochain = x => { const k = team.chain.findIndex((c, i) => c === x && i >= debut); return k < 0 ? Infinity : k; };
+    const ordre = shuffle(autres).sort((x, y) => prochain(x) - prochain(y));
+    if (ordre.length > 1 && ordre[0] === team.chain[debut - 1]) ordre.push(ordre.shift());
+    for (let i = debut; i < team.chain.length; i++) team.chain[i] = ordre[(i - debut) % ordre.length];
+    if (!n) return err("Ce joueur n'a plus d'étape à jouer.");
+    return ok(`${n} étape${n > 1 ? 's' : ''} de ${ctx.name(a.pid)} réparties entre les autres joueurs.`);
   }
   if (a.type === 'remplacer') {
     const T = g.roles[a.pid]?.team;

@@ -19,7 +19,9 @@ Cahier des charges validé. Maquette : [`maquettes/le-chemin.html`](maquettes/le
 
 - Les inscrits sont répartis au hasard en **2 équipes**.
 - Chaque équipe a des **randoms** (la chaîne) et des **détectives**.
-- Les deux équipes ont **le même nombre d'étapes** ; un joueur en trop devient détective.
+- **Toujours les 15 étapes** dans chaque équipe (14 étapes, puis l'étape 15 commune). S'il y a moins de 15 randoms, certains ont plusieurs étapes.
+- **À tour de rôle** : les randoms sont mis dans un ordre tiré au hasard, chacun fait une étape, puis on recommence dans le même ordre. Avec 6 randoms : 1 2 3 4 5 6 1 2 3 4 5 6 1 2 3. Personne n'enchaîne deux étapes, les étapes de chacun sont espacées régulièrement, et chacun en a autant à une près. Un seul random dans une équipe : il enchaîne les 15 étapes et voit directement l'indice suivant.
+- Un nombre impair d'inscrits ne crée plus de détective « en trop » : une équipe a simplement un random de plus.
 - Répartition par équipe : **1 seul détective jusqu'à 16 joueurs par équipe**. Au-delà, 15 randoms (15 étapes max) et les joueurs en plus deviennent détectives. Pas de détective sous 3 joueurs.
 
 | Joueurs / équipe | < 3 | 3 à 16 | 17 | 18 | 20 | 25 |
@@ -82,7 +84,7 @@ Règles d'attaque :
 
 ## Joueur parti
 
-- Bouton **Joueur parti** dans l'admin → choisir un **remplaçant** de la même équipe. Le remplaçant reçoit l'étape et doit la valider ; le message du joueur précédent pointe vers le remplaçant.
+- Bouton **Joueur parti** dans l'admin → par défaut **« Répartir entre les autres randoms »** : les étapes à venir sont redistribuées à tour de rôle entre les randoms restants (autant chacun à une près, jamais deux de suite ; l'étape en cours d'un autre joueur ne change pas). On peut aussi choisir un **remplaçant** de la même équipe, qui reprend toutes ses étapes. Le remplaçant reçoit l'étape et doit la valider ; le message du joueur précédent pointe vers le remplaçant.
 - Sans remplaçant, l'étape peut être sautée : l'équipe ne peut alors plus gagner en finissant, elle ne compte qu'à la durée max, avec une étape en moins.
 
 ## Écrans
