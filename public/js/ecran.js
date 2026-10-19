@@ -836,3 +836,5 @@ function draw() {
   }
   requestAnimationFrame(wires);
 }
+// Le serveur n'envoie l'état que s'il change : on redessine quand même chaque seconde (tirage, couleurs du classement…).
+setInterval(() => { if (V) draw(); }, 1000);

@@ -972,3 +972,5 @@ app.addEventListener('change', e => {
   const pid = e.target.dataset.num;
   if (pid) jeu({ type: 'num', pid, value: e.target.value });
 });
+// Le serveur n'envoie l'état que s'il change : on redessine quand même chaque seconde (tirage, couleurs du classement…).
+setInterval(() => { if (V) draw(); }, 1000);

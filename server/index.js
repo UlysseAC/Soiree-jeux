@@ -38,7 +38,8 @@ const qrTest = await QRCode.toDataURL(`${JOIN_URL}?test`, { margin: 1, width: 36
 // ---------- application ----------
 const app = express();
 const http = createServer(app);
-const io = new Server(http);
+// Messages compressés : l'état complet (réglages, classement…) se compresse très bien.
+const io = new Server(http, { perMessageDeflate: { threshold: 1024 } });
 const soiree = new Soiree(restore(saved), { onSfx: name => io.to('ecran').emit('sfx', name) });
 
 const pub = join(ROOT, 'public');
@@ -68,8 +69,16 @@ function broadcast(persist = true) {
   pending = true;
   setImmediate(() => {
     pending = false;
-    for (const sock of io.sockets.sockets.values()) if (sock.data.role) sock.emit('etat', viewFor(sock));
+    for (const sock of io.sockets.sockets.values()) if (sock.data.role) envoyer(sock);
   });
+}
+// N'envoie l'état que s'il a changé depuis le dernier envoi à ce téléphone ou écran : moins de données sur le réseau.
+// Les chronos tournent sur les appareils eux-mêmes, ils n'ont pas besoin d'un envoi chaque seconde.
+function envoyer(sock, force = false) {
+  const v = viewFor(sock), json = JSON.stringify(v);
+  if (!force && json === sock.data.dernier) return;
+  sock.data.dernier = json;
+  sock.emit('etat', v);
 }
 
 // Pendant une vraie partie, la simulation tourne dans une soirée séparée (mêmes réglages, jamais sauvegardée),
@@ -105,7 +114,7 @@ io.on('connection', sock => {
     sock.data.test = (role === 'ecran' || role === 'joueur') && !!h.test;
     if (role === 'ecran') sock.join(sock.data.test ? 'ecran-test' : 'ecran');
     cb({ ok: true });
-    sock.emit('etat', viewFor(sock));
+    envoyer(sock, true);
   });
 
   sock.on('rejoindre', (h = {}, cb = () => {}) => {
