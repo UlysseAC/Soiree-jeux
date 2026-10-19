@@ -2,6 +2,10 @@
 /* global io, morphdom */
 const SJ = (() => {
   const sock = io({ transports: ['websocket', 'polling'] });
+  // Soirée d'un client : pages sous /s/<code>/… ; sur le site de base, pas de code (espace par défaut).
+  const m = location.pathname.match(/^\/s\/([a-z0-9-]+)\//);
+  const espace = m ? m[1] : '';
+  const base = espace ? `/s/${espace}` : '';
   let offset = 0;
 
   // Horloge : on garde l'échantillon au plus court aller-retour.
@@ -26,6 +30,7 @@ const SJ = (() => {
   setInterval(() => { fetch('/ping', { cache: 'no-store' }).catch(() => {}); }, 4 * 60 * 1000);
 
   function emit(ev, payload) {
+    if (ev === 'hello') payload = { ...payload, espace };
     return new Promise(res => sock.timeout(8000).emit(ev, payload, (e, r) => res(e ? { ok: false, msg: 'Connexion perdue, réessaie.' } : r)));
   }
 
@@ -75,7 +80,9 @@ const SJ = (() => {
     if (!r.ok) navigator.vibrate?.(120);
   }
 
+  // Mémoire du navigateur : séparée pour chaque soirée d'un site à plusieurs soirées (jeton, prénom, mot de passe admin…).
   function store(k, v) {
+    if (espace) k = `${k}@${espace}`;
     try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch { return null; }
   }
 
@@ -121,7 +128,7 @@ const SJ = (() => {
   }
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepAwake(); });
 
-  return { sock, now, sync, emit, esc, fmt, money, render, toast, store, hearts, confetti, keepAwake, tickTimers };
+  return { sock, espace, base, now, sync, emit, esc, fmt, money, render, toast, store, hearts, confetti, keepAwake, tickTimers };
 })();
 
 // Décor de chaque mini-jeu sur l'écran et les téléphones (voir body[data-theme] dans style.css).

@@ -5,10 +5,7 @@ import { networkInterfaces } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { Server } from 'socket.io';
-import QRCode from 'qrcode';
-import { Soiree, restore } from './soiree.js';
-import { makeStorage } from './stockage.js';
-import { Simulation } from './simulation.js';
+import { creerGestion, CODE_ESPACE } from './espaces.js';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DATA = process.env.DATA_DIR || join(ROOT, 'data');
@@ -16,10 +13,9 @@ const PORT = Number(process.env.PORT) || 3000;
 // En ligne, pas de mot de passe par défaut : s'il manque, on en tire un au hasard (visible dans les logs).
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || (process.env.RENDER ? Math.random().toString(36).slice(2, 10) : 'soiree');
 
-// ---------- persistance ----------
-const storage = makeStorage(DATA);
-const saved = await storage.load();
-const save = () => storage.save(() => soiree.s);
+// Site à plusieurs soirées (pour les clients) : ESPACES=1. Sinon (par défaut), une seule soirée, comme avant.
+const MULTI = process.env.ESPACES === '1';
+const SUPER_PASSWORD = process.env.SUPER_ADMIN_PASSWORD || '';
 
 // ---------- adresse pour les téléphones ----------
 function lanAddress() {
@@ -31,71 +27,38 @@ function lanAddress() {
 // En ligne (Render), l'adresse publique est fournie par l'hébergeur ; sinon, l'adresse de l'ordi sur le Wi-Fi.
 const PUBLIC_URL = (process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || `http://${lanAddress()}:${PORT}`).replace(/\/$/, '');
 const JOIN_URL = `${PUBLIC_URL}/jouer`;
-const qr = await QRCode.toDataURL(JOIN_URL, { margin: 1, width: 360, color: { dark: '#17110c', light: '#f0e3c8' } });
-// QR code de l'écran de test : il mène au téléphone de test (/jouer?test), pour incarner un joueur de la simulation.
-const qrTest = await QRCode.toDataURL(`${JOIN_URL}?test`, { margin: 1, width: 360, color: { dark: '#17110c', light: '#f0e3c8' } });
 
 // ---------- application ----------
 const app = express();
 const http = createServer(app);
 // Messages compressés : l'état complet (réglages, classement…) se compresse très bien.
 const io = new Server(http, { perMessageDeflate: { threshold: 1024 } });
-const soiree = new Soiree(restore(saved), { onSfx: name => io.to('ecran').emit('sfx', name) });
+
+// ---------- soirées (espaces) et persistance ----------
+const espaces = await creerGestion({ dataDir: DATA, publicUrl: PUBLIC_URL, io, adminPassword: ADMIN_PASSWORD, multi: MULTI, infos: () => ({ enLigne: !!process.env.RENDER }) });
+const defaut = espaces.defaut;
+const storage = defaut.storage;
 
 const pub = join(ROOT, 'public');
 app.use(express.static(pub, { extensions: ['html'] }));
 app.get('/vendor/morphdom.js', (_, res) => res.sendFile(join(ROOT, 'node_modules/morphdom/dist/morphdom-umd.min.js')));
 app.get('/', (_, res) => res.redirect('/jouer'));
-app.get('/infos', (_, res) => res.json({ joinUrl: JOIN_URL, qr }));
+app.get('/infos', (_, res) => res.json({ joinUrl: JOIN_URL, qr: defaut.liens.qr }));
 app.get('/ping', (_, res) => res.type('text').send('ok'));
-
-// ---------- temps réel ----------
-function viewFor(sock) {
-  const d = sock.data;
-  if (d.role === 'admin') return { ...soiree.adminView(), simulation: sim.status(), sauvegardeEnLigne: storage.remote, enLigne: !!process.env.RENDER };
-  if (d.role === 'ecran') return { ...src(sock).screenView(), joinUrl: d.test ? `${JOIN_URL}?test` : JOIN_URL, qr: d.test ? qrTest : qr, test: !!d.test };
-  if (d.role === 'orga') return soiree.orgaView();
-  return d.test ? { ...src(sock).playerView(d.token), simulation: simTest().status() } : soiree.playerView(d.token);
+// Pages d'un espace client : les mêmes pages, sous /s/<code>/… (le code est relu par la page elle-même).
+if (MULTI) {
+  app.get('/s/:code/:page', (req, res, next) => (['jouer', 'ecran', 'admin', 'orga'].includes(req.params.page) && CODE_ESPACE.test(req.params.code) ? res.sendFile(join(pub, `${req.params.page}.html`)) : next()));
+  app.get('/s/:code', (req, res) => res.redirect(`/s/${req.params.code}/jouer`));
 }
-
-// Écran et téléphones de test (?test) : ils suivent le testeur, ou la simulation de l'admin quand elle tourne à part.
-const simTest = () => (!testeur.running && sim.aPart ? sim : testeur);
-const src = sock => (!sock.data.test ? soiree : simTest().ecran());
-
-let pending = false;
-function broadcast(persist = true) {
-  if (persist) save();
-  if (pending) return;
-  pending = true;
-  setImmediate(() => {
-    pending = false;
-    for (const sock of io.sockets.sockets.values()) if (sock.data.role) envoyer(sock);
-  });
-}
-// N'envoie l'état que s'il a changé depuis le dernier envoi à ce téléphone ou écran : moins de données sur le réseau.
-// Les chronos tournent sur les appareils eux-mêmes, ils n'ont pas besoin d'un envoi chaque seconde.
-function envoyer(sock, force = false) {
-  const v = viewFor(sock), json = JSON.stringify(v);
-  if (!force && json === sock.data.dernier) return;
-  sock.data.dernier = json;
-  sock.emit('etat', v);
-}
-
-// Pendant une vraie partie, la simulation tourne dans une soirée séparée (mêmes réglages, jamais sauvegardée),
-// visible sur l'écran de test /ecran?test.
-const sim = new Simulation(soiree, () => broadcast(), () => new Soiree(restore({ config: JSON.parse(JSON.stringify(soiree.s.config)) }), { onSfx: name => io.to('ecran-test').emit('sfx', name) }));
-// Testeur des téléphones de test : complètement indépendant de la soirée (soirée vierge, aucun joueur ni réglage repris).
-const soireeVierge = () => new Soiree(restore({}), { onSfx: name => io.to('ecran-test').emit('sfx', name) });
-const testeur = new Simulation(soireeVierge(), () => broadcast(false), soireeVierge);
 
 // Une erreur imprévue ne doit jamais arrêter le serveur en pleine soirée.
 process.on('uncaughtException', e => console.error('Erreur imprévue :', e));
 process.on('unhandledRejection', e => console.error('Erreur imprévue :', e));
-// Mise à jour ou redémarrage : on sauvegarde avant de s'arrêter, pour ne perdre aucun inscrit.
+// Mise à jour ou redémarrage : on sauvegarde toutes les soirées avant de s'arrêter, pour ne perdre aucun inscrit.
 for (const sig of ['SIGTERM', 'SIGINT']) {
   process.on(sig, async () => {
     setTimeout(() => process.exit(0), 5000).unref();
-    await storage.flush(() => soiree.s);
+    await espaces.toutSauver();
     process.exit(0);
   });
 }
@@ -103,72 +66,101 @@ for (const sig of ['SIGTERM', 'SIGINT']) {
 io.on('connection', sock => {
   // Synchronisation d'horloge : le téléphone compare son heure à celle du serveur.
   sock.on('sync', (_, cb) => typeof cb === 'function' && cb(Date.now()));
+  // L'espace de cet appareil (choisi au « hello ») ; sur le site de base, toujours l'espace par défaut.
+  const esp = () => sock.data.espace ?? (MULTI ? null : defaut);
+  sock.on('disconnect', () => sock.data.espace?.sortir(sock));
 
-  sock.on('hello', (h = {}, cb = () => {}) => {
+  sock.on('hello', async (h = {}, cb = () => {}) => {
+    if (typeof cb !== 'function') cb = () => {};
+    // site de base, ou espace déjà en mémoire : tout de suite ; sinon on le charge depuis sa sauvegarde
+    const code = MULTI ? String(h.espace ?? '') : '';
+    const E = espaces.ouverts.get(code) ?? await espaces.ouvrir(code);
+    if (!E) return cb({ ok: false, msg: 'Soirée introuvable : vérifie l\'adresse.' });
     const role = h.role;
-    if (role === 'admin' && h.password !== ADMIN_PASSWORD) return cb({ ok: false, msg: 'Mot de passe incorrect.' });
-    if (role === 'orga' && String(h.code) !== String(soiree.s.config.orgaCode)) return cb({ ok: false, msg: 'Code orga incorrect.' });
+    if (role === 'admin' && !E.motDePasse(h.password)) return cb({ ok: false, msg: 'Mot de passe incorrect.' });
+    if (role === 'orga' && String(h.code) !== String(E.soiree.s.config.orgaCode)) return cb({ ok: false, msg: 'Code orga incorrect.' });
     if (!['admin', 'ecran', 'orga', 'joueur'].includes(role)) return cb({ ok: false, msg: 'Rôle inconnu.' });
+    if (sock.data.espace && sock.data.espace !== E) sock.data.espace.sortir(sock);
+    sock.data.espace = E;
+    E.entrer(sock);
     sock.data.role = role;
     sock.data.token = h.token;
     sock.data.test = (role === 'ecran' || role === 'joueur') && !!h.test;
-    if (role === 'ecran') sock.join(sock.data.test ? 'ecran-test' : 'ecran');
+    for (const salle of sock.rooms) if (salle !== sock.id) sock.leave(salle);
+    if (role === 'ecran') sock.join(`${E.salle}:${sock.data.test ? 'ecran-test' : 'ecran'}`);
     cb({ ok: true });
-    envoyer(sock, true);
+    E.envoyer(sock, true);
   });
 
-  sock.on('rejoindre', (h = {}, cb = () => {}) => {
-    const r = src(sock).join(sock.data.token, h.name);
+  // Actions d'un appareil : refusées tant qu'il n'a pas rejoint une soirée.
+  const avec = fn => (h = {}, cb = () => {}) => {
+    if (typeof cb !== 'function') cb = () => {};
+    const E = esp();
+    if (!E) return cb({ ok: false, msg: 'Connexion en cours, réessaie.' });
+    E.activite = Date.now();
+    fn(E, h, cb);
+  };
+
+  sock.on('rejoindre', avec((E, h, cb) => {
+    const r = E.src(sock).join(sock.data.token, h.name);
     if (r.ok) sock.data.token = r.token;
     cb(r);
-    broadcast();
-  });
+    E.broadcast();
+  }));
 
-  sock.on('reprendre', (h = {}, cb = () => {}) => {
-    if (typeof cb !== 'function') return;
-    const r = src(sock).reprendre(h.name, h.code);
+  sock.on('reprendre', avec((E, h, cb) => {
+    const r = E.src(sock).reprendre(h.name, h.code);
     if (r.ok) sock.data.token = r.token;
     cb(r);
-  });
+  }));
 
-  sock.on('reclamer', (h = {}, cb = () => {}) => {
-    if (typeof cb !== 'function') return;
+  sock.on('reclamer', avec((E, h, cb) => {
     let r;
-    try { r = src(sock).claimMini(sock.data.token, h.nom); } catch (e) { console.error(e); r = { ok: false, msg: 'Erreur interne.' }; }
+    try { r = E.src(sock).claimMini(sock.data.token, h.nom); } catch (e) { console.error(e); r = { ok: false, msg: 'Erreur interne.' }; }
     if (r.ok) sock.data.token = r.token;
     cb(r);
-    broadcast();
-  });
+    E.broadcast();
+  }));
 
-  const guard = (role, fn) => (a = {}, cb = () => {}) => {
+  const guard = (role, fn) => avec((E, a, cb) => {
     if (sock.data.role !== role) return cb({ ok: false, msg: 'Non autorisé.' });
     let r;
-    try { r = fn(a); } catch (e) { console.error(e); r = { ok: false, msg: 'Erreur interne.' }; }
+    try { r = fn(E, a); } catch (e) { console.error(e); r = { ok: false, msg: 'Erreur interne.' }; }
     cb(r ?? { ok: true });
-    broadcast();
-  };
-  sock.on('jeuData', (q = {}, cb = () => {}) => {
-    if (sock.data.role !== 'ecran' && sock.data.role !== 'admin') return cb(null);
-    cb(src(sock).data(q));
+    E.broadcast();
   });
-  sock.on('joueur', guard('joueur', a => src(sock).player(sock.data.token, a)));
-  sock.on('admin', guard('admin', a => (a.type === 'simulation' ? sim.handle(a) : soiree.admin(a))));
-  sock.on('orga', guard('orga', a => soiree.orga(a)));
+  sock.on('jeuData', avec((E, q, cb) => {
+    if (sock.data.role !== 'ecran' && sock.data.role !== 'admin') return cb(null);
+    cb(E.src(sock).data(q));
+  }));
+  sock.on('joueur', guard('joueur', (E, a) => E.src(sock).player(sock.data.token, a)));
+  sock.on('admin', guard('admin', (E, a) => (a.type === 'simulation' ? E.sim.handle(a) : E.soiree.admin(a))));
+  sock.on('orga', guard('orga', (E, a) => E.soiree.orga(a)));
   // Téléphone de test : lancer (ou arrêter) le test d'un mini-jeu pour y jouer soi-même. Toujours à part, avec le mot de passe admin.
-  sock.on('testMiniJeu', (h = {}, cb = () => {}) => {
+  sock.on('testMiniJeu', avec((E, h, cb) => {
+    if (!E.motDePasse(h.password)) return cb({ ok: false, msg: 'Mot de passe admin incorrect.' });
+    cb(h.cmd === 'stop' ? E.testeur.handle({ cmd: 'stop' }) : E.testeur.handle({ cmd: 'start', games: [`mini:${h.type}`], moi: Math.max(1, Math.min(10, Math.round(Number(h.moi)) || 1)), aPart: true }));
+    E.broadcast();
+  }));
+
+  // Super-admin (site à plusieurs soirées) : liste et création des espaces des clients.
+  sock.on('super', (h = {}, cb = () => {}) => {
     if (typeof cb !== 'function') return;
-    if (h.password !== ADMIN_PASSWORD) return cb({ ok: false, msg: 'Mot de passe admin incorrect.' });
-    cb(h.cmd === 'stop' ? testeur.handle({ cmd: 'stop' }) : testeur.handle({ cmd: 'start', games: [`mini:${h.type}`], moi: Math.max(1, Math.min(10, Math.round(Number(h.moi)) || 1)), aPart: true }));
-    broadcast();
+    if (!MULTI || !SUPER_PASSWORD) return cb({ ok: false, msg: 'Ce site n\'accueille qu\'une soirée.' });
+    if (h.password !== SUPER_PASSWORD) return cb({ ok: false, msg: 'Mot de passe incorrect.' });
+    if (h.cmd === 'creer') return cb(espaces.creer(h));
+    cb({ ok: true, espaces: espaces.liste(), base: PUBLIC_URL });
   });
 });
 
 // Tick rapide : le « FEU ! » du face-à-face doit partir au bon moment.
 setInterval(() => {
-  try { const vrai = soiree.tick(), test = sim.tick() | testeur.tick(); if (vrai || test) broadcast(); } catch (e) { console.error('Erreur pendant le jeu :', e); }
+  try { espaces.tick(); } catch (e) { console.error('Erreur pendant le jeu :', e); }
 }, 40);
 // Rafraîchit aussi les vues chaque seconde (disponibilités, recharges, résultats affichés).
-setInterval(() => broadcast(false), 1000);
+setInterval(() => espaces.rafraichir(), 1000);
+// Retire de la mémoire les soirées clientes inactives (leur sauvegarde reste).
+if (MULTI) setInterval(() => espaces.menage().catch(e => console.error('Ménage des espaces :', e)), 60e3);
 
 http.listen(PORT, '0.0.0.0', () => {
   console.log('\n  🎲 Soirée jeux prête !\n');
@@ -176,5 +168,6 @@ http.listen(PORT, '0.0.0.0', () => {
   console.log(`  Écran public : ${PUBLIC_URL}/ecran`);
   console.log(`  Admin        : ${PUBLIC_URL}/admin   (mot de passe : ${process.env.ADMIN_PASSWORD ? 'celui de ADMIN_PASSWORD' : ADMIN_PASSWORD})`);
   console.log(`  Orga         : ${PUBLIC_URL}/orga\n`);
+  if (MULTI) console.log(`  Plusieurs soirées : ${PUBLIC_URL}/s/<code>/…   (super-admin : ${PUBLIC_URL}/super${SUPER_PASSWORD ? '' : ', mot de passe SUPER_ADMIN_PASSWORD manquant'})\n`);
   console.log(storage.remote ? '  Sauvegarde : fichier local + en ligne (Upstash)\n' : '  Sauvegarde : fichier local (data/soiree.json)\n');
 });

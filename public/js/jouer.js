@@ -700,7 +700,7 @@ function miniJeux() {
 function testPanel() {
   const s = V.simulation;
   if (!TEL_TEST || !s) return '';
-  const lien = '<a class="muted" href="/ecran?test" target="_blank" rel="noopener">📺 Ouvrir l\'écran de test</a>';
+  const lien = `<a class="muted" href="${SJ.base}/ecran?test" target="_blank" rel="noopener">📺 Ouvrir l'écran de test</a>`;
   if (s.running) return `<div class="card test-panel"><strong>🧪 Test en cours</strong><p class="muted" style="margin:0">${esc(s.step)}</p><button class="btn sm" data-act="testArreter">Arrêter le test</button>${lien}</div>`;
   ui.testType ??= s.tests[0]?.[0];
   return `<div class="card test-panel"><strong>🧪 Tester un mini-jeu</strong>

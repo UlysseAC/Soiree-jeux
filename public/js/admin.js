@@ -180,14 +180,14 @@ ${[[-300, '−5 min'], [-60, '−1 min'], [60, '+1 min'], [300, '+5 min']].map((
       ${ui.reprise ? `<p style="margin:0;font-size:20px">Code pour <strong>${esc(ui.reprise.name)}</strong> : <strong class="mono" style="font-size:28px">${ui.reprise.code}</strong> <span class="muted" style="font-size:14px">(valable 10 min, une fois)</span></p>` : ''}
       <h2 style="margin-top:8px">Liens</h2>
       <div class="stack" style="gap:6px;font-size:14px">
-        <div>📺 Écran public : <a href="/ecran" target="_blank" class="mono">${location.origin}/ecran</a></div>
-        <div>📱 Joueurs : <a href="/jouer" target="_blank" class="mono">${location.origin}/jouer</a> (QR code sur l'écran)</div>
-        <div>🛡 Orga safe zone : <a href="/orga" target="_blank" class="mono">${location.origin}/orga</a></div>
+        <div>📺 Écran public : <a href="${SJ.base}/ecran" target="_blank" class="mono">${location.origin}${SJ.base}/ecran</a></div>
+        <div>📱 Joueurs : <a href="${SJ.base}/jouer" target="_blank" class="mono">${location.origin}${SJ.base}/jouer</a> (QR code sur l'écran)</div>
+        <div>🛡 Orga safe zone : <a href="${SJ.base}/orga" target="_blank" class="mono">${location.origin}${SJ.base}/orga</a></div>
       </div>
       <div class="grid-auto">${cfgInput('orgaCode', V.config.orgaCode, 'text', { scope: 'soiree', label: 'Code orga' })}</div>
       <h2 style="margin-top:8px">Simulation</h2>
       <p class="muted" style="margin:0;font-size:14px">De faux joueurs jouent pour de vrai : regarde l'écran public. Tes réglages sont remis comme avant à la fin.
-        Pendant une vraie partie, la simulation tourne à part, sans rien toucher : regarde-la sur l'<a href="/ecran?test" target="_blank" rel="noopener">écran de test</a>.
+        Pendant une vraie partie, la simulation tourne à part, sans rien toucher : regarde-la sur l'<a href="${SJ.base}/ecran?test" target="_blank" rel="noopener">écran de test</a>.
         <strong>Joueurs incarnés</strong> : autant de places sont gardées pour de vrais téléphones. Seulement pour le test d'un mini-jeu : ouvre <span class="mono">/jouer?test</span> sur ton téléphone (ou scanne le QR code de l'écran de test) et prends un nom « Incarné 1, 2… » ; la partie attend tes téléphones.</p>
       ${V.simulation?.running ? `<div class="row"><span class="pill accent">▶ ${esc(V.simulation.step)}</span><span class="muted">${V.simulation.bots} faux joueurs</span><button class="btn sm danger" data-act="simStop">Arrêter</button></div>` : `
       <div class="row"><label class="field" style="max-width:120px"><span class="label">Faux joueurs</span><input class="in" id="sim-n" inputmode="numeric" value="50"></label>

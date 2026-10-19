@@ -4,6 +4,18 @@ Aujourd'hui, un serveur = **une seule soirée** : un seul état en mémoire, une
 un seul mot de passe admin (variable `ADMIN_PASSWORD`), et chaque mise à jour envoie l'état à **tous** les appareils
 connectés. Pour vendre, il faut qu'un même site accueille plusieurs clients en même temps, chacun dans son espace.
 
+## Où on en est
+
+- **Étape 1 faite** (avec le minimum de l'étape 2 pour pouvoir s'en servir) : soirées séparées, une sauvegarde par
+  espace, envois limités aux appareils de chaque espace, pages sous `/s/<code>/…`, mémoire du navigateur séparée par
+  soirée, page super-admin `/super` pour créer les espaces à la main.
+- **Le site de base ne change pas** : sans la variable `ESPACES=1`, il n'y a qu'une soirée, aux mêmes adresses, avec la
+  même sauvegarde et le même mot de passe (`ADMIN_PASSWORD`). Les adresses `/s/…` n'existent pas.
+- **Pour l'activer** sur un autre service (par exemple « Soirée Pro ») : `ESPACES=1` et `SUPER_ADMIN_PASSWORD`, plus sa
+  propre base Upstash. Le même code sert aux deux sites : chaque amélioration profite aux deux.
+- Code : `server/espace.js` (une soirée et ses appareils), `server/espaces.js` (registre, chargement, mise en veille),
+  `public/super.html` ; tests dans `test/espaces.test.js`.
+
 ## Le principe
 
 - Chaque client a un **espace** avec un code court (ex. `mariage-lea`). Toutes ses pages sont sous ce code :

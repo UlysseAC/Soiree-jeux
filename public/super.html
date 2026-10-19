@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Soirée jeux — super-admin</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<main class="admin" id="app" style="max-width:900px;margin:0 auto;padding:16px"><p class="muted">Connexion…</p></main>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/vendor/morphdom.js"></script>
+<script src="/js/common.js"></script>
+<script>
+// Super-admin d'un site à plusieurs soirées (ESPACES=1) : les espaces des clients, et la création d'un nouvel espace.
+const app = document.getElementById('app');
+const { esc } = SJ;
+let L = null;
+
+async function charger(password = SJ.store('sj-super')) {
+  if (!password) return draw();
+  const r = await SJ.emit('super', { password });
+  if (!r.ok) { SJ.store('sj-super', null); SJ.toast(r); L = null; return draw(); }
+  SJ.store('sj-super', password);
+  L = r;
+  draw();
+}
+SJ.sock.on('connect', () => charger());
+
+function draw() {
+  if (!L) {
+    if (!document.getElementById('pw')) SJ.render(app, `<h1 class="ph-title">Super-admin</h1>
+      <form id="login" class="stack" style="max-width:360px"><label class="field"><span class="label">Mot de passe super-admin</span><input class="in" id="pw" type="password"></label><button class="btn primary">Entrer</button></form>`);
+    return;
+  }
+  const lien = (code, page) => `${L.base}/s/${code}/${page}`;
+  SJ.render(app, `<div class="spread"><h1 class="ph-title">Soirées des clients</h1><button class="btn sm" data-act="sortir">Se déconnecter</button></div>
+    <div class="box"><h2>Nouvel espace</h2>
+      <p class="muted" style="margin:0;font-size:14px">Le code fait partie de l'adresse du client (ex. mariage-lea → ${esc(L.base)}/s/mariage-lea/jouer). Donne-lui son lien admin et le mot de passe admin.</p>
+      <form id="creer" class="grid-auto">
+        <label class="field"><span class="label">Code</span><input class="in" id="c-code" placeholder="mariage-lea" autocomplete="off"></label>
+        <label class="field"><span class="label">Nom</span><input class="in" id="c-nom" placeholder="Mariage de Léa et Hugo"></label>
+        <label class="field"><span class="label">Mot de passe admin du client</span><input class="in" id="c-pw" autocomplete="new-password"></label>
+        <button class="btn primary" style="align-self:end">Créer l'espace</button>
+      </form></div>
+    <div class="box"><h2>Espaces (${L.espaces.length})</h2>
+      ${L.espaces.length ? `<div class="scroll"><table><thead><tr><th>Code</th><th>Nom</th><th>État</th><th>Liens</th></tr></thead><tbody>
+        ${L.espaces.map(e => `<tr><td class="mono">${esc(e.code)}</td><td>${esc(e.nom)}</td>
+          <td>${e.charge ? `<span class="pill ok">${e.appareils} appareil${e.appareils > 1 ? 's' : ''}${e.statut && e.statut !== 'idle' ? ` · ${esc(e.statut)}` : ''}</span>` : '<span class="pill">en veille</span>'}</td>
+          <td class="nowrap"><a href="${lien(e.code, 'admin')}" target="_blank">admin</a> · <a href="${lien(e.code, 'ecran')}" target="_blank">écran</a> · <a href="${lien(e.code, 'jouer')}" target="_blank">joueurs</a></td></tr>`).join('')}
+      </tbody></table></div>` : '<p class="muted" style="margin:0">Aucun espace pour l\'instant.</p>'}
+      <button class="btn sm" data-act="rafraichir">Rafraîchir</button></div>`);
+}
+
+app.addEventListener('submit', async e => {
+  e.preventDefault();
+  if (e.target.id === 'login') return charger(document.getElementById('pw').value);
+  if (e.target.id === 'creer') {
+    const r = await SJ.emit('super', { password: SJ.store('sj-super'), cmd: 'creer', code: document.getElementById('c-code').value, nom: document.getElementById('c-nom').value, motDePasse: document.getElementById('c-pw').value });
+    SJ.toast(r);
+    if (r.ok) { e.target.reset(); charger(); }
+  }
+});
+app.addEventListener('click', e => {
+  const a = e.target.closest('[data-act]')?.dataset.act;
+  if (a === 'sortir') { SJ.store('sj-super', null); L = null; draw(); }
+  if (a === 'rafraichir') charger();
+});
+</script>
+</body>
+</html>

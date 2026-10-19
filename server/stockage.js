@@ -1,16 +1,17 @@
 // Sauvegarde de la soirée : fichier local, et en option une base Upstash Redis gratuite
 // (indispensable en ligne sur Render gratuit, dont le disque est effacé à chaque redémarrage).
 import { readFileSync, writeFileSync, mkdirSync, renameSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 
-const KEY = 'soiree-jeux';
-
-export function makeStorage(dataDir, env = process.env) {
-  const file = join(dataDir, 'soiree.json');
+// Par défaut : la soirée unique (clé « soiree-jeux », fichier soiree.json), comme avant les espaces.
+// Un espace (site à plusieurs soirées) a sa propre clé et son propre fichier.
+export function makeStorage(dataDir, env = process.env, { key = 'soiree-jeux', fichier = 'soiree.json' } = {}) {
+  const KEY = key;
+  const file = join(dataDir, fichier);
   const url = env.UPSTASH_REDIS_REST_URL?.replace(/\/$/, '');
   const token = env.UPSTASH_REDIS_REST_TOKEN;
   const remote = !!(url && token);
-  mkdirSync(dataDir, { recursive: true });
+  mkdirSync(dirname(file), { recursive: true });
 
   // Les films des sports sont lourds et recalculables : on ne les envoie pas en ligne.
   const light = state => JSON.stringify(state, (k, v) => (k === 'replays' ? {} : v));
