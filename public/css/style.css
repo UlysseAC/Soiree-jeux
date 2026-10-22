@@ -745,6 +745,10 @@ body[data-theme="detective"] .card, body[data-theme="detective"] .mj-rules { bac
 /* ---------- L'Enquête ---------- */
 .pions { display: flex; flex-wrap: wrap; gap: 6px; }
 .pion { --c: var(--muted); display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 6px; border-radius: 999px; background: var(--panel2); border: 1px solid var(--line); font-weight: 600; font-size: 14px; color: var(--text); white-space: nowrap; }
+.pion:not([style*="--c"])::before { display: none; }
+.pion { padding-left: 10px; }
+.pion[style*="--c"] { padding-left: 6px; }
+.pion-perso { font-weight: 500; color: var(--muted); }
 .pion::before { content: ""; width: 14px; height: 14px; border-radius: 50%; background: var(--c); box-shadow: 0 0 0 1px rgba(255, 255, 255, .3); flex: none; }
 button.pion.choix { padding: 9px 14px 9px 9px; font-size: 16px; }
 button.pion.choix[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }

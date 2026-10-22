@@ -1,6 +1,6 @@
 // Jeu 5 — L'Enquête : un Cluedo grandeur nature. Voir docs/jeu5-enquete.md.
 // Après un dîner, tout le monde est amnésique et un cadavre est dans la maison. Une salle, un personnage et une arme
-// forment la solution (personne ne les a). Chaque joueur est un personnage (une couleur) et reçoit 3 cartes ; le joueur
+// forment la solution (personne ne les a). Chaque joueur incarne un personnage (réglé dans l'admin) et reçoit 3 cartes ; le joueur
 // dont le personnage est dans la solution est le tueur… sans le savoir. On se déplace de salle en salle en scannant le
 // QR code de la tablette ; dans une salle, on interroge un joueur présent ou on demande un indice à la tablette.
 import { createHmac, randomBytes } from 'node:crypto';
@@ -10,13 +10,12 @@ export const id = 'enquete';
 export const name = "L'Enquête";
 export const minPlayers = 2;
 
-// Couleur de chaque personnage, dans l'ordre de la liste des personnages.
-export const COULEURS = ['#e7584f', '#4f8fe7', '#5cc47a', '#f0c93a', '#a678e8', '#e0833d', '#ef7fb8', '#ece6d9', '#2b2b2b', '#9aa1ae', '#8b5a2b', '#3cc8c8', '#d4af37', '#c0c6cf'];
 
 export function defaultConfig() {
   return {
     salles: ['Cuisine', 'Salon', 'Salle à manger', 'Bibliothèque', 'Bureau', 'Chambre', 'Salle de bain', 'Entrée', 'Jardin', 'Cave', 'Grenier'].join('\n'),
-    personnages: ['Rouge', 'Bleu', 'Vert', 'Jaune', 'Violet', 'Orange', 'Rose', 'Blanc', 'Noir', 'Gris', 'Marron', 'Turquoise', 'Doré', 'Argent'].join('\n'),
+    // Une ligne par personnage : « Prénom du joueur = Personnage », ou juste « Personnage » (donné à un joueur sans personnage prévu).
+    personnages: ['Le Majordome', 'La Comtesse', 'Le Docteur', 'Le Colonel', 'La Cantatrice', 'Le Professeur', 'La Gouvernante', 'Le Notaire', "L'Héritière", 'Le Jardinier', 'La Veuve', 'Le Chef cuisinier', "L'Aventurière", 'Le Pasteur'].join('\n'),
     armes: ['Couteau', 'Corde', 'Chandelier', 'Revolver', 'Poison', 'Clé anglaise', 'Matraque'].join('\n'),
     intro: "Vous vous réveillez autour de la table du dîner. Personne ne se souvient de rien.\nDans la maison, un corps.\nPersonne n'a pu entrer ni sortir : le coupable est l'un d'entre vous… et il ne le sait peut-être pas lui-même.",
     dureeMax: 7200, // durée maximale de l'enquête (s)
@@ -44,18 +43,42 @@ export function defaultConfig() {
 
 // ---------- outils ----------
 const lignes = (t, max = 40) => String(t ?? '').split(/\r?\n/).map(x => x.trim().slice(0, 40)).filter(Boolean).slice(0, max);
+const norm = x => String(x ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+// Personnages réglés dans l'admin : [{ joueur (prénom, ou null), nom }].
+export function personnagesDe(texte) {
+  return String(texte ?? '').split(/\r?\n/).map(l => l.trim()).filter(Boolean).slice(0, 40).map(l => {
+    const i = l.indexOf('=');
+    return i < 0 ? { joueur: null, nom: l.slice(0, 40) } : { joueur: l.slice(0, i).trim() || null, nom: l.slice(i + 1).trim().slice(0, 40) };
+  }).filter(x => x.nom);
+}
+// Personnage de chaque joueur : celui prévu pour son prénom, sinon un personnage libre (d'abord ceux sans prénom).
+function attribuer(ctx, pids, deja = []) {
+  const liste = personnagesDe(ctx.cfg.personnages).filter(x => !deja.includes(x.nom));
+  const pris = new Set(), out = {};
+  for (const p of pids) {
+    const k = liste.findIndex((x, i) => !pris.has(i) && x.joueur && norm(x.joueur) === norm(ctx.name(p)));
+    if (k >= 0) { pris.add(k); out[p] = liste[k].nom; }
+  }
+  const libres = [...liste.keys()].filter(i => !pris.has(i)).sort((a, b) => !!liste[a].joueur - !!liste[b].joueur);
+  let n = deja.length + Object.keys(out).length;
+  for (const p of pids) {
+    if (out[p]) continue;
+    const k = libres.shift();
+    out[p] = k != null ? liste[k].nom : `Personnage ${++n}`;
+  }
+  return out;
+}
 const ok = msg => ({ ok: true, msg });
 const err = msg => ({ ok: false, msg });
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const TYPES = { s: 'salle', p: 'perso', a: 'arme' };
 
-// Cartes de la partie : salles s0…, personnages p0… (autant que de joueurs), armes a0….
-function cartesDe(cfg, n) {
-  const salles = lignes(cfg.salles, 20), armes = lignes(cfg.armes, 20), persos = lignes(cfg.personnages, 30);
-  while (persos.length < n) persos.push(`Personnage ${persos.length + 1}`);
+// Cartes de la partie : salles s0…, personnages p0… (un par joueur, dans l'ordre donné), armes a0….
+function cartesDe(cfg, persos) {
+  const salles = lignes(cfg.salles, 20), armes = lignes(cfg.armes, 20);
   const c = {};
   salles.forEach((nom, i) => { c[`s${i}`] = { id: `s${i}`, type: 'salle', nom }; });
-  persos.slice(0, n).forEach((nom, i) => { c[`p${i}`] = { id: `p${i}`, type: 'perso', nom, couleur: COULEURS[i % COULEURS.length] }; });
+  persos.forEach((nom, i) => { c[`p${i}`] = { id: `p${i}`, type: 'perso', nom }; });
   armes.forEach((nom, i) => { c[`a${i}`] = { id: `a${i}`, type: 'arme', nom }; });
   return c;
 }
@@ -101,11 +124,12 @@ const qui = (ctx, g, p) => `${ctx.name(p)} (${nom(g, g.joueurs[p].perso)})`;
 export function start(ctx, pids) {
   const cfg = ctx.cfg;
   const ordre = shuffle(pids);
+  const persos = attribuer(ctx, ordre);
   const g = {
     phase: 'intro', // intro | enquete | finale ; puis finished
     debut: 0, endsAt: 0, finaleAt: 0,
     secret: randomBytes(16).toString('hex'),
-    cartes: cartesDe(cfg, pids.length),
+    cartes: cartesDe(cfg, ordre.map(p => persos[p])),
     joueurs: {}, // pid -> { perso, main, salle, indices, pris: { salle: n }, accuse, nextAsk, last, vus: { carte: [pid] }, elimines: [], coches: [] }
     questions: [], // { id, de, a, salle, perso, arme, at, carte, etat }
     feed: [], finished: false, winner: null, finishedAt: 0, solution: null,
@@ -307,6 +331,15 @@ export function adminAction(ctx, g, a) {
     terminer(ctx, g);
     return ok('Enquête terminée : la solution est révélée.');
   }
+  if (a.type === 'personnage') { // pendant l'introduction : l'admin change le personnage d'un joueur (échange avec celui qui l'avait)
+    const J = g.joueurs[a.pid];
+    if (!J || g.cartes[a.perso]?.type !== 'perso') return err('Joueur ou personnage inconnu.');
+    if (g.phase !== 'intro' || g.finished) return err("Les personnages ne se changent que pendant l'introduction.");
+    const autre = Object.values(g.joueurs).find(x => x.perso === a.perso);
+    if (autre) autre.perso = J.perso;
+    J.perso = a.perso;
+    return ok(`${ctx.name(a.pid)} est ${nom(g, a.perso)}.`);
+  }
   if (a.type === 'placer') { // l'admin place un joueur dans une salle (QR code qui ne passe pas)
     const J = g.joueurs[a.pid];
     if (!J || g.cartes[a.salle]?.type !== 'salle') return err('Joueur ou salle inconnu.');
@@ -316,14 +349,12 @@ export function adminAction(ctx, g, a) {
   return err('Action inconnue.');
 }
 
-// Rattrapage : un joueur ajouté en cours de partie reçoit une couleur et 3 cartes (doublons possibles).
+// Rattrapage : un joueur ajouté en cours de partie reçoit son personnage (ou un libre) et 3 cartes (doublons possibles).
 export function ajouterJoueur(ctx, g, p) {
   if (g.joueurs[p]) return err('Ce joueur est déjà dans la partie.');
   if (g.finished) return err('La partie est terminée.');
-  const pris = new Set(Object.values(g.joueurs).map(j => j.perso));
-  let i = 0;
-  while (pris.has(`p${i}`) && g.cartes[`p${i}`]) i++;
-  if (!g.cartes[`p${i}`]) g.cartes[`p${i}`] = { id: `p${i}`, type: 'perso', nom: lignes(ctx.cfg.personnages, 30)[i] || `Personnage ${i + 1}`, couleur: COULEURS[i % COULEURS.length] };
+  const i = deType(g, 'perso').length;
+  g.cartes[`p${i}`] = { id: `p${i}`, type: 'perso', nom: attribuer(ctx, [p], deType(g, 'perso').map(c => g.cartes[c].nom))[p] };
   const sol = new Set(Object.values(g.solution));
   const main = shuffle(Object.keys(g.cartes).filter(c => !sol.has(c))).slice(0, 3);
   g.joueurs[p] = { perso: `p${i}`, main, salle: null, indices: 0, pris: {}, accuse: null, nextAsk: 0, last: null, vus: {}, elimines: [], coches: [] };
@@ -385,7 +416,7 @@ export function screenView(ctx, g) {
   return {
     phase: g.phase, finished: g.finished, endsAt: g.endsAt, finaleAt: g.finaleAt, debut: g.debut,
     intro: ctx.cfg.intro,
-    salles: deType(g, 'salle').map(s => ({ ...carteVue(g, s), joueurs: presents(g, s).map(p => ({ name: ctx.name(p), couleur: g.cartes[g.joueurs[p].perso].couleur })) })),
+    salles: deType(g, 'salle').map(s => ({ ...carteVue(g, s), joueurs: presents(g, s).map(p => ({ name: ctx.name(p), perso: nom(g, g.joueurs[p].perso) })) })),
     joueurs: Object.keys(g.joueurs).length,
     feed: g.feed.slice(0, 14),
     winner: g.winner ? qui(ctx, g, g.winner) : null,
@@ -417,7 +448,7 @@ export function salleView(ctx, g, n) {
     nom: g.cartes[s].nom, n, phase: g.phase, finished: g.finished,
     code: g.phase === 'intro' || g.finished ? null : codesDe(g, w)[n],
     change: rot > 0 ? (w + 1) * rot : 0,
-    joueurs: presents(g, s).map(p => ({ name: ctx.name(p), couleur: g.cartes[g.joueurs[p].perso].couleur })),
+    joueurs: presents(g, s).map(p => ({ name: ctx.name(p), perso: nom(g, g.joueurs[p].perso) })),
   };
 }
 

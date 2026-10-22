@@ -463,7 +463,7 @@ function minijeux(g) {
 }
 
 // ---------- jeu 5 : L'Enquête ----------
-const eqCarteE = c => `<span class="eq-carte">${c.type === 'perso' ? `<i class="eq-pastille" style="--c:${c.couleur}"></i>` : c.type === 'salle' ? '🚪' : '🗡'} ${esc(c.nom)}</span>`;
+const eqCarteE = c => `<span class="eq-carte">${c.type === 'perso' ? '👤' : c.type === 'salle' ? '🚪' : '🗡'} ${esc(c.nom)}</span>`;
 function enquete(g) {
   if (g.phase === 'intro' && !g.finished) {
     return `<div class="eq-intro"><div class="label" style="font-size:18px">${esc(V.gameName)}</div>
@@ -477,12 +477,12 @@ function enquete(g) {
       <div class="eq-solution">${eqCarteE(r.perso)}<span class="muted">avec</span>${eqCarteE(r.arme)}<span class="muted">dans</span>${eqCarteE(r.salle)}</div>
       ${r.tueur ? `<p class="eq-tueur">🔪 Le tueur était <strong>${esc(r.tueur)}</strong>… sans le savoir.</p>` : ''}
       <div class="label">Classement</div>
-      <ol class="eq-classement">${r.classement.map(c => `<li><span class="pion" style="--c:${c.perso.couleur}">${esc(c.name)}</span><span class="mono">${c.won ? '🏆' : `${c.indices} 💡`}</span></li>`).join('')}</ol></div>`;
+      <ol class="eq-classement">${r.classement.map(c => `<li><span class="pion">${esc(c.name)} <small class="pion-perso">${esc(c.perso.nom)}</small></span><span class="mono">${c.won ? '🏆' : `${c.indices} 💡`}</span></li>`).join('')}</ol></div>`;
   }
   const sub = `${g.phase === 'finale' ? '<strong style="color:var(--accent)">⚡ Phase finale : indices doublés</strong> · ' : ''}Fin dans <span class="mono" data-until="${g.endsAt}"></span>`;
   return `${head(sub)}<div class="eq-ecran">
     <div class="eq-salles">${g.salles.map(s => `<div class="eq-salle ${s.joueurs.length ? 'occupee' : ''}"><strong>${esc(s.nom)}</strong>
-      <div class="pions">${s.joueurs.map(j => `<span class="pion" style="--c:${j.couleur}">${esc(j.name)}</span>`).join('')}</div></div>`).join('')}</div>
+      <div class="pions">${s.joueurs.map(j => `<span class="pion">${esc(j.name)} <small class="pion-perso">${esc(j.perso)}</small></span>`).join('')}</div></div>`).join('')}</div>
     <div class="stack"><div class="label">En direct</div><div class="feed">${g.feed.map(f => `<div><time>${hm(f.t)}</time><span>${esc(f.text)}</span></div>`).join('')}</div></div>
   </div>`;
 }

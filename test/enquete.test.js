@@ -33,13 +33,13 @@ test('cartes : 11 salles, autant de personnages que de joueurs, 7 armes ; soluti
     const distribuees = 11 + n + 7 - 3;
     assert.equal(Object.keys(compte).length, distribuees, 'toutes les cartes hors solution sont distribuées');
     assert.equal(Object.values(compte).filter(x => x === 2).length, 3 * n - distribuees, `${n} joueurs : ${3 * n - distribuees} doublons`);
-    assert.equal(new Set(Object.values(g.joueurs).map(J => J.perso)).size, n, 'une couleur par joueur');
+    assert.equal(new Set(Object.values(g.joueurs).map(J => J.perso)).size, n, 'un personnage par joueur');
   }
 });
 
 test('solution fixée dans l\'admin ; le tueur est le joueur de ce personnage', () => {
-  const { g, ctx } = setup(12, c => ({ ...c, solution: { salle: 'Cave', perso: 'Bleu', arme: 'Poison' } }));
-  assert.deepEqual([g.cartes[g.solution.salle].nom, g.cartes[g.solution.perso].nom, g.cartes[g.solution.arme].nom], ['Cave', 'Bleu', 'Poison']);
+  const { g, ctx } = setup(12, c => ({ ...c, solution: { salle: 'Cave', perso: 'La Comtesse', arme: 'Poison' } }));
+  assert.deepEqual([g.cartes[g.solution.salle].nom, g.cartes[g.solution.perso].nom, g.cartes[g.solution.arme].nom], ['Cave', 'La Comtesse', 'Poison']);
   E.adminAction(ctx, g, { type: 'lancer' });
   E.adminAction(ctx, g, { type: 'terminer' });
   const tueur = Object.keys(g.joueurs).find(p => g.joueurs[p].perso === g.solution.perso);
@@ -199,9 +199,26 @@ test('temps : phase finale au bout du temps réglé, révélation à la fin', ()
   assert.ok(E.screenView(ctx, g).revelation.salle.nom);
 });
 
-test('rattrapage : un joueur ajouté en cours reçoit une couleur et 3 cartes', () => {
-  const { g, ctx } = setup(12);
+test('personnages liés aux prénoms (accents et majuscules ignorés), les autres joueurs prennent un personnage libre ; l\'admin échange pendant l\'introduction', () => {
+  const { g, ctx } = setup(4, c => { c.personnages = 'j1 = Le Majordome\nLa Comtesse\nJ3 = Le Docteur\nInconnu = Le Colonel\nLa Veuve'; return c; });
+  const persoDe = p => g.cartes[g.joueurs[p].perso].nom;
+  assert.equal(persoDe('p1'), 'Le Majordome');
+  assert.equal(persoDe('p3'), 'Le Docteur');
+  assert.deepEqual([persoDe('p0'), persoDe('p2')].sort(), ['La Comtesse', 'La Veuve'], 'd\'abord les personnages sans prénom');
+  assert.equal(Object.values(g.cartes).filter(c => c.type === 'perso').length, 4, 'autant de personnages que de joueurs');
+  const majordome = g.joueurs.p1.perso;
+  assert.equal(E.adminAction(ctx, g, { type: 'personnage', pid: 'p0', perso: majordome }).ok, true);
+  assert.equal(persoDe('p0'), 'Le Majordome');
+  assert.notEqual(persoDe('p1'), 'Le Majordome', 'échange');
+  E.adminAction(ctx, g, { type: 'lancer' });
+  assert.equal(E.adminAction(ctx, g, { type: 'personnage', pid: 'p0', perso: majordome }).ok, false, 'plus après l\'introduction');
+});
+
+test('rattrapage : un joueur ajouté en cours reçoit son personnage (ou un libre) et 3 cartes', () => {
+  const { g, ctx } = setup(12, c => { c.personnages += '\n? = Le Retardataire'; return c; });
+  ctx.name = p => (p === 'tard' ? '?' : 'J' + p.slice(1));
   assert.equal(E.ajouterJoueur(ctx, g, 'tard').ok, true);
+  assert.equal(g.cartes[g.joueurs.tard.perso].nom, 'Le Retardataire');
   assert.equal(g.joueurs.tard.main.length, 3);
   assert.equal(g.cartes[g.joueurs.tard.perso].type, 'perso');
   assert.ok(!g.joueurs.tard.main.some(c => Object.values(g.solution).includes(c)));

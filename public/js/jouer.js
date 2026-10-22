@@ -437,7 +437,7 @@ function grandpari(g) {
 
 // ---------- jeu 5 : L'Enquête ----------
 const EQ_ICONES = { salle: '🚪', perso: '👤', arme: '🗡' };
-const eqCarte = c => `<span class="eq-carte" data-type="${c.type}">${c.type === 'perso' ? `<i class="eq-pastille" style="--c:${c.couleur}"></i>` : EQ_ICONES[c.type]} ${esc(c.nom)}</span>`;
+const eqCarte = c => `<span class="eq-carte" data-type="${c.type}">${EQ_ICONES[c.type]} ${esc(c.nom)}</span>`;
 const eqOptions = (liste, val, vide) => `<option value="">${vide}</option>${liste.map(c => `<option value="${c.id}" ${c.id === val ? 'selected' : ''}>${esc(c.nom)}</option>`).join('')}`;
 const EQ_STATUTS = { main: ['✋', 'ma carte'], vu: ['👁', 'vue'], indice: ['💡', 'indice'], coche: ['✗', 'barrée'] };
 
@@ -471,7 +471,7 @@ function eqSalle(g) {
     return h;
   }
   h += `<div class="card"><div class="row" style="justify-content:space-between"><span style="font-size:20px">📍 <strong>${esc(g.salle.nom)}</strong></span><button class="btn sm" data-act="eqCode">Changer de salle</button></div>
-    <div class="label">Avec toi</div><div class="pions">${g.presents.map(p => `<span class="pion" style="--c:${p.perso.couleur}">${esc(p.name)}</span>`).join('') || '<span class="muted">Personne</span>'}</div></div>`;
+    <div class="label">Avec toi</div><div class="pions">${g.presents.map(p => `<span class="pion">${esc(p.name)} <small class="pion-perso">${esc(p.perso.nom)}</small></span>`).join('') || '<span class="muted">Personne</span>'}</div></div>`;
   // indice de la tablette
   h += g.indicesRestants
     ? `<button class="btn big" data-act="eqIndice">💡 Demander un indice à la salle${g.indicesRestants > 1 ? ` (${g.indicesRestants})` : ''}</button>`
@@ -483,7 +483,7 @@ function eqSalle(g) {
   if (g.attente) bloque = 'Attends la réponse à ta question…';
   else if (g.nextAsk) bloque = `Prochaine question dans <span class="mono" data-until="${g.nextAsk}"></span>`;
   h += `<div class="card"><strong>🗣 Interroger quelqu'un</strong>
-    ${g.presents.length ? `<p class="muted" style="margin:0;font-size:14px">1. Clique sur la personne à interroger · 2. Choisis un personnage et une arme</p><div class="pions">${g.presents.map(p => `<button class="pion choix" style="--c:${p.perso.couleur}" data-eqcible="${p.pid}" aria-pressed="${ui.eqCible === p.pid}" ${p.dernier ? 'disabled title="Tu viens de l\'interroger"' : ''}>${ui.eqCible === p.pid ? '✓ ' : ''}${esc(p.name)}</button>`).join('')}</div>
+    ${g.presents.length ? `<p class="muted" style="margin:0;font-size:14px">1. Clique sur la personne à interroger · 2. Choisis un personnage et une arme</p><div class="pions">${g.presents.map(p => `<button class="pion choix" data-eqcible="${p.pid}" aria-pressed="${ui.eqCible === p.pid}" ${p.dernier ? 'disabled title="Tu viens de l\'interroger"' : ''}>${ui.eqCible === p.pid ? '✓ ' : ''}${esc(p.name)} <small class="pion-perso">${esc(p.perso.nom)}</small></button>`).join('')}</div>
     <select class="in" id="eq-perso">${eqOptions(g.persos, ui.eqPerso, 'Personnage…')}</select>
     <select class="in" id="eq-arme">${eqOptions(g.armes, ui.eqArme, 'Arme…')}</select>
     <p class="muted" style="margin:0;font-size:14px">Lieu : ${esc(g.salle.nom)} (la salle où tu es)</p>
@@ -523,7 +523,7 @@ function eqAccuser(g) {
 
 function enquete(g) {
   app.className = 'phone';
-  let h = head(`<span class="pion" style="--c:${g.moi.couleur}">${esc(g.moi.nom)}</span>`);
+  let h = head(`<span class="pion">👤 ${esc(g.moi.nom)}</span>`);
   const main = `<div class="label">Mes cartes (personne d'autre ne les a… sauf peut-être un joueur)</div><div class="eq-main">${g.main.map(eqCarte).join('')}</div>`;
   if (g.finished) {
     const r = g.revelation;

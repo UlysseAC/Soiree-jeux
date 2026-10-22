@@ -329,7 +329,7 @@ function partieEnquete(g) {
   h += `<div class="box"><h2>Tablettes des salles</h2>${eqTablettes(g.salles.length)}</div>`;
   if (g.attente.length) h += `<div class="box"><h2>Questions en attente de réponse</h2>${g.attente.map(q => `<p style="margin:0">${esc(q.de)} → ${esc(q.a)} <span class="muted">(${esc(q.salle)})</span></p>`).join('')}</div>`;
   h += `<div class="box"><h2>Enquêteurs (${g.liste.length})</h2><div class="scroll"><table><thead><tr><th>Joueur</th><th>Personnage</th><th>Cartes</th><th>Salle</th><th>Indices</th><th>Accusation</th></tr></thead><tbody>${g.liste.map(p => `<tr>
-      <td>${nm(p.name)}</td><td><span class="pion" style="--c:${p.perso.couleur}">${esc(p.perso.nom)}</span></td><td class="muted">${ui.eqSolution ? p.main.map(esc).join(', ') : '•••'}</td>
+      <td>${nm(p.name)}</td><td>${g.phase === 'intro' && !g.finished ? `<select class="in" data-eqperso="${p.pid}" style="width:auto">${g.persos.map(x => `<option value="${x.id}" ${x.id === p.perso.id ? 'selected' : ''}>${esc(x.nom)}</option>`).join('')}</select>` : esc(p.perso.nom)}</td><td class="muted">${ui.eqSolution ? p.main.map(esc).join(', ') : '•••'}</td>
       <td><select class="in" data-eqplacer="${p.pid}" style="width:auto">${p.salle ? '' : '<option value="">—</option>'}${g.salles.map(s => `<option value="${s.id}" ${s.nom === p.salle ? 'selected' : ''}>${esc(s.nom)}</option>`).join('')}</select></td>
       <td class="mono">${p.indices}</td><td>${p.accuse === 'juste' ? '<span class="pill ok">juste</span>' : p.accuse === 'fausse' ? '<span class="pill danger">fausse</span>' : ''}</td></tr>`).join('')}</tbody></table></div>
     <p class="muted" style="margin:0;font-size:14px">Un QR code ne passe pas ? Choisis la salle du joueur ici.</p></div>`;
@@ -337,18 +337,28 @@ function partieEnquete(g) {
   return h;
 }
 app.addEventListener('change', e => { const pid = e.target.dataset.eqplacer; if (pid && e.target.value) jeu({ type: 'placer', pid, salle: e.target.value }); });
+app.addEventListener('change', e => { const pid = e.target.dataset.eqperso; if (pid) jeu({ type: 'personnage', pid, perso: e.target.value }); });
 
-// Couleurs des personnages, dans l'ordre (les mêmes que COULEURS dans server/games/enquete.js).
-const EQ_COULEURS = [['Rouge', '#e7584f'], ['Bleu', '#4f8fe7'], ['Vert', '#5cc47a'], ['Jaune', '#f0c93a'], ['Violet', '#a678e8'], ['Orange', '#e0833d'], ['Rose', '#ef7fb8'], ['Blanc', '#ece6d9'], ['Noir', '#2b2b2b'], ['Gris', '#9aa1ae'], ['Marron', '#8b5a2b'], ['Turquoise', '#3cc8c8'], ['Doré', '#d4af37'], ['Argent', '#c0c6cf']];
+// Personnages : une ligne par invité, « Prénom = Personnage » (prénom vide = personnage donné à un joueur sans personnage prévu).
 function eqPersos(c) {
-  const noms = String(c.personnages || '').split(/\r?\n/).map(x => x.trim());
-  return `<div class="stack" style="gap:6px">${EQ_COULEURS.map(([coul, hex], i) => `<label class="row" style="gap:8px;flex-wrap:nowrap"><span class="pion" style="--c:${hex};min-width:110px">${coul}</span>
-    <input class="in" data-eqnom="${i}" id="eq-nom-${i}" value="${esc(noms[i] || '')}" placeholder="${coul}" maxlength="40"></label>`).join('')}</div>`;
+  const lignes = String(c.personnages || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(l => {
+    const i = l.indexOf('=');
+    return i < 0 ? ['', l] : [l.slice(0, i).trim(), l.slice(i + 1).trim()];
+  });
+  const n = Math.max(14, lignes.length + 2);
+  return `<div class="stack" style="gap:6px"><div class="row muted" style="gap:8px;font-size:13px"><span style="flex:1">Prénom du joueur</span><span style="flex:1.4">Personnage</span></div>
+    ${Array.from({ length: n }, (_, i) => `<div class="row" style="gap:8px;flex-wrap:nowrap">
+      <input class="in" style="flex:1" data-eqnom id="eq-joueur-${i}" value="${esc(lignes[i]?.[0] || '')}" placeholder="Prénom" maxlength="24">
+      <input class="in" style="flex:1.4" data-eqnom id="eq-perso-${i}" value="${esc(lignes[i]?.[1] || '')}" placeholder="Personnage" maxlength="40"></div>`).join('')}</div>`;
 }
-// Noms des personnages : enregistrés ensemble (une ligne par couleur ; vide = le nom de la couleur).
+// Enregistrés ensemble, une ligne par personnage rempli.
 async function eqSauverNoms(el) {
-  const noms = EQ_COULEURS.map(([coul], i) => (document.getElementById(`eq-nom-${i}`)?.value || '').trim() || coul);
-  const r = await admin({ type: 'config', scope: 'jeu', gameId: 'enquete', path: 'personnages', value: noms.join('\n') });
+  const out = [];
+  for (let i = 0; document.getElementById(`eq-perso-${i}`); i++) {
+    const j = document.getElementById(`eq-joueur-${i}`).value.trim().replace(/=/g, ''), n = document.getElementById(`eq-perso-${i}`).value.trim().replace(/=/g, '');
+    if (n) out.push(j ? `${j} = ${n}` : n);
+  }
+  const r = await admin({ type: 'config', scope: 'jeu', gameId: 'enquete', path: 'personnages', value: out.join('\n') });
   if (r.ok) { el.classList.add('saved'); setTimeout(() => el.classList.remove('saved'), 1500); }
 }
 app.addEventListener('change', e => { if (e.target.dataset.eqnom != null) eqSauverNoms(e.target); });
@@ -360,9 +370,9 @@ function reglagesEnquete(c) {
   return `<div class="box"><h2>Histoire</h2><label class="field"><span class="label">Texte d'introduction affiché à l'écran (une ligne = un paragraphe)</span><textarea class="in" rows="7" id="c-jeu-enquete-intro" data-cfg="intro" data-kind="area" data-scope="jeu" data-game="enquete">${esc(c.intro)}</textarea></label></div>
     <div class="box"><h2>Salles, personnages, armes</h2><div class="grid-auto">
       <label class="field"><span class="label">Salles (une par ligne) · ${salles.length}</span><textarea class="in" rows="12" id="c-jeu-enquete-salles" data-cfg="salles" data-kind="area" data-scope="jeu" data-game="enquete">${esc(c.salles)}</textarea></label>
-      <div class="field"><span class="label">Personnages : le nom de chaque couleur</span>${eqPersos(c)}</div>
+      <div class="field"><span class="label">Personnages des invités</span>${eqPersos(c)}</div>
       <label class="field"><span class="label">Armes (une par ligne) · ${eqLignes(c.armes).length}</span><textarea class="in" rows="12" id="c-jeu-enquete-armes" data-cfg="armes" data-kind="area" data-scope="jeu" data-game="enquete">${esc(c.armes)}</textarea></label>
-    </div><p class="muted" style="margin:0;font-size:14px">Chaque joueur reçoit un personnage dans l'ordre de la liste (12 joueurs = les 12 premiers). Le nom apparaît sur les téléphones, la fiche de détective et l'écran, avec la pastille de couleur. Les changements servent au lancement de la partie.</p></div>
+    </div><p class="muted" style="margin:0;font-size:14px">Au lancement, chaque joueur reçoit le personnage prévu pour son prénom (écrit comme à son inscription) ; les autres joueurs reçoivent un personnage sans prénom. Il y a autant de personnages en jeu que de joueurs. Pendant l'introduction, tu peux encore changer le personnage d'un joueur (onglet Partie en cours).</p></div>
     <div class="box"><h2>Solution</h2><div class="grid-auto">
       ${cfgInput('solution.perso', c.solution.perso, 'text', { label: 'Personnage (le tueur)', ph: 'au hasard' })}${cfgInput('solution.arme', c.solution.arme, 'text', { label: 'Arme', ph: 'au hasard' })}${cfgInput('solution.salle', c.solution.salle, 'text', { label: 'Salle', ph: 'au hasard' })}
     </div><p class="muted" style="margin:0;font-size:14px">Vide = tiré au hasard. Sinon le nom exact d'une ligne des listes (utile si tes indices écrits parlent de la solution).</p></div>
