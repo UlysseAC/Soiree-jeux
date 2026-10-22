@@ -324,12 +324,17 @@ function partieEnquete(g) {
       ${g.phase === 'intro' && !g.finished ? '<button class="btn primary" data-jeu="lancer">▶ Lancer l\'enquête</button>' : ''}
       ${g.phase === 'enquete' && !g.finished ? '<button class="btn" data-jeu="finale" data-confirm="Lancer la phase finale (indices doublés) ?">⚡ Phase finale</button>' : ''}
       ${!g.finished ? '<button class="btn sm danger" data-jeu="terminer" data-confirm="Terminer l\'enquête et révéler la solution ?">Terminer</button>' : ''}</div></div>`;
-  h += `<div class="box"><div class="spread"><h2>Solution</h2><button class="btn sm" data-act="eqSolution">${ui.eqSolution ? 'Cacher' : 'Montrer'}</button></div>
-    ${ui.eqSolution ? `<p style="margin:0;font-size:18px">${esc(g.solution.perso)} · ${esc(g.solution.arme)} · ${esc(g.solution.salle)}</p><p class="muted" style="margin:0">Le tueur (sans le savoir) : <strong>${esc(g.tueur)}</strong></p>` : '<p class="muted" style="margin:0">Cachée (pour ne pas la voir par hasard).</p>'}</div>`;
+  // Tout ce qui donnerait un avantage (solution, tueur, personnages, cartes) reste caché, même ici, jusqu'à « Révéler » :
+  // l'organisateur peut jouer. « Révéler » ne change que cette page d'admin, jamais l'écran ni les téléphones.
+  const vu = ui.eqSolution || g.finished;
+  h += `<div class="box${vu ? ' accent' : ''}"><div class="spread"><h2>🔒 Secrets de l'enquête</h2>
+      ${g.finished ? '' : ui.eqSolution ? '<button class="btn sm" data-act="eqSolution">Cacher</button>' : '<button class="btn sm" data-act="eqSolution" data-confirm="Révéler la solution, les personnages et les cartes sur cette page d\'admin seulement ?">👁 Révéler (admin seulement)</button>'}</div>
+    ${vu ? `<p style="margin:0;font-size:18px">${esc(g.solution.perso)} · ${esc(g.solution.arme)} · ${esc(g.solution.salle)}</p><p class="muted" style="margin:0">Le tueur (sans le savoir) : <strong>${esc(g.tueur)}</strong></p>`
+      : '<p class="muted" style="margin:0">Solution, tueur, personnages et cartes des joueurs sont cachés, pour que tu puisses jouer sans avantage. « Révéler » ne les montre que sur cette page (deux clics), jamais sur l\'écran ni les téléphones.</p>'}</div>`;
   h += `<div class="box"><h2>Tablettes des salles</h2>${eqTablettes(g.salles.length)}</div>`;
   if (g.attente.length) h += `<div class="box"><h2>Questions en attente de réponse</h2>${g.attente.map(q => `<p style="margin:0">${esc(q.de)} → ${esc(q.a)} <span class="muted">(${esc(q.salle)})</span></p>`).join('')}</div>`;
   h += `<div class="box"><h2>Enquêteurs (${g.liste.length})</h2><div class="scroll"><table><thead><tr><th>Joueur</th><th>Personnage</th><th>Cartes</th><th>Salle</th><th>Indices</th><th>Accusation</th></tr></thead><tbody>${g.liste.map(p => `<tr>
-      <td>${nm(p.name)}</td><td>${g.phase === 'intro' && !g.finished ? `<select class="in" data-eqperso="${p.pid}" style="width:auto">${g.persos.map(x => `<option value="${x.id}" ${x.id === p.perso.id ? 'selected' : ''}>${esc(x.nom)}</option>`).join('')}</select>` : esc(p.perso.nom)}</td><td class="muted">${ui.eqSolution ? p.main.map(esc).join(', ') : '•••'}</td>
+      <td>${nm(p.name)}</td><td>${!vu ? '<span class="muted">•••</span>' : g.phase === 'intro' && !g.finished ? `<select class="in" data-eqperso="${p.pid}" style="width:auto">${g.persos.map(x => `<option value="${x.id}" ${x.id === p.perso.id ? 'selected' : ''}>${esc(x.nom)}</option>`).join('')}</select>` : esc(p.perso.nom)}</td><td class="muted">${vu ? p.main.map(esc).join(', ') : '•••'}</td>
       <td><select class="in" data-eqplacer="${p.pid}" style="width:auto">${p.salle ? '' : '<option value="">—</option>'}${g.salles.map(s => `<option value="${s.id}" ${s.nom === p.salle ? 'selected' : ''}>${esc(s.nom)}</option>`).join('')}</select></td>
       <td class="mono">${p.indices}</td><td>${p.accuse === 'juste' ? '<span class="pill ok">juste</span>' : p.accuse === 'fausse' ? '<span class="pill danger">fausse</span>' : ''}</td></tr>`).join('')}</tbody></table></div>
     <p class="muted" style="margin:0;font-size:14px">Un QR code ne passe pas ? Choisis la salle du joueur ici.</p></div>`;
@@ -369,7 +374,7 @@ function reglagesEnquete(c) {
     </div><p class="muted" style="margin:0;font-size:14px">Au lancement, chaque joueur reçoit un personnage au hasard (autant de personnages en jeu que de joueurs : écris-en au moins autant que d'invités). Seul le joueur voit son personnage ; l'écran montre seulement les prénoms. Pendant l'introduction, tu peux encore changer le personnage d'un joueur (onglet Partie en cours).</p></div>
     <div class="box"><h2>Solution</h2><div class="grid-auto">
       ${cfgInput('solution.perso', c.solution.perso, 'text', { label: 'Personnage (le tueur)', ph: 'au hasard' })}${cfgInput('solution.arme', c.solution.arme, 'text', { label: 'Arme', ph: 'au hasard' })}${cfgInput('solution.salle', c.solution.salle, 'text', { label: 'Salle', ph: 'au hasard' })}
-    </div><p class="muted" style="margin:0;font-size:14px">Vide = tiré au hasard. Sinon le nom exact d'une ligne des listes (utile si tes indices écrits parlent de la solution).</p></div>
+    </div><p class="muted" style="margin:0;font-size:14px">Vide = tiré au hasard (à garder vide si tu joues : tu ne la connaîtras pas). Sinon le nom exact d'une ligne des listes (utile si tes indices écrits parlent de la solution).</p></div>
     <div class="box"><h2>Temps et règles</h2><div class="grid-auto">
       ${d('dureeMax', 'Durée max de l\'enquête')}${d('finaleApres', 'Phase finale au bout de (0:00 = à la main)')}${d('delaiQuestion', 'Délai entre deux questions')}${d('delaiReponse', 'Temps pour montrer une carte')}
       ${n('rotationQr', 'QR code changé toutes les … s (0 = fixe)')}${n('indicesParSalle', 'Indices par salle et par joueur')}${n('indicesFinale', 'Indices par salle en phase finale')}
