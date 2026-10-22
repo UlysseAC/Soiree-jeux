@@ -117,7 +117,7 @@ export function start(ctx, pids) {
     debut: 0, endsAt: 0, finaleAt: 0,
     secret: randomBytes(16).toString('hex'),
     cartes: cartesDe(cfg, ordre.map(p => persos[p])),
-    joueurs: {}, // pid -> { perso, main, salle, indices, pris: { salle: n }, accuse, nextAsk, last, vus: { carte: [pid] }, elimines: [], coches: [] }
+    joueurs: {}, // pid -> { perso, main, salle, indices, pris: { salle: n }, accuse, nextAsk, last, vus: { carte: [pid] }, elimines: [] }
     questions: [], // { id, de, a, salle, perso, arme, at, carte, etat }
     feed: [], finished: false, winner: null, finishedAt: 0, solution: null,
   };
@@ -132,7 +132,7 @@ export function start(ctx, pids) {
   const sol = new Set(Object.values(g.solution));
   const mains = distribuer(Object.keys(g.cartes).filter(c => !sol.has(c)), ordre);
   ordre.forEach((p, i) => {
-    g.joueurs[p] = { perso: `p${i}`, main: mains[p], salle: null, indices: 0, pris: {}, accuse: null, nextAsk: 0, last: null, vus: {}, elimines: [], coches: [] };
+    g.joueurs[p] = { perso: `p${i}`, main: mains[p], salle: null, indices: 0, pris: {}, accuse: null, nextAsk: 0, last: null, vus: {}, elimines: [] };
   });
   return g;
 }
@@ -201,7 +201,7 @@ function remplir(g, p, texte, n) {
     elimines.push(...pris);
     return pris.length ? pris.map(c => nom(g, c)).join(' » et « ') : '…';
   };
-  // Indice à recouper : k cartes dont au plus une est dans la solution (une fois sur deux). Rien n'est barré sur la fiche.
+  // Indice à recouper : k cartes dont au plus une est dans la solution (une fois sur deux). Ces cartes ne comptent pas comme éliminées.
   const groupe = (k, type) => {
     const J = g.joueurs[p], sol = Object.values(g.solution).filter(c => !type || g.cartes[c].type === type);
     const innocentes = Object.values(g.cartes).filter(c => !Object.values(g.solution).includes(c.id) && (!type || c.type === type)).map(c => c.id);
@@ -240,11 +240,6 @@ function indice(ctx, g, p) {
 export function playerAction(ctx, g, p, a) {
   const J = g.joueurs[p];
   if (!J) return err('Tu ne joues pas à cette partie.');
-  if (a.type === 'cocher') { // fiche de détective : cocher / décocher une carte
-    if (!g.cartes[a.carte]) return err('Carte inconnue.');
-    J.coches = J.coches.includes(a.carte) ? J.coches.filter(c => c !== a.carte) : [...J.coches, a.carte];
-    return { ok: true };
-  }
   if (g.finished) return err("L'enquête est terminée.");
   if (g.phase === 'intro') return err("L'enquête n'a pas encore commencé.");
   const now = ctx.now();
@@ -344,7 +339,7 @@ export function ajouterJoueur(ctx, g, p) {
   g.cartes[`p${i}`] = { id: `p${i}`, type: 'perso', nom: attribuer(ctx, [p], deType(g, 'perso').map(c => g.cartes[c].nom))[p] };
   const sol = new Set(Object.values(g.solution));
   const main = shuffle(Object.keys(g.cartes).filter(c => !sol.has(c))).slice(0, 3);
-  g.joueurs[p] = { perso: `p${i}`, main, salle: null, indices: 0, pris: {}, accuse: null, nextAsk: 0, last: null, vus: {}, elimines: [], coches: [] };
+  g.joueurs[p] = { perso: `p${i}`, main, salle: null, indices: 0, pris: {}, accuse: null, nextAsk: 0, last: null, vus: {}, elimines: [] };
   return { ok: true, detail: nom(g, `p${i}`) };
 }
 
@@ -372,13 +367,11 @@ export function playerView(ctx, g, p) {
   const J = g.joueurs[p];
   if (!J) return { spectator: true, finished: g.finished };
   const now = ctx.now();
-  const statut = id => (J.main.includes(id) ? 'main' : J.vus[id] ? 'vu' : J.elimines.includes(id) ? 'indice' : J.coches.includes(id) ? 'coche' : '');
-  const fiche = Object.fromEntries(Object.keys(g.cartes).map(id => [id, { statut: statut(id), par: (J.vus[id] || []).map(ctx.name) }]));
   const aRepondre = g.questions.filter(q => q.a === p && q.etat === 'attente').map(q => ({
     id: q.id, de: ctx.name(q.de), salle: nom(g, q.salle), perso: nom(g, q.perso), arme: nom(g, q.arme), fin: q.at + ctx.cfg.delaiReponse * 1000,
     choix: enCommun(g, q).map(c => carteVue(g, c)),
   }));
-  const mesQuestions = g.questions.filter(q => q.de === p).slice(-8).reverse().map(q => ({
+  const mesQuestions = g.questions.filter(q => q.de === p).reverse().map(q => ({
     a: ctx.name(q.a), salle: nom(g, q.salle), perso: nom(g, q.perso), arme: nom(g, q.arme), etat: q.etat, carte: q.carte ? carteVue(g, q.carte) : null,
   }));
   const max = g.phase === 'finale' ? ctx.cfg.indicesFinale : ctx.cfg.indicesParSalle;
@@ -390,8 +383,9 @@ export function playerView(ctx, g, p) {
     nextAsk: J.nextAsk > now ? J.nextAsk : 0,
     attente: g.questions.some(q => q.de === p && q.etat === 'attente'),
     indicesRestants: J.salle ? Math.max(0, max - (J.pris[J.salle] || 0)) : 0,
-    indices: J.indices, notes: (J.notes || []).slice(0, 20),
-    aRepondre, mesQuestions, fiche, ...listes(g),
+    // tous les indices obtenus (la fiche de détective se fait sur papier)
+    indices: J.indices, notes: (J.notes || []).map(n => ({ t: n.t, salle: nom(g, n.salle), texte: n.texte })),
+    aRepondre, mesQuestions, ...listes(g),
     accuse: J.accuse ? { juste: J.accuse.juste } : null,
     winner: g.winner ? ctx.name(g.winner) : null, gagne: g.winner === p,
     revelation: revelation(ctx, g),

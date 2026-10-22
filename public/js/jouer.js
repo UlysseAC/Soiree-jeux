@@ -439,7 +439,6 @@ function grandpari(g) {
 const EQ_ICONES = { salle: '🚪', perso: '👤', arme: '🗡' };
 const eqCarte = c => `<span class="eq-carte" data-type="${c.type}">${EQ_ICONES[c.type]} ${esc(c.nom)}</span>`;
 const eqOptions = (liste, val, vide) => `<option value="">${vide}</option>${liste.map(c => `<option value="${c.id}" ${c.id === val ? 'selected' : ''}>${esc(c.nom)}</option>`).join('')}`;
-const EQ_STATUTS = { main: ['✋', 'ma carte'], vu: ['👁', 'vue'], indice: ['💡', 'indice'], coche: ['✗', 'barrée'] };
 
 // QR code d'une tablette scanné : /jouer?salle=3&c=4821 → le téléphone entre dans la salle (une seule fois).
 const EQ_SCAN = (() => { const q = new URLSearchParams(location.search); return q.has('c') ? { salle: q.get('salle'), code: q.get('c') } : null; })();
@@ -489,26 +488,17 @@ function eqSalle(g) {
     <p class="muted" style="margin:0;font-size:14px">Lieu : ${esc(g.salle.nom)} (la salle où tu es)</p>
     ${bloque ? `<p class="center" style="margin:0">${bloque}</p>` : `<button class="btn primary big" data-act="eqInterroger" ${ui.eqCible && ui.eqPerso && ui.eqArme ? '' : 'disabled'}>${!ui.eqCible ? 'Clique d\'abord sur la personne à interroger' : !ui.eqPerso || !ui.eqArme ? 'Choisis un personnage et une arme' : 'Poser la question'}</button>`}`
     : '<p class="muted" style="margin:0">Personne d\'autre dans cette salle.</p>'}</div>`;
-  return h + eqJournal(g);
+  return h;
 }
 
 function eqJournal(g) {
   let h = '';
+  h += `<div class="label">Mes indices (${g.notes.length})</div>${g.notes.length ? `<div class="list">${g.notes.map(n => `<div class="li" style="flex-direction:column;align-items:flex-start;gap:2px"><span>💡 ${esc(n.texte)}</span><span class="muted" style="font-size:13px">${esc(n.salle)} · ${hm(n.t)}</span></div>`).join('')}</div>` : '<p class="muted" style="margin:0">Aucun indice pour l\'instant : demande-en un à la tablette d\'une salle.</p>'}`;
   if (g.mesQuestions.length) {
-    h += `<div class="label">Mes questions</div><div class="list">${g.mesQuestions.map(q => `<div class="li"><span>${esc(q.a)} · ${esc(q.perso)}, ${esc(q.arme)}, ${esc(q.salle)}</span>
+    h += `<div class="label">Mes questions (${g.mesQuestions.length})</div><div class="list">${g.mesQuestions.map(q => `<div class="li"><span>${esc(q.a)} · ${esc(q.perso)}, ${esc(q.arme)}, ${esc(q.salle)}</span>
       <span>${q.etat === 'attente' ? '<span class="muted">…</span>' : q.carte ? eqCarte(q.carte) : q.etat === 'annulee' ? '<span class="muted">—</span>' : '<span class="muted">aucune carte</span>'}</span></div>`).join('')}</div>`;
   }
-  if (g.notes.length) h += `<div class="label">Mes indices</div><div class="list">${g.notes.map(n => `<div class="li"><span>💡 ${esc(n.texte)}</span></div>`).join('')}</div>`;
   return h;
-}
-
-function eqFiche(g) {
-  const groupe = (titre, liste) => `<div class="label">${titre}</div><div class="list eq-fiche">${liste.map(c => {
-    const f = g.fiche[c.id] || {}, st = EQ_STATUTS[f.statut];
-    return `<button data-eqcocher="${c.id}" class="${f.statut ? 'barre' : ''}"><span>${eqCarte(c)}</span><span class="muted">${st ? `${st[0]} ${st[1]}${f.par?.length ? ` (${esc(f.par.join(', '))})` : ''}` : ''}</span></button>`;
-  }).join('')}</div>`;
-  return `<p class="muted" style="margin:0;font-size:14px">Clique sur une carte pour la barrer à la main. ✋ ta carte · 👁 montrée par quelqu'un · 💡 éliminée par un indice.</p>`
-    + groupe('Personnages', g.persos) + groupe('Armes', g.armes) + groupe('Salles', g.salles);
 }
 
 function eqAccuser(g) {
@@ -537,9 +527,9 @@ function enquete(g) {
   h += `<div class="row" style="justify-content:space-between"><span class="muted">⏳ <span class="mono" data-until="${g.endsAt}"></span></span>${g.phase === 'finale' ? '<span class="pill accent">⚡ Phase finale : indices doublés</span>' : ''}</div>`;
   h += eqRepondre(g);
   ui.eqTab ??= 'salle';
-  const tabs = [['salle', g.salle ? '📍 Salle' : '📷 Salle'], ['fiche', '📋 Fiche'], ['accuser', '⚖️ Accuser']];
+  const tabs = [['salle', g.salle ? '📍 Salle' : '📷 Salle'], ['indices', `💡 Indices (${g.notes.length})`], ['accuser', '⚖️ Accuser']];
   h += `<nav class="tabs" style="justify-content:stretch">${tabs.map(([k, l]) => `<button role="tab" style="flex:1" data-eqtab="${k}" aria-selected="${ui.eqTab === k}">${l}</button>`).join('')}</nav>`;
-  h += ui.eqTab === 'fiche' ? main + eqFiche(g) : ui.eqTab === 'accuser' ? eqAccuser(g) : eqSalle(g) + main;
+  h += ui.eqTab === 'indices' ? eqJournal(g) : ui.eqTab === 'accuser' ? eqAccuser(g) : eqSalle(g) + main;
   return h;
 }
 app.addEventListener('change', e => {
@@ -551,12 +541,11 @@ app.addEventListener('change', e => {
   draw();
 });
 app.addEventListener('click', e => {
-  const t = e.target.closest('[data-eqtab],[data-eqcible],[data-eqmontrer],[data-eqcocher],[data-act^="eq"]');
+  const t = e.target.closest('[data-eqtab],[data-eqcible],[data-eqmontrer],[data-act^="eq"]');
   if (!t) return;
   if (t.dataset.eqtab) { ui.eqTab = t.dataset.eqtab; return draw(); }
   if (t.dataset.eqcible) { ui.eqCible = t.dataset.eqcible; return draw(); }
   if (t.dataset.eqmontrer) return act({ type: 'montrer', q: t.dataset.eqmontrer, carte: t.dataset.carte });
-  if (t.dataset.eqcocher) return act({ type: 'cocher', carte: t.dataset.eqcocher });
   const a = t.dataset.act;
   if (a === 'eqCode') { ui.eqCode = true; draw(); }
   if (a === 'eqCodeNon') { ui.eqCode = false; draw(); }

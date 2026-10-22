@@ -91,7 +91,7 @@ test('interrogatoire : même salle, salle où l\'on est ; la personne choisit la
   assert.equal(E.playerAction(ctx, g, 'p1', { type: 'montrer', q: v.aRepondre[0].id, carte }).ok, true);
   const moi = E.playerView(ctx, g, 'p0');
   assert.equal(moi.mesQuestions[0].carte.id, carte);
-  assert.equal(moi.fiche[carte].statut, moi.main.some(c => c.id === carte) ? 'main' : 'vu');
+  assert.ok(g.joueurs.p0.vus[carte].includes('p1'), 'retenue : les indices ne la redonneront pas');
   const ecran = JSON.stringify(E.screenView(ctx, g));
   assert.ok(ecran.includes('une carte montrée') && !ecran.includes(g.cartes[carte].nom + '»'), 'l\'écran ne dit pas laquelle');
   // pas deux fois de suite la même personne ; délai entre deux questions
@@ -127,7 +127,7 @@ test('sans réponse à temps, une carte au hasard ; sans carte en commun, « auc
   }
 });
 
-test('indices : un par salle (deux en phase finale, avec deux cartes), écrits ou automatiques, cartes éliminées sur la fiche', () => {
+test('indices : un par salle (deux en phase finale, avec deux cartes), écrits ou automatiques, tous consultables', () => {
   const { g, ctx } = setup(12, c => { c.indices[0] = 'Le majordome a vu quelque chose près de « {arme} ».\nDeuxième indice : {salle}'; c.modeles = "Un souvenir revient : « {carte} » n'a rien à voir avec le crime."; return c; });
   E.adminAction(ctx, g, { type: 'lancer' });
   entrer(ctx, g, 'p0', 0);
@@ -138,7 +138,7 @@ test('indices : un par salle (deux en phase finale, avec deux cartes), écrits o
   assert.equal(elim.length, 1);
   assert.equal(g.cartes[elim[0]].type, 'arme');
   assert.ok(!Object.values(g.solution).includes(elim[0]), 'jamais la solution');
-  assert.equal(E.playerView(ctx, g, 'p0').fiche[elim[0]].statut, 'indice');
+  assert.equal(E.playerView(ctx, g, 'p0').notes[0].salle, g.cartes.s0.nom, 'indice consultable, avec sa salle');
   assert.equal(E.playerAction(ctx, g, 'p0', { type: 'indice' }).ok, false, 'un seul par salle');
   // autre salle : le modèle automatique
   entrer(ctx, g, 'p0', 4);

@@ -37,12 +37,7 @@ Le texte d'introduction s'écrit dans **Réglages des jeux → L'Enquête → Hi
    - Il faut attendre 30 s entre deux questions.
    - L'écran indique qu'une carte a été montrée, sans dire laquelle.
 4. **Indice de la salle.** Chaque joueur a droit à un indice par salle, tiré du texte écrit pour cette salle (voir plus bas).
-5. **Fiche de détective.** Elle se remplit toute seule :
-   - ✋ mes cartes ;
-   - 👁 les cartes qu'on m'a montrées ;
-   - 💡 les cartes éliminées par un indice.
-
-   On peut aussi barrer une carte à la main.
+5. **Fiche de détective : sur papier.** Le téléphone garde, dans l'onglet **💡 Indices**, tous les indices obtenus (avec la salle et l'heure) et toutes les questions posées avec la carte montrée.
 6. **Phase finale.** Elle commence automatiquement au bout de 1 h 30, ou quand l'admin la lance avec le bouton. Pendant la phase finale :
    - chaque joueur a 2 indices par salle ;
    - chaque `{…}` d'un indice donne 2 cartes au lieu d'une.
@@ -65,8 +60,8 @@ Les indices s'écrivent dans **Réglages → L'Enquête → Indices des tablette
 - **Repères à remplacer.**
   - `{carte}` est remplacé par une carte qui n'est pas dans la solution et que le joueur ne connaît pas encore.
   - `{perso}`, `{arme}` et `{salle}` font la même chose pour un seul type de carte.
-  - La carte donnée est barrée sur la fiche du joueur.
-- **Indice à recouper.** `{3salle}`, `{3arme}`, `{3perso}` et `{3carte}` sont remplacés par 3 cartes dont **au plus une** est dans la solution (une fois sur deux). Exemple : « Au moins 2 de ces 3 salles ne sont pas le lieu du crime : {3salle}. » Rien n'est barré sur la fiche : le joueur doit recouper avec d'autres infos.
+  - La carte donnée n'est jamais une carte que le joueur connaît déjà.
+- **Indice à recouper.** `{3salle}`, `{3arme}`, `{3perso}` et `{3carte}` sont remplacés par 3 cartes dont **au plus une** est dans la solution (une fois sur deux). Exemple : « Au moins 2 de ces 3 salles ne sont pas le lieu du crime : {3salle}. » Le joueur doit recouper avec d'autres infos.
 - **Indices automatiques.** Quand une salle n'a plus de ligne écrite, un des modèles automatiques est tiré au hasard (une ligne = un modèle) : par défaut, une carte innocentée, ou 3 salles, armes ou personnages dont au moins 2 sont innocents.
 
 ## Classement de la soirée

@@ -762,7 +762,6 @@ button.pion.choix:disabled { opacity: .4; }
 .eq-urgent { animation: eq-pouls 1.6s ease-in-out infinite; }
 @keyframes eq-pouls { 50% { box-shadow: 0 0 0 4px var(--accent-soft); } }
 @media (prefers-reduced-motion: reduce) { .eq-urgent { animation: none; } }
-.eq-fiche button.barre > span:first-child { text-decoration: line-through; text-decoration-color: var(--accent); color: var(--muted); }
 /* tablette d'une salle */
 .tablette { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 3vh; padding: 4vh 16px; text-align: center; }
 .tab-nom { font: 800 clamp(40px, 8vw, 96px)/1 var(--display); text-transform: uppercase; margin: 0; color: var(--accent); }
