@@ -476,11 +476,11 @@ function eqSalle(g) {
   if (g.attente) bloque = 'Attends la réponse à ta question…';
   else if (g.nextAsk) bloque = `Prochaine question dans <span class="mono" data-until="${g.nextAsk}"></span>`;
   h += `<div class="card"><strong>🗣 Interroger quelqu'un</strong>
-    ${g.presents.length ? `<div class="pions">${g.presents.map(p => `<button class="pion choix" style="--c:${p.perso.couleur}" data-eqcible="${p.pid}" aria-pressed="${ui.eqCible === p.pid}" ${p.dernier ? 'disabled title="Tu viens de l\'interroger"' : ''}>${esc(p.name)}</button>`).join('')}</div>
+    ${g.presents.length ? `<p class="muted" style="margin:0;font-size:14px">1. Touche la personne à interroger · 2. Choisis un personnage et une arme</p><div class="pions">${g.presents.map(p => `<button class="pion choix" style="--c:${p.perso.couleur}" data-eqcible="${p.pid}" aria-pressed="${ui.eqCible === p.pid}" ${p.dernier ? 'disabled title="Tu viens de l\'interroger"' : ''}>${ui.eqCible === p.pid ? '✓ ' : ''}${esc(p.name)}</button>`).join('')}</div>
     <select class="in" id="eq-perso">${eqOptions(g.persos, ui.eqPerso, 'Personnage…')}</select>
     <select class="in" id="eq-arme">${eqOptions(g.armes, ui.eqArme, 'Arme…')}</select>
     <p class="muted" style="margin:0;font-size:14px">Lieu : ${esc(g.salle.nom)} (la salle où tu es)</p>
-    ${bloque ? `<p class="center" style="margin:0">${bloque}</p>` : `<button class="btn primary big" data-act="eqInterroger" ${ui.eqCible && ui.eqPerso && ui.eqArme ? '' : 'disabled'}>Poser la question</button>`}`
+    ${bloque ? `<p class="center" style="margin:0">${bloque}</p>` : `<button class="btn primary big" data-act="eqInterroger" ${ui.eqCible && ui.eqPerso && ui.eqArme ? '' : 'disabled'}>${!ui.eqCible ? 'Touche d\'abord la personne à interroger' : !ui.eqPerso || !ui.eqArme ? 'Choisis un personnage et une arme' : 'Poser la question'}</button>`}`
     : '<p class="muted" style="margin:0">Personne d\'autre dans cette salle.</p>'}</div>`;
   return h + eqJournal(g);
 }
