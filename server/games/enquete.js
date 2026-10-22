@@ -31,7 +31,14 @@ export function defaultConfig() {
     // Indices de chaque salle (une ligne = un indice, dans l'ordre). {carte} = une carte qui n'est pas dans la solution ;
     // {salle}, {perso}, {arme} = une salle, un personnage, une arme qui ne sont pas dans la solution.
     indices: Array.from({ length: 11 }, () => ''),
-    modele: "Un souvenir revient : « {carte} » n'a rien à voir avec le crime.",
+    // Indices automatiques (quand une salle n'a plus d'indice écrit) : une ligne = un modèle, tiré au hasard.
+    // {3salle}, {3arme}, {3perso}, {3carte} = 3 cartes dont AU PLUS UNE est dans la solution (indice à recouper).
+    modeles: [
+      "Un souvenir revient : « {carte} » n'a rien à voir avec le crime.",
+      'Au moins 2 de ces 3 salles ne sont pas le lieu du crime : {3salle}.',
+      "Au moins 2 de ces 3 armes n'ont pas servi : {3arme}.",
+      'Au moins 2 de ces 3 personnages sont innocents : {3perso}.',
+    ].join('\n'),
   };
 }
 
@@ -174,6 +181,7 @@ function inconnues(g, p, type = null) {
   const J = g.joueurs[p], sol = new Set(Object.values(g.solution));
   return Object.values(g.cartes).filter(c => !sol.has(c.id) && (!type || c.type === type) && !J.main.includes(c.id) && !J.vus[c.id] && !J.elimines.includes(c.id)).map(c => c.id);
 }
+const listeNoms = noms => (noms.length > 1 ? `${noms.slice(0, -1).join(', ')} et ${noms.at(-1)}` : noms[0] || '…');
 function remplir(g, p, texte, n) {
   const elimines = [];
   const prendre = type => {
@@ -182,7 +190,20 @@ function remplir(g, p, texte, n) {
     elimines.push(...pris);
     return pris.length ? pris.map(c => nom(g, c)).join(' » et « ') : '…';
   };
-  const out = texte.replace(/\{(carte|salle|perso|arme)\}/g, (_, k) => prendre(k === 'carte' ? null : k));
+  // Indice à recouper : k cartes dont au plus une est dans la solution (une fois sur deux). Rien n'est barré sur la fiche.
+  const groupe = (k, type) => {
+    const J = g.joueurs[p], sol = Object.values(g.solution).filter(c => !type || g.cartes[c].type === type);
+    const innocentes = Object.values(g.cartes).filter(c => !Object.values(g.solution).includes(c.id) && (!type || c.type === type)).map(c => c.id);
+    const inconnu = c => !J.main.includes(c) && !J.vus[c] && !J.elimines.includes(c) && !elimines.includes(c);
+    const avecSol = sol.length && Math.random() < 0.5;
+    const nb = Math.max(1, k - (avecSol ? 1 : 0));
+    const choix = [...shuffle(innocentes.filter(inconnu)), ...shuffle(innocentes.filter(c => !inconnu(c)))].slice(0, nb);
+    if (avecSol) choix.push(pick(sol));
+    return listeNoms(shuffle(choix).map(c => nom(g, c)));
+  };
+  const out = texte
+    .replace(/\{(\d)(carte|salle|perso|arme)s?\}/g, (_, k, t) => groupe(Math.max(2, Number(k)), t === 'carte' ? null : t))
+    .replace(/\{(carte|salle|perso|arme)\}/g, (_, k) => prendre(k === 'carte' ? null : k));
   return { texte: out, elimines };
 }
 
@@ -193,7 +214,8 @@ function indice(ctx, g, p) {
   const deja = J.pris[s] || 0;
   if (deja >= max) return err(g.phase === 'finale' ? 'Tu as déjà pris tes indices dans cette salle.' : `Tu as déjà pris ${max > 1 ? 'tes indices' : "l'indice"} de cette salle.${ctx.cfg.indicesFinale > max ? ' Il y en aura un autre pendant la phase finale.' : ''}`);
   const ecrits = String(ctx.cfg.indices?.[Number(s.slice(1))] ?? '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
-  const brut = ecrits[deja] ?? ctx.cfg.modele ?? "« {carte} » n'a rien à voir avec le crime.";
+  const modeles = String(ctx.cfg.modeles ?? '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+  const brut = ecrits[deja] ?? (modeles.length ? pick(modeles) : "« {carte} » n'a rien à voir avec le crime.");
   // phase finale : un indice automatique donne deux cartes au lieu d'une
   const r = remplir(g, p, brut, g.phase === 'finale' ? 2 : 1);
   J.pris[s] = deja + 1;

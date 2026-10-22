@@ -128,7 +128,7 @@ test('sans réponse à temps, une carte au hasard ; sans carte en commun, « auc
 });
 
 test('indices : un par salle (deux en phase finale, avec deux cartes), écrits ou automatiques, cartes éliminées sur la fiche', () => {
-  const { g, ctx } = setup(12, c => { c.indices[0] = 'Le majordome a vu quelque chose près de « {arme} ».\nDeuxième indice : {salle}'; return c; });
+  const { g, ctx } = setup(12, c => { c.indices[0] = 'Le majordome a vu quelque chose près de « {arme} ».\nDeuxième indice : {salle}'; c.modeles = "Un souvenir revient : « {carte} » n'a rien à voir avec le crime."; return c; });
   E.adminAction(ctx, g, { type: 'lancer' });
   entrer(ctx, g, 'p0', 0);
   const r = E.playerAction(ctx, g, 'p0', { type: 'indice' });
@@ -150,6 +150,26 @@ test('indices : un par salle (deux en phase finale, avec deux cartes), écrits o
   assert.equal(f.ok, true);
   assert.match(f.indice, /^Deuxième indice : .+ » et « .+$/);
   assert.equal(g.joueurs.p0.indices, 3);
+});
+
+test('indice à recouper : 3 cartes du même type, au plus une de la solution, rien de barré', () => {
+  let avecSolution = 0;
+  for (let k = 0; k < 60; k++) {
+    const { g, ctx } = setup(12, c => { c.indices[0] = 'Au moins 2 de ces 3 salles ne sont pas le lieu du crime : {3salle}.'; return c; });
+    E.adminAction(ctx, g, { type: 'lancer' });
+    entrer(ctx, g, 'p0', 0);
+    const r = E.playerAction(ctx, g, 'p0', { type: 'indice' });
+    const noms = r.indice.match(/crime : (.+)\.$/)[1].split(/, | et /);
+    const salles = Object.values(g.cartes).filter(c => c.type === 'salle');
+    assert.equal(new Set(noms).size, 3, r.indice);
+    assert.ok(noms.every(n => salles.some(c => c.nom === n)), 'que des salles');
+    const sol = noms.filter(n => n === g.cartes[g.solution.salle].nom).length;
+    assert.ok(sol <= 1);
+    avecSolution += sol;
+    assert.deepEqual(g.joueurs.p0.elimines, [], 'rien de barré');
+    assert.equal(g.joueurs.p0.indices, 1);
+  }
+  assert.ok(avecSolution > 5 && avecSolution < 55, 'la solution apparaît parfois');
 });
 
 test('accusation : une seule ; fausse = plus d\'accusation ; juste = gagne seul, classement par indices', () => {

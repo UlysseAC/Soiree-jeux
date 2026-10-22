@@ -65,7 +65,8 @@ Les indices s'écrivent dans **Réglages → L'Enquête → Indices des tablette
   - `{carte}` est remplacé par une carte qui n'est pas dans la solution et que le joueur ne connaît pas encore.
   - `{perso}`, `{arme}` et `{salle}` font la même chose pour un seul type de carte.
   - La carte donnée est barrée sur la fiche du joueur.
-- **Indice automatique.** Quand une salle n'a plus de ligne écrite, c'est l'indice automatique qui est donné, par exemple : « Un souvenir revient : « {carte} » n'a rien à voir avec le crime. »
+- **Indice à recouper.** `{3salle}`, `{3arme}`, `{3perso}` et `{3carte}` sont remplacés par 3 cartes dont **au plus une** est dans la solution (une fois sur deux). Exemple : « Au moins 2 de ces 3 salles ne sont pas le lieu du crime : {3salle}. » Rien n'est barré sur la fiche : le joueur doit recouper avec d'autres infos.
+- **Indices automatiques.** Quand une salle n'a plus de ligne écrite, un des modèles automatiques est tiré au hasard (une ligne = un modèle) : par défaut, une carte innocentée, ou 3 salles, armes ou personnages dont au moins 2 sont innocents.
 
 ## Classement de la soirée
 

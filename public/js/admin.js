@@ -357,8 +357,9 @@ function reglagesEnquete(c) {
     </div></div>
     <div class="box"><h2>Indices des tablettes</h2>
       <p class="muted" style="margin:0;font-size:14px">Une ligne = un indice, donné dans l'ordre (le 1er au 1er passage du joueur dans la salle, le 2e en phase finale…). Quand il n'y a plus d'indice écrit, c'est l'indice automatique.
-      Dans un texte : <span class="mono">{carte}</span> = une carte qui n'est pas dans la solution (et que le joueur ne connaît pas encore), <span class="mono">{perso}</span>, <span class="mono">{arme}</span>, <span class="mono">{salle}</span> = idem pour un type. Elle est barrée sur sa fiche. En phase finale, chaque <span class="mono">{…}</span> donne deux cartes.</p>
-      ${cfgInput('modele', c.modele, 'text', { label: 'Indice automatique' })}
+      Dans un texte : <span class="mono">{carte}</span> = une carte qui n'est pas dans la solution (et que le joueur ne connaît pas encore), <span class="mono">{perso}</span>, <span class="mono">{arme}</span>, <span class="mono">{salle}</span> = idem pour un type. Elle est barrée sur sa fiche ; en phase finale, chacun de ces repères donne deux cartes.
+      Indice à recouper : <span class="mono">{3salle}</span>, <span class="mono">{3arme}</span>, <span class="mono">{3perso}</span>, <span class="mono">{3carte}</span> = 3 cartes dont au plus une est dans la solution (ex. « Au moins 2 de ces 3 salles ne sont pas le lieu du crime : {3salle}. »). Rien n'est barré : au joueur de recouper.</p>
+      <label class="field"><span class="label">Indices automatiques (une ligne = un modèle, tiré au hasard)</span><textarea class="in" rows="5" id="c-jeu-enquete-modeles" data-cfg="modeles" data-kind="area" data-scope="jeu" data-game="enquete">${esc(c.modeles)}</textarea></label>
       <div class="grid-auto" style="grid-template-columns:repeat(auto-fit,minmax(300px,1fr))">${c.indices.map((t, i) => cfgInput(`indices.${i}`, t, 'area', { label: `${i + 1}. ${salles[i] || '(pas de salle)'}`, ph: 'vide = indice automatique' })).join('')}</div></div>
     <div class="box"><h2>Tablettes</h2>${eqTablettes(salles.length)}</div>`;
 }
