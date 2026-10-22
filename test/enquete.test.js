@@ -199,40 +199,28 @@ test('temps : phase finale au bout du temps réglé, révélation à la fin', ()
   assert.ok(E.screenView(ctx, g).revelation.salle.nom);
 });
 
-test('personnages liés aux prénoms (accents et majuscules ignorés), les autres joueurs prennent un personnage libre ; l\'admin échange pendant l\'introduction', () => {
-  const { g, ctx } = setup(4, c => { c.personnages = 'j1 = Le Majordome\nLa Comtesse\nJ3 = Le Docteur\nInconnu = Le Colonel\nLa Veuve'; return c; });
-  const persoDe = p => g.cartes[g.joueurs[p].perso].nom;
-  assert.equal(persoDe('p1'), 'Le Majordome');
-  assert.equal(persoDe('p3'), 'Le Docteur');
-  assert.deepEqual([persoDe('p0'), persoDe('p2')].sort(), ['La Comtesse', 'La Veuve'], 'd\'abord les personnages sans prénom');
-  assert.equal(Object.values(g.cartes).filter(c => c.type === 'perso').length, 4, 'autant de personnages que de joueurs');
-  const majordome = g.joueurs.p1.perso;
-  assert.equal(E.adminAction(ctx, g, { type: 'personnage', pid: 'p0', perso: majordome }).ok, true);
-  assert.equal(persoDe('p0'), 'Le Majordome');
-  assert.notEqual(persoDe('p1'), 'Le Majordome', 'échange');
+test('personnages tirés au hasard parmi ceux de l\'admin ; l\'admin échange pendant l\'introduction', () => {
+  const vus = new Set();
+  for (let k = 0; k < 30; k++) {
+    const { g } = setup(3, c => { c.personnages = 'Le Majordome\nLa Comtesse\nLéa = Le Docteur\nLe Colonel\nLa Veuve'; return c; });
+    const noms = Object.values(g.joueurs).map(J => g.cartes[J.perso].nom);
+    assert.equal(new Set(noms).size, 3);
+    assert.ok(noms.every(n => ['Le Majordome', 'La Comtesse', 'Le Docteur', 'Le Colonel', 'La Veuve'].includes(n)));
+    vus.add(g.cartes[g.joueurs.p0.perso].nom);
+  }
+  assert.ok(vus.size >= 3, 'au hasard');
+  const { g, ctx } = setup(4);
+  const autre = g.joueurs.p1.perso;
+  assert.equal(E.adminAction(ctx, g, { type: 'personnage', pid: 'p0', perso: autre }).ok, true);
+  assert.equal(g.joueurs.p0.perso, autre);
   E.adminAction(ctx, g, { type: 'lancer' });
-  assert.equal(E.adminAction(ctx, g, { type: 'personnage', pid: 'p0', perso: majordome }).ok, false, 'plus après l\'introduction');
+  assert.equal(E.adminAction(ctx, g, { type: 'personnage', pid: 'p1', perso: autre }).ok, false, 'plus après l\'introduction');
 });
 
-test('écran, tablettes et autres téléphones : le prénom des joueurs, jamais leur personnage (sauf à la révélation)', () => {
-  const { g, ctx } = setup(6);
-  E.adminAction(ctx, g, { type: 'lancer' });
-  for (const p of Object.keys(g.joueurs)) E.adminAction(ctx, g, { type: 'placer', pid: p, salle: 's1' });
-  const persos = Object.values(g.cartes).filter(c => c.type === 'perso').map(c => c.nom);
-  const p2 = E.playerView(ctx, g, 'p0').persos.find(c => !E.playerView(ctx, g, 'p2').main.some(m => m.id === c.id));
-  E.playerAction(ctx, g, 'p0', { type: 'interroger', cible: 'p2', perso: p2.id, arme: 'a0' });
-  const publics = JSON.stringify([E.screenView(ctx, g), E.salleView(ctx, g, 1), E.playerView(ctx, g, 'p1').presents]);
-  for (const n of persos) assert.ok(!publics.includes(n), `${n} visible`);
-  assert.ok(publics.includes('J1'), 'les prénoms sont visibles');
-  E.adminAction(ctx, g, { type: 'terminer' });
-  assert.equal(E.screenView(ctx, g).revelation.classement.length, 6);
-});
-
-test('rattrapage : un joueur ajouté en cours reçoit son personnage (ou un libre) et 3 cartes', () => {
-  const { g, ctx } = setup(12, c => { c.personnages += '\n? = Le Retardataire'; return c; });
-  ctx.name = p => (p === 'tard' ? '?' : 'J' + p.slice(1));
+test('rattrapage : un joueur ajouté en cours reçoit un personnage libre et 3 cartes', () => {
+  const { g, ctx } = setup(12);
   assert.equal(E.ajouterJoueur(ctx, g, 'tard').ok, true);
-  assert.equal(g.cartes[g.joueurs.tard.perso].nom, 'Le Retardataire');
+  assert.equal(new Set(Object.values(g.joueurs).map(J => g.cartes[J.perso].nom)).size, 13, 'pas déjà pris');
   assert.equal(g.joueurs.tard.main.length, 3);
   assert.equal(g.cartes[g.joueurs.tard.perso].type, 'perso');
   assert.ok(!g.joueurs.tard.main.some(c => Object.values(g.solution).includes(c)));

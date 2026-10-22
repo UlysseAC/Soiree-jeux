@@ -339,24 +339,18 @@ function partieEnquete(g) {
 app.addEventListener('change', e => { const pid = e.target.dataset.eqplacer; if (pid && e.target.value) jeu({ type: 'placer', pid, salle: e.target.value }); });
 app.addEventListener('change', e => { const pid = e.target.dataset.eqperso; if (pid) jeu({ type: 'personnage', pid, perso: e.target.value }); });
 
-// Personnages : une ligne par invité, « Prénom = Personnage » (prénom vide = personnage donné à un joueur sans personnage prévu).
+// Personnages : un nom par ligne, attribués au hasard aux joueurs au lancement.
 function eqPersos(c) {
-  const lignes = String(c.personnages || '').split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(l => {
-    const i = l.indexOf('=');
-    return i < 0 ? ['', l] : [l.slice(0, i).trim(), l.slice(i + 1).trim()];
-  });
-  const n = Math.max(14, lignes.length + 2);
-  return `<div class="stack" style="gap:6px"><div class="row muted" style="gap:8px;font-size:13px"><span style="flex:1">Prénom du joueur</span><span style="flex:1.4">Personnage</span></div>
-    ${Array.from({ length: n }, (_, i) => `<div class="row" style="gap:8px;flex-wrap:nowrap">
-      <input class="in" style="flex:1" data-eqnom id="eq-joueur-${i}" value="${esc(lignes[i]?.[0] || '')}" placeholder="Prénom" maxlength="24">
-      <input class="in" style="flex:1.4" data-eqnom id="eq-perso-${i}" value="${esc(lignes[i]?.[1] || '')}" placeholder="Personnage" maxlength="40"></div>`).join('')}</div>`;
+  const noms = String(c.personnages || '').split(/\r?\n/).map(l => l.split('=').pop().trim()).filter(Boolean);
+  const n = Math.max(14, noms.length + 2);
+  return `<div class="stack" style="gap:6px">${Array.from({ length: n }, (_, i) => `<input class="in" data-eqnom id="eq-perso-${i}" value="${esc(noms[i] || '')}" placeholder="Personnage ${i + 1}" maxlength="40">`).join('')}</div>`;
 }
 // Enregistrés ensemble, une ligne par personnage rempli.
 async function eqSauverNoms(el) {
   const out = [];
   for (let i = 0; document.getElementById(`eq-perso-${i}`); i++) {
-    const j = document.getElementById(`eq-joueur-${i}`).value.trim().replace(/=/g, ''), n = document.getElementById(`eq-perso-${i}`).value.trim().replace(/=/g, '');
-    if (n) out.push(j ? `${j} = ${n}` : n);
+    const n = document.getElementById(`eq-perso-${i}`).value.trim().replace(/=/g, '');
+    if (n) out.push(n);
   }
   const r = await admin({ type: 'config', scope: 'jeu', gameId: 'enquete', path: 'personnages', value: out.join('\n') });
   if (r.ok) { el.classList.add('saved'); setTimeout(() => el.classList.remove('saved'), 1500); }
@@ -370,9 +364,9 @@ function reglagesEnquete(c) {
   return `<div class="box"><h2>Histoire</h2><label class="field"><span class="label">Texte d'introduction affiché à l'écran (une ligne = un paragraphe)</span><textarea class="in" rows="7" id="c-jeu-enquete-intro" data-cfg="intro" data-kind="area" data-scope="jeu" data-game="enquete">${esc(c.intro)}</textarea></label></div>
     <div class="box"><h2>Salles, personnages, armes</h2><div class="grid-auto">
       <label class="field"><span class="label">Salles (une par ligne) · ${salles.length}</span><textarea class="in" rows="12" id="c-jeu-enquete-salles" data-cfg="salles" data-kind="area" data-scope="jeu" data-game="enquete">${esc(c.salles)}</textarea></label>
-      <div class="field"><span class="label">Personnages des invités</span>${eqPersos(c)}</div>
+      <div class="field"><span class="label">Personnages · ${String(c.personnages || '').split(/\r?\n/).filter(l => l.trim()).length}</span>${eqPersos(c)}</div>
       <label class="field"><span class="label">Armes (une par ligne) · ${eqLignes(c.armes).length}</span><textarea class="in" rows="12" id="c-jeu-enquete-armes" data-cfg="armes" data-kind="area" data-scope="jeu" data-game="enquete">${esc(c.armes)}</textarea></label>
-    </div><p class="muted" style="margin:0;font-size:14px">Au lancement, chaque joueur reçoit le personnage prévu pour son prénom (écrit comme à son inscription) ; les autres joueurs reçoivent un personnage sans prénom. Il y a autant de personnages en jeu que de joueurs. Pendant l'introduction, tu peux encore changer le personnage d'un joueur (onglet Partie en cours).</p></div>
+    </div><p class="muted" style="margin:0;font-size:14px">Au lancement, chaque joueur reçoit un personnage au hasard (autant de personnages en jeu que de joueurs : écris-en au moins autant que d'invités). Seul le joueur voit son personnage ; l'écran montre seulement les prénoms. Pendant l'introduction, tu peux encore changer le personnage d'un joueur (onglet Partie en cours).</p></div>
     <div class="box"><h2>Solution</h2><div class="grid-auto">
       ${cfgInput('solution.perso', c.solution.perso, 'text', { label: 'Personnage (le tueur)', ph: 'au hasard' })}${cfgInput('solution.arme', c.solution.arme, 'text', { label: 'Arme', ph: 'au hasard' })}${cfgInput('solution.salle', c.solution.salle, 'text', { label: 'Salle', ph: 'au hasard' })}
     </div><p class="muted" style="margin:0;font-size:14px">Vide = tiré au hasard. Sinon le nom exact d'une ligne des listes (utile si tes indices écrits parlent de la solution).</p></div>

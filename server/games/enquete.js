@@ -14,7 +14,7 @@ export const minPlayers = 2;
 export function defaultConfig() {
   return {
     salles: ['Cuisine', 'Salon', 'Salle à manger', 'Bibliothèque', 'Bureau', 'Chambre', 'Salle de bain', 'Entrée', 'Jardin', 'Cave', 'Grenier'].join('\n'),
-    // Une ligne par personnage : « Prénom du joueur = Personnage », ou juste « Personnage » (donné à un joueur sans personnage prévu).
+    // Une ligne par personnage ; chaque joueur en reçoit un au hasard.
     personnages: ['Le Majordome', 'La Comtesse', 'Le Docteur', 'Le Colonel', 'La Cantatrice', 'Le Professeur', 'La Gouvernante', 'Le Notaire', "L'Héritière", 'Le Jardinier', 'La Veuve', 'Le Chef cuisinier', "L'Aventurière", 'Le Pasteur'].join('\n'),
     armes: ['Couteau', 'Corde', 'Chandelier', 'Revolver', 'Poison', 'Clé anglaise', 'Matraque'].join('\n'),
     intro: "Vous vous réveillez autour de la table du dîner. Personne ne se souvient de rien.\nDans la maison, un corps.\nPersonne n'a pu entrer ni sortir : le coupable est l'un d'entre vous… et il ne le sait peut-être pas lui-même.",
@@ -43,35 +43,20 @@ export function defaultConfig() {
 
 // ---------- outils ----------
 const lignes = (t, max = 40) => String(t ?? '').split(/\r?\n/).map(x => x.trim().slice(0, 40)).filter(Boolean).slice(0, max);
-const norm = x => String(x ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
-// Personnages réglés dans l'admin : [{ joueur (prénom, ou null), nom }].
-export function personnagesDe(texte) {
-  return String(texte ?? '').split(/\r?\n/).map(l => l.trim()).filter(Boolean).slice(0, 40).map(l => {
-    const i = l.indexOf('=');
-    return i < 0 ? { joueur: null, nom: l.slice(0, 40) } : { joueur: l.slice(0, i).trim() || null, nom: l.slice(i + 1).trim().slice(0, 40) };
-  }).filter(x => x.nom);
-}
-// Personnage de chaque joueur : celui prévu pour son prénom, sinon un personnage libre (d'abord ceux sans prénom).
-function attribuer(ctx, pids, deja = []) {
-  const liste = personnagesDe(ctx.cfg.personnages).filter(x => !deja.includes(x.nom));
-  const pris = new Set(), out = {};
-  for (const p of pids) {
-    const k = liste.findIndex((x, i) => !pris.has(i) && x.joueur && norm(x.joueur) === norm(ctx.name(p)));
-    if (k >= 0) { pris.add(k); out[p] = liste[k].nom; }
-  }
-  const libres = [...liste.keys()].filter(i => !pris.has(i)).sort((a, b) => !!liste[a].joueur - !!liste[b].joueur);
-  let n = deja.length + Object.keys(out).length;
-  for (const p of pids) {
-    if (out[p]) continue;
-    const k = libres.shift();
-    out[p] = k != null ? liste[k].nom : `Personnage ${++n}`;
-  }
-  return out;
-}
 const ok = msg => ({ ok: true, msg });
 const err = msg => ({ ok: false, msg });
 const pick = a => a[Math.floor(Math.random() * a.length)];
-const TYPES = { s: 'salle', p: 'perso', a: 'arme' };
+
+// Personnages réglés dans l'admin (un par ligne). Une ancienne ligne « Prénom = Personnage » ne garde que le personnage.
+export function personnagesDe(texte) {
+  return String(texte ?? '').split(/\r?\n/).map(l => l.split('=').pop().trim().slice(0, 40)).filter(Boolean).slice(0, 40);
+}
+// Personnage de chaque joueur : tiré au hasard parmi ceux de l'admin qui ne sont pas déjà en jeu.
+function attribuer(ctx, pids, deja = []) {
+  const libres = shuffle(personnagesDe(ctx.cfg.personnages).filter(n => !deja.includes(n)));
+  let n = deja.length;
+  return Object.fromEntries(pids.map(p => [p, libres.shift() ?? `Personnage ${++n + libres.length}`]));
+}
 
 // Cartes de la partie : salles s0…, personnages p0… (un par joueur, dans l'ordre donné), armes a0….
 function cartesDe(cfg, persos) {
@@ -332,7 +317,7 @@ export function adminAction(ctx, g, a) {
     terminer(ctx, g);
     return ok('Enquête terminée : la solution est révélée.');
   }
-  if (a.type === 'personnage') { // pendant l'introduction : l'admin change le personnage d'un joueur (échange avec celui qui l'avait)
+  if (a.type === 'personnage') { // pendant l'introduction : l'admin peut quand même changer le personnage d'un joueur (échange avec celui qui l'avait)
     const J = g.joueurs[a.pid];
     if (!J || g.cartes[a.perso]?.type !== 'perso') return err('Joueur ou personnage inconnu.');
     if (g.phase !== 'intro' || g.finished) return err("Les personnages ne se changent que pendant l'introduction.");
@@ -350,7 +335,7 @@ export function adminAction(ctx, g, a) {
   return err('Action inconnue.');
 }
 
-// Rattrapage : un joueur ajouté en cours de partie reçoit son personnage (ou un libre) et 3 cartes (doublons possibles).
+// Rattrapage : un joueur ajouté en cours de partie reçoit un personnage libre et 3 cartes (doublons possibles).
 export function ajouterJoueur(ctx, g, p) {
   if (g.joueurs[p]) return err('Ce joueur est déjà dans la partie.');
   if (g.finished) return err('La partie est terminée.');
