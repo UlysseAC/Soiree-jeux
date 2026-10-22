@@ -12,9 +12,9 @@ export const name = "L'Enquête";
 export const minPlayers = 2;
 
 
-const SALLES_1930 = ['Garage', 'Salle de jeu', 'Salle à manger', 'Salon', 'Cuisine', 'Bureau', 'Salle de bains', 'Chambre', 'Grenier', 'Bibliothèque', 'Pharmacie'].join('\n');
+export const SALLES_1930 = ['Garage', 'Salle de jeu', 'Salle à manger', 'Salon', 'Cuisine', 'Bureau', 'Salle de bains', 'Chambre', 'Grenier', 'Bibliothèque', 'Pharmacie'].join('\n');
 // Ancienne liste par défaut (avant les tâches) : remplacée par celle du manoir si elle n'a pas été modifiée.
-const SALLES_AVANT = ['Cuisine', 'Salon', 'Salle à manger', 'Bibliothèque', 'Bureau', 'Chambre', 'Salle de bain', 'Entrée', 'Jardin', 'Cave', 'Grenier'].join('\n');
+export const SALLES_AVANT = ['Cuisine', 'Salon', 'Salle à manger', 'Bibliothèque', 'Bureau', 'Chambre', 'Salle de bain', 'Entrée', 'Jardin', 'Cave', 'Grenier'].join('\n');
 
 export function defaultConfig() {
   return {
@@ -30,6 +30,10 @@ export function defaultConfig() {
     delaiReponse: 60, // le joueur interrogé a ce temps pour choisir la carte ; ensuite, une carte au hasard (s)
     rotationQr: 30, // le QR code des tablettes change toutes les … s ; 0 = fixe
     taches: true, // il faut réussir la tâche d'une salle pour en recevoir l'indice (sinon, indice gratuit)
+    tachesSolo: Array.from({ length: 11 }, () => true), // tâche solo activée, salle par salle (dans l'ordre des salles)
+    tachesGroupe: Array.from({ length: 11 }, () => true), // tâche à plusieurs activée, salle par salle
+    chanceSolo: 50, // chance (%) que la salle tire sa tâche solo plutôt que celle à plusieurs
+    difficulte: 'normal', // facile | normal | difficile
     ficheNumerique: false, // fiche de détective sur le téléphone (sinon, sur papier)
     indicesParSalle: 1, // indices par joueur et par salle
     indicesFinale: 2, // pendant la phase finale
@@ -152,28 +156,36 @@ function lancer(ctx, g) {
   g.debut = now;
   g.endsAt = now + ctx.cfg.dureeMax * 1000;
   g.finaleAt = ctx.cfg.finaleApres > 0 ? now + ctx.cfg.finaleApres * 1000 : 0;
-  g.taches = Array.from({ length: g.nbSalles }, (_, n) => tirerTache(n));
+  g.taches = Array.from({ length: g.nbSalles }, (_, n) => tirerTache(ctx, n));
   g.sessions = {};
   feed(g, ctx, "🔎 L'enquête commence !");
 }
 
 // ---------- tâches des salles ----------
-function tirerTache(n) {
-  const t = T.tirer(n);
-  return { ...t, params: !t.groupe && T.SOLOS[t.id].params ? T.SOLOS[t.id].params() : {} };
+const niveau = ctx => T.NIVEAUX[ctx.cfg.difficulte] ?? 1;
+const activees = (ctx, n) => ({ solo: ctx.cfg.tachesSolo?.[n] !== false, groupe: ctx.cfg.tachesGroupe?.[n] !== false });
+const paramsSolo = (ctx, id) => ({ ...(T.SOLOS[id].params ? T.SOLOS[id].params() : {}), niveau: niveau(ctx) });
+function tirerTache(ctx, n) {
+  const t = T.tirer(n, { ...activees(ctx, n), chanceSolo: Number(ctx.cfg.chanceSolo ?? 50) });
+  return t && { ...t, params: t.groupe ? {} : paramsSolo(ctx, t.id) };
 }
 const maxSalle = (ctx, g) => (g.phase === 'finale' ? ctx.cfg.indicesFinale : ctx.cfg.indicesParSalle);
 const aIndice = (ctx, g, p, s) => (g.joueurs[p].pris[s] || 0) >= maxSalle(ctx, g);
 // Tâche de la salle pour les joueurs qui y sont : la tâche à plusieurs devient la solo s'il ne reste pas assez de joueurs sans l'indice.
 function tacheDe(ctx, g, s) {
   const n = Number(s.slice(1));
-  const t = g.taches?.[n];
-  if (!t) return null;
+  if (!g.taches || n >= g.taches.length) return null;
+  const on = activees(ctx, n);
+  // réglages changés dans l'admin : la salle retire une tâche permise (sauf pendant une tâche à plusieurs)
+  let t = g.taches[n];
+  if (!g.sessions[s] && (!t ? on.solo || on.groupe : !(t.groupe ? on.groupe : on.solo))) t = g.taches[n] = tirerTache(ctx, n);
+  if (!t) return null; // aucune tâche dans cette salle : l'indice est gratuit
   if (!t.groupe || g.sessions[s]) return t;
   const besoin = Object.keys(g.joueurs).filter(p => !aIndice(ctx, g, p, s)).length;
   if (besoin >= T.GROUPES[t.id].n) return t;
+  if (!on.solo) return null; // pas assez de joueurs pour la tâche à plusieurs et pas de solo : indice gratuit
   const solo = T.SALLES[n % T.SALLES.length].solo;
-  return { id: solo, groupe: false, params: T.SOLOS[solo].params ? (t.paramsSolo ??= T.SOLOS[solo].params()) : {} };
+  return { id: solo, groupe: false, params: (t.paramsSolo ??= paramsSolo(ctx, solo)) };
 }
 // Réussite : chaque participant reçoit l'indice de la salle (tous ceux de la phase finale d'un coup), puis la salle tire une nouvelle tâche.
 function reussir(ctx, g, s, pids) {
@@ -188,7 +200,7 @@ function reussir(ctx, g, s, pids) {
   const n = Number(s.slice(1));
   feed(g, ctx, `✅ ${pids.map(p => ctx.name(p)).join(' et ')} : tâche réussie (${nom(g, s)})`);
   delete g.sessions[s];
-  g.taches[n] = tirerTache(n);
+  g.taches[n] = tirerTache(ctx, n);
   return textes;
 }
 // Un joueur qui quitte la salle annule la tâche à plusieurs en cours (ou quitte la file d'attente).
@@ -280,7 +292,7 @@ function remplir(g, p, texte, n) {
 function indice(ctx, g, p, parTache = false) {
   const J = g.joueurs[p];
   const s = J.salle;
-  if (ctx.cfg.taches && !parTache && g.taches) return err('Réussis la tâche de la salle pour obtenir son indice.');
+  if (ctx.cfg.taches && !parTache && g.taches && tacheDe(ctx, g, s)) return err('Réussis la tâche de la salle pour obtenir son indice.');
   const max = g.phase === 'finale' ? ctx.cfg.indicesFinale : ctx.cfg.indicesParSalle;
   const deja = J.pris[s] || 0;
   if (deja >= max) return err(g.phase === 'finale' ? 'Tu as déjà pris tes indices dans cette salle.' : `Tu as déjà pris ${max > 1 ? 'tes indices' : "l'indice"} de cette salle.${ctx.cfg.indicesFinale > max ? ' Il y en aura un autre pendant la phase finale.' : ''}`);
@@ -365,7 +377,7 @@ export function playerAction(ctx, g, p, a) {
       if (se.etat !== 'attente') return err('La tâche a déjà commencé.');
       if (se.joueurs.includes(p)) return err('Tu attends déjà.');
       se.joueurs.push(p);
-      if (se.joueurs.length >= def.n) { se.etat = 'jeu'; se.data = def.init(now); return ok("C'est parti !"); }
+      if (se.joueurs.length >= def.n) { se.etat = 'jeu'; se.data = { ...def.init(now, niveau(ctx)), nv: niveau(ctx) }; return ok("C'est parti !"); }
       return ok(`Encore ${def.n - se.joueurs.length} joueur(s).`);
     }
     if (a.type === 'tacheQuitter') { quitterSession(g, p); return ok('Tu as quitté la tâche.'); }
@@ -425,8 +437,8 @@ export function adminAction(ctx, g, a) {
     const n = Number(String(a.salle).slice(1));
     if (!g.taches?.[n]) return err('Salle inconnue.');
     delete g.sessions[`s${n}`];
-    g.taches[n] = tirerTache(n);
-    return ok(`${nom(g, `s${n}`)} : ${T.nomTache(g.taches[n])}`);
+    g.taches[n] = tirerTache(ctx, n);
+    return ok(`${nom(g, `s${n}`)} : ${g.taches[n] ? T.nomTache(g.taches[n]) : 'pas de tâche (indice gratuit)'}`);
   }
   if (a.type === 'placer') { // l'admin place un joueur dans une salle (QR code qui ne passe pas)
     const J = g.joueurs[a.pid];
@@ -542,7 +554,7 @@ export function adminView(ctx, g) {
       indices: J.indices, accuse: J.accuse ? (J.accuse.juste ? 'juste' : 'fausse') : null,
     })).sort((a, b) => a.name.localeCompare(b.name, 'fr')),
     attente: g.questions.filter(q => q.etat === 'attente').map(q => ({ de: ctx.name(q.de), a: ctx.name(q.a), salle: nom(g, q.salle) })),
-    taches: (g.taches || []).map((_, n) => { const s = `s${n}`, t = tacheDe(ctx, g, s), se = g.sessions[s]; return t && { salle: s, nomSalle: nom(g, s), nom: T.nomTache(t), groupe: t.groupe, etat: se?.etat || 'libre', joueurs: (se?.joueurs || []).map(ctx.name) }; }).filter(Boolean),
+    taches: (g.taches || []).map((_, n) => { const s = `s${n}`, t = tacheDe(ctx, g, s), se = g.sessions[s]; return { salle: s, nomSalle: nom(g, s), nom: t ? T.nomTache(t) : 'Aucune : indice gratuit', groupe: !!t?.groupe, aucune: !t, etat: se?.etat || 'libre', joueurs: (se?.joueurs || []).map(ctx.name) }; }),
   };
 }
 

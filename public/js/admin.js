@@ -333,8 +333,9 @@ function partieEnquete(g) {
       : '<p class="muted" style="margin:0">Solution, tueur, personnages et cartes des joueurs sont cachés, pour que tu puisses jouer sans avantage. « Révéler » ne les montre que sur cette page (deux clics), jamais sur l\'écran ni les téléphones.</p>'}</div>`;
   const taches = V.gameConfig?.taches !== false;
   h += `<div class="box"><div class="spread"><h2>🛠 Tâches des salles</h2><button class="btn ${taches ? 'primary' : ''}" data-act="eqTaches">${taches ? 'Activées · revenir à l\'indice gratuit' : 'Indice gratuit · activer les tâches'}</button></div>
-    <p class="muted" style="margin:0;font-size:14px">${taches ? 'Il faut réussir la tâche d\'une salle pour recevoir son indice.' : 'Les joueurs demandent l\'indice à la tablette, sans tâche.'} Ça change tout de suite.</p>
-    ${taches && g.taches?.length ? `<div class="scroll"><table><thead><tr><th>Salle</th><th>Tâche du moment</th><th>État</th><th></th></tr></thead><tbody>${g.taches.map(t => `<tr><td>${esc(t.nomSalle)}</td><td>${esc(t.nom)} <span class="muted">${t.groupe ? '(à plusieurs)' : '(solo)'}</span></td>
+    <p class="muted" style="margin:0;font-size:14px">${taches ? 'Il faut réussir la tâche d\'une salle pour recevoir son indice.' : 'Les joueurs demandent l\'indice à la tablette, sans tâche.'} Ça change tout de suite. Tâches salle par salle : onglet Réglages des jeux.</p>
+    ${taches ? (() => { const c = V.fullConfig.games.enquete; cfgGame = 'enquete'; const champs = `<div class="grid-auto">${eqDifficulte(c)}${cfgInput('chanceSolo', c.chanceSolo, 'num', { label: 'Chance d\'avoir la tâche solo (%)' })}</div>`; cfgGame = null; return champs; })() : ''}
+    ${taches && g.taches?.length ? `<div class="scroll"><table><thead><tr><th>Salle</th><th>Tâche du moment</th><th>État</th><th></th></tr></thead><tbody>${g.taches.map(t => `<tr><td>${esc(t.nomSalle)}</td><td>${esc(t.nom)} <span class="muted">${t.aucune ? '' : t.groupe ? '(à plusieurs)' : '(solo)'}</span></td>
       <td class="muted">${t.etat === 'libre' ? '' : `${t.etat === 'jeu' ? 'en cours' : 'en attente'} : ${t.joueurs.map(nm).join(', ')}`}</td><td><button class="btn sm" data-jeu="nouvelleTache" data-salle="${t.salle}" data-confirm="Faire tirer une autre tâche à cette salle ?">Autre tâche</button></td></tr>`).join('')}</tbody></table></div>` : ''}</div>`;
   const fiche = !!V.gameConfig?.ficheNumerique;
   h += `<div class="box"><div class="spread"><h2>📋 Fiche de détective</h2><button class="btn ${fiche ? 'primary' : ''}" data-act="eqFiche">${fiche ? 'Sur le téléphone · passer au papier' : 'Sur papier · mettre sur le téléphone'}</button></div>
@@ -370,6 +371,23 @@ async function eqSauverNoms(el) {
 }
 app.addEventListener('change', e => { if (e.target.dataset.eqnom != null) eqSauverNoms(e.target); });
 
+// Tâches de chaque salle, dans l'ordre des salles (les mêmes que SALLES dans server/games/taches.js).
+const EQ_TACHES = [['Pression des pneus', 'Changer la roue', 2], ['Ranger les boules de billard', 'La table de poker truquée', 2], ['Polir l\'argenterie', 'Dresser la table', 2], ['Remonter la pendule', 'Les lampes à pétrole', 2],
+  ['Fourneau à charbon', 'Le soufflé', 2], ['Machine à écrire', 'Le coffre-fort', 2], ['Réparer la tuyauterie', 'Purger les canalisations', 2], ['Faire le lit', 'Fermer les lourds volets', 2],
+  ['Épousseter la malle', 'La radio à galène', 2], ['Les encyclopédies', 'La porte secrète', 3], ['Préparer la potion', 'La cuve de stérilisation', 3]];
+const eqDifficulte = c => `<label class="field"><span class="label">Difficulté des tâches</span><select class="in" id="c-jeu-enquete-difficulte" data-cfg="difficulte" data-kind="text" data-scope="jeu" data-game="enquete">${[['facile', 'Facile'], ['normal', 'Normal'], ['difficile', 'Difficile']].map(([k, l]) => `<option value="${k}" ${c.difficulte === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`;
+function eqReglagesTaches(c, salles) {
+  return `<div class="box"><h2>🛠 Tâches des salles</h2><div class="grid-auto">
+      ${cfgInput('taches', c.taches, 'bool', { label: 'Tâches pour obtenir les indices (sinon indice gratuit)' })}
+      ${eqDifficulte(c)}
+      ${cfgInput('chanceSolo', c.chanceSolo, 'num', { label: 'Chance d\'avoir la tâche solo (%)' })}
+    </div>
+    <p class="muted" style="margin:0;font-size:14px">Difficulté : facile = zones plus larges, moins de temps à tenir, moins de manches ; difficile = l'inverse. Une salle sans aucune tâche cochée donne son indice gratuitement. Les changements comptent pour les prochaines tâches tirées.</p>
+    <div class="scroll"><table><thead><tr><th>Salle</th><th>Tâche solo</th><th>Tâche à plusieurs</th></tr></thead><tbody>${EQ_TACHES.map(([solo, groupe, n], i) => `<tr><td>${esc(salles[i] || `Salle ${i + 1}`)}</td>
+      <td><label class="row" style="gap:8px">${cfgInput(`tachesSolo.${i}`, c.tachesSolo?.[i] !== false, 'bool')} ${esc(solo)}</label></td>
+      <td><label class="row" style="gap:8px">${cfgInput(`tachesGroupe.${i}`, c.tachesGroupe?.[i] !== false, 'bool')} ${esc(groupe)} <span class="muted">(${n === 3 ? 'trio' : 'duo'})</span></label></td></tr>`).join('')}</tbody></table></div></div>`;
+}
+
 function reglagesEnquete(c) {
   const salles = eqLignes(c.salles);
   const d = (p, l) => cfgInput(p, c[p], 'dur', { label: l });
@@ -383,8 +401,8 @@ function reglagesEnquete(c) {
     <div class="box"><h2>Solution</h2><div class="grid-auto">
       ${cfgInput('solution.perso', c.solution.perso, 'text', { label: 'Personnage (le tueur)', ph: 'au hasard' })}${cfgInput('solution.arme', c.solution.arme, 'text', { label: 'Arme', ph: 'au hasard' })}${cfgInput('solution.salle', c.solution.salle, 'text', { label: 'Salle', ph: 'au hasard' })}
     </div><p class="muted" style="margin:0;font-size:14px">Vide = tiré au hasard (à garder vide si tu joues : tu ne la connaîtras pas). Sinon le nom exact d'une ligne des listes (utile si tes indices écrits parlent de la solution).</p></div>
+    ${eqReglagesTaches(c, salles)}
     <div class="box"><h2>Temps et règles</h2><div class="grid-auto">
-      ${cfgInput('taches', c.taches, 'bool', { label: 'Tâches pour obtenir les indices (sinon indice gratuit)' })}
       ${cfgInput('ficheNumerique', c.ficheNumerique, 'bool', { label: 'Fiche de détective sur le téléphone (sinon papier)' })}
       ${d('dureeMax', 'Durée max de l\'enquête')}${d('finaleApres', 'Phase finale au bout de (0:00 = à la main)')}${d('delaiQuestion', 'Délai entre deux questions')}${d('delaiReponse', 'Temps pour montrer une carte')}
       ${n('rotationQr', 'QR code changé toutes les … s (0 = fixe)')}${n('indicesParSalle', 'Indices par salle et par joueur')}${n('indicesFinale', 'Indices par salle en phase finale')}

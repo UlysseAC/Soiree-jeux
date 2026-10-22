@@ -10,6 +10,8 @@ const Taches = (() => {
   const h = (html) => { const t = document.createElement('div'); t.innerHTML = html.trim(); return t.firstElementChild; };
   const borne = (x, a, b) => Math.max(a, Math.min(b, x));
   const vivant = el => el.isConnected;
+  // difficulté réglée dans l'admin : niv(p, [facile, normal, difficile])
+  const niv = (p, t) => t[p?.niveau ?? 1];
   // boucle d'animation qui s'arrête toute seule quand le mini-jeu disparaît
   function boucle(el, f) {
     let t0 = performance.now();
@@ -46,7 +48,7 @@ const Taches = (() => {
   }
   const msg = (el, texte, ok = false) => { const m = el.querySelector('.tz-msg'); if (m) { m.textContent = texte; m.className = `tz-msg ${ok ? 'ok' : ''}`; } };
   // frotter : un calque de saleté sur une image, effacé au doigt ; fin quand presque tout est propre
-  function frotter(el, fin, { fond, salete }) {
+  function frotter(el, fin, { fond, salete, seuil = 0.92 }) {
     const box = h(`<div class="tz-frotte" style="background:${fond}"><canvas></canvas></div>`);
     el.appendChild(box);
     const cv = box.querySelector('canvas');
@@ -69,7 +71,7 @@ const Taches = (() => {
       for (let i = 3; i < d.length; i += 4 * 37) { n++; if (d[i] > 40) reste++; }
       const propre = 1 - reste / n;
       msg(el, `Propre à ${Math.floor(propre * 100)} %`);
-      if (propre >= 0.92) { fini = true; clearInterval(verif); fin(); }
+      if (propre >= seuil) { fini = true; clearInterval(verif); fin(); }
     }, 300);
   }
 
@@ -77,19 +79,20 @@ const Taches = (() => {
   const SOLOS = {
     pneus(el, p, fin) {
       el.append(h('<div class="tz-ligne"></div>'));
-      const set = jauge(el.firstChild, { zone: [60, 78], titre: 'Pression' });
+      const Z = niv(p, [[56, 82], [60, 78], [64, 74]]), DUR = niv(p, [2, 3, 4]);
+      const set = jauge(el.firstChild, { zone: Z, titre: 'Pression' });
       const btn = h('<button class="btn primary big tz-gros">🛞 Pomper</button>');
       el.append(btn, h('<p class="tz-msg"></p>'));
       let v = 0;
-      const t = tenir(3);
+      const t = tenir(DUR);
       btn.addEventListener('pointerdown', e => { e.preventDefault(); v = Math.min(100, v + 9); navigator.vibrate?.(15); });
       let fini = false;
       boucle(el, dt => {
         if (fini) return;
         v = Math.max(0, v - 14 * dt);
         set(v);
-        const r = t(v >= 60 && v <= 78, dt);
-        if (r === true) { fini = true; fin(); } else msg(el, r ? `Tiens bon… ${r.toFixed(1)} / 3 s` : 'Monte l\'aiguille dans la zone verte.');
+        const r = t(v >= Z[0] && v <= Z[1], dt);
+        if (r === true) { fini = true; fin(); } else msg(el, r ? `Tiens bon… ${r.toFixed(1)} / ${DUR} s` : 'Monte l\'aiguille dans la zone verte.');
       });
     },
     billard(el, p, fin) {
@@ -119,16 +122,17 @@ const Taches = (() => {
       });
     },
     argenterie(el, p, fin) {
-      frotter(el, fin, { fond: 'radial-gradient(circle at 40% 35%, #ffffff, #c9ced6 45%, #8d939c 70%, #3a3127 71%)', salete: '#6b5a3e' });
+      frotter(el, fin, { fond: 'radial-gradient(circle at 40% 35%, #ffffff, #c9ced6 45%, #8d939c 70%, #3a3127 71%)', salete: '#6b5a3e', seuil: niv(p, [0.85, 0.92, 0.96]) });
       el.append(h('<p class="tz-msg">Frotte !</p>'));
     },
     malle(el, p, fin) {
-      frotter(el, fin, { fond: 'linear-gradient(#7a4b25, #5c3518) center/100% 100%, #5c3518', salete: '#b9ad97' });
+      frotter(el, fin, { fond: 'linear-gradient(#7a4b25, #5c3518) center/100% 100%, #5c3518', salete: '#b9ad97', seuil: niv(p, [0.85, 0.92, 0.96]) });
       el.append(h('<p class="tz-msg">Frotte !</p>'));
     },
     pendule(el, p, fin) {
       el.append(h('<div class="tz-ligne"><div class="tz-cadran">🕰️<small>tourne ici</small></div></div>'));
-      const set = jauge(el.firstChild, { zone: [70, 88], titre: 'Ressort' });
+      const Z = niv(p, [[65, 90], [70, 88], [75, 85]]);
+      const set = jauge(el.firstChild, { zone: Z, titre: 'Ressort' });
       const btn = h('<button class="btn primary big">C\'est remonté</button>');
       el.append(btn, h('<p class="tz-msg">Fais des cercles autour du cadran.</p>'));
       let v = 0;
@@ -137,23 +141,24 @@ const Taches = (() => {
         if (v > 100) { v = 0; msg(el, '💥 Le ressort a cassé ! On recommence.'); navigator.vibrate?.(200); }
         set(v);
       });
-      btn.addEventListener('click', () => (v >= 70 && v <= 88 ? fin() : msg(el, v < 70 ? 'Pas assez remonté.' : 'Trop !')));
+      btn.addEventListener('click', () => (v >= Z[0] && v <= Z[1] ? fin() : msg(el, v < Z[0] ? 'Pas assez remonté.' : 'Trop !')));
       set(0);
     },
     fourneau(el, p, fin) {
       el.append(h('<div class="tz-ligne"><div class="tz-pelle">⛏️<small>glisse vers le haut</small></div></div>'));
-      const set = jauge(el.firstChild, { zone: [75, 92], couleur: 'var(--danger)', titre: 'Chaleur' });
+      const Z = niv(p, [[70, 95], [75, 92], [79, 89]]), DUR = niv(p, [2, 3, 4]);
+      const set = jauge(el.firstChild, { zone: Z, couleur: 'var(--danger)', titre: 'Chaleur' });
       el.append(h('<p class="tz-msg"></p>'));
       let v = 10, y0 = null, fini = false;
-      const t = tenir(3), zone = el.querySelector('.tz-pelle');
+      const t = tenir(DUR), zone = el.querySelector('.tz-pelle');
       zone.addEventListener('pointerdown', e => { zone.setPointerCapture(e.pointerId); y0 = e.clientY; });
       zone.addEventListener('pointermove', e => { if (y0 != null && y0 - e.clientY > 60) { v = Math.min(100, v + 11); y0 = e.clientY; navigator.vibrate?.(15); } });
       zone.addEventListener('pointerup', () => { y0 = null; });
       boucle(el, dt => {
         if (fini) return;
         v = Math.max(0, v - 9 * dt); set(v);
-        const r = t(v >= 75 && v <= 92, dt);
-        if (r === true) { fini = true; fin(); } else msg(el, r ? `Garde le feu… ${r.toFixed(1)} / 3 s` : 'Pellette pour amener le feu dans le rouge.');
+        const r = t(v >= Z[0] && v <= Z[1], dt);
+        if (r === true) { fini = true; fin(); } else msg(el, r ? `Garde le feu… ${r.toFixed(1)} / ${DUR} s` : 'Pellette pour amener le feu dans le rouge.');
       });
     },
     machine(el, p, fin) {
@@ -161,7 +166,8 @@ const Taches = (() => {
       const rangs = ['AZERTYUIOP', 'QSDFGHJKLM', 'WXCVBN'];
       const box = h(`<div class="tz-machine"><div class="tz-mot">${esc(mot)}</div><div class="tz-tape"></div><div class="tz-chrono"></div>${rangs.map(r => `<div class="tz-rang">${[...r].map(l => `<button class="tz-touche" data-l="${l}">${l}</button>`).join('')}</div>`).join('')}</div>`);
       el.append(box, h('<p class="tz-msg"></p>'));
-      let tape = '', fin0 = Date.now() + 30000, fini = false;
+      const TEMPS = niv(p, [45, 30, 20]) * 1000;
+      let tape = '', fin0 = Date.now() + TEMPS, fini = false;
       const tapeEl = box.querySelector('.tz-tape');
       box.addEventListener('pointerdown', e => {
         const b = e.target.closest('[data-l]');
@@ -175,16 +181,16 @@ const Taches = (() => {
         if (fini) return;
         const reste = fin0 - Date.now();
         box.querySelector('.tz-chrono').textContent = `⏱ ${Math.max(0, Math.ceil(reste / 1000))} s`;
-        if (reste <= 0) { tape = ''; tapeEl.textContent = ''; fin0 = Date.now() + 30000; msg(el, 'Trop lent : on recommence.'); }
+        if (reste <= 0) { tape = ''; tapeEl.textContent = ''; fin0 = Date.now() + TEMPS; msg(el, 'Trop lent : on recommence.'); }
       });
     },
     tuyaux(el, p, fin) {
       // grille 4 × 4 : un chemin de l'entrée (à gauche) à la sortie (à droite), tuyaux droits et coudés, puis tout est tourné au hasard
-      const N = 4, D = [[-1, 0], [0, 1], [1, 0], [0, -1]]; // N E S O
+      const N = niv(p, [3, 4, 5]), D = [[-1, 0], [0, 1], [1, 0], [0, -1]]; // N E S O
       let chemin = null;
       const entree = Math.floor(Math.random() * N);
       const essai = (r, c, vu, acc) => {
-        if (c === N - 1 && Math.random() < 0.6 || acc.length > 12 && c === N - 1) return [...acc, [r, c]];
+        if (c === N - 1 && Math.random() < 0.6 || acc.length > N * 3 && c === N - 1) return [...acc, [r, c]];
         const dirs = [0, 1, 2, 3].sort(() => Math.random() - 0.5);
         for (const d of dirs) { const rr = r + D[d][0], cc = c + D[d][1]; if (rr < 0 || cc < 0 || rr >= N || cc >= N || vu.has(rr * N + cc)) continue; vu.add(rr * N + cc); const res = essai(rr, cc, vu, [...acc, [r, c]]); if (res) return res; vu.delete(rr * N + cc); }
         return c === N - 1 ? [...acc, [r, c]] : null;
@@ -232,7 +238,8 @@ const Taches = (() => {
     },
     lit(el, p, fin) {
       const H = 240;
-      const plis = [...Array(5)].map((_, i) => ({ y: 25 + i * 45 + Math.random() * 15, fait: false }));
+      const nb = niv(p, [3, 5, 7]), pas = (H - 40) / nb;
+      const plis = [...Array(nb)].map((_, i) => ({ y: 20 + i * pas + Math.random() * Math.max(4, pas - 25), fait: false }));
       const box = h(`<div class="tz-lit" style="height:${H}px">${plis.map((pl, i) => `<div class="tz-pli" data-i="${i}" style="top:${pl.y}px"></div>`).join('')}</div>`);
       el.append(box, h('<p class="tz-msg">Glisse le doigt sur chaque pli, de bord à bord.</p>'));
       let trait = null;
@@ -246,10 +253,11 @@ const Taches = (() => {
       box.addEventListener('pointerup', () => { trait = null; });
     },
     livres(el, p, fin) {
-      const romains = ['I', 'II', 'III', 'IV', 'V', 'VI'];
-      let ordre = [0, 1, 2, 3, 4, 5];
+      const nb = niv(p, [4, 6, 8]);
+      const romains = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'].slice(0, nb);
+      let ordre = romains.map((_, i) => i);
       while (ordre.every((x, i) => x === i)) ordre.sort(() => Math.random() - 0.5);
-      const box = h('<div class="tz-livres"></div>');
+      const box = h(`<div class="tz-livres" style="grid-template-columns:repeat(${nb}, 1fr)"></div>`);
       el.append(box, h('<p class="tz-msg">Fais glisser un tome à sa place.</p>'));
       const rendre = (prisI = -1, x = 0) => {
         box.innerHTML = ordre.map((n, i) => `<div class="tz-livre ${i === prisI ? 'pris' : ''}" data-i="${i}" style="${i === prisI ? `transform:translateX(${x}px)` : ''}">${romains[n]}</div>`).join('');
@@ -259,8 +267,8 @@ const Taches = (() => {
       box.addEventListener('pointerdown', e => { const b = e.target.closest('[data-i]'); if (!b) return; pris = Number(b.dataset.i); x0 = e.clientX; box.setPointerCapture(e.pointerId); rendre(pris, 0); });
       box.addEventListener('pointermove', e => {
         if (pris < 0) return;
-        const larg = box.clientWidth / 6, dx = e.clientX - x0;
-        const cible = borne(pris + Math.round(dx / larg), 0, 5);
+        const larg = box.clientWidth / nb, dx = e.clientX - x0;
+        const cible = borne(pris + Math.round(dx / larg), 0, nb - 1);
         if (cible !== pris) { const [l] = ordre.splice(pris, 1); ordre.splice(cible, 0, l); x0 += (cible - pris) * larg; pris = cible; }
         rendre(pris, e.clientX - x0);
       });
@@ -277,7 +285,7 @@ const Taches = (() => {
       const lacher = () => {
         if (!verse) return;
         verse = false;
-        if (Math.abs(v - ligne) <= 3.5) { bloque = true; fin(); return; }
+        if (Math.abs(v - ligne) <= niv(p, [6, 3.5, 2])) { bloque = true; fin(); return; }
         bloque = true; msg(el, v < ligne ? 'Pas assez ! On vide et on recommence.' : 'Trop ! On vide et on recommence.');
         setTimeout(() => { v = 0; bloque = false; }, 900);
       };
@@ -319,7 +327,7 @@ const Taches = (() => {
       const carte = c => `<span class="tz-carte ${/[♥♦]/.test(c) ? 'rouge' : ''}">${esc(c)}</span>`;
       const rendre = () => {
         const v = ctx.vue;
-        box.innerHTML = `<div class="label">Manche ${v.manche} / 3 · la table</div><div class="tz-cartes">${v.table.map(carte).join('')}</div>
+        box.innerHTML = `<div class="label">Manche ${v.manche} / ${v.manches || 3} · la table</div><div class="tz-cartes">${v.table.map(carte).join('')}</div>
           <div class="label">Ta main : quelle carte est aussi sur la table ?</div><div class="tz-cartes main">${v.main.map(c => `<button data-c="${esc(c)}">${carte(c)}</button>`).join('')}</div>`;
         msg(el, v.trouve ? (v.autreTrouve ? '' : '✓ Trouvé ! Attends ton partenaire…') : v.autreTrouve ? 'Ton partenaire a trouvé, à toi !' : '', v.trouve);
       };
@@ -363,7 +371,7 @@ const Taches = (() => {
         zone.style.bottom = `${(cible - v.zone) / 2}%`; zone.style.height = `${v.zone}%`;
         flamme.style.height = `${borne(total / 2, 0, 100)}%`;
         flamme.classList.toggle('dedans', Math.abs(total - cible) <= v.zone);
-        msg(el, `Gardez la flamme dans la zone : ${v.tenu} / 10 s`);
+        msg(el, `Gardez la flamme dans la zone : ${v.tenu} / ${v.duree || 10} s`);
       });
     },
     souffle(el, ctx) {
@@ -373,7 +381,7 @@ const Taches = (() => {
         boucle(el, () => {
           const v = ctx.vue, now = SJ.now(), p = (now - v.debut) / (v.fenetre - v.debut);
           s.style.height = `${borne(20 + p * 60, 20, 90)}%`;
-          const dore = Math.abs(now - v.fenetre) <= 700, brule = now > v.fenetre + 900;
+          const marge = v.marge || 900, dore = Math.abs(now - v.fenetre) <= marge * 0.8, brule = now > v.fenetre + marge;
           s.className = `tz-souffle ${dore ? 'dore' : brule ? 'brule' : ''}`;
           msg(el, dore ? '🗣 MAINTENANT !' : brule ? 'Brûlé…' : 'Il monte… prépare-toi à crier.', dore);
         });
@@ -389,12 +397,12 @@ const Taches = (() => {
         const b = el.querySelector('b');
         const envoyer = limiter(x => ctx.envoyer('molette', { v: x }), 100);
         tourner(el.querySelector('.tz-cadran'), t => { v = ((v + t * 40) % 100 + 100) % 100; b.textContent = Math.round(v) % 100; envoyer(Math.round(v) % 100); });
-        boucle(el, () => msg(el, `Chiffre ${ctx.vue.chiffre} / 3 : tourne lentement, arrête-toi quand ton partenaire dit stop.`));
+        boucle(el, () => msg(el, `Chiffre ${ctx.vue.chiffre} / ${ctx.vue.chiffres || 3} : tourne lentement, arrête-toi quand ton partenaire dit stop.`));
       } else {
         el.append(h('<div class="tz-voyant"></div>'), h('<button class="btn primary big tz-gros">✋ Stop ! C\'est ce chiffre</button>'), h('<p class="tz-msg"></p>'));
         const voyant = el.querySelector('.tz-voyant');
         el.querySelector('button').addEventListener('click', () => ctx.envoyer('stop').then(r => { if (!r.ok) SJ.toast(r); }));
-        boucle(el, () => { voyant.classList.toggle('clic', ctx.vue.clic); voyant.textContent = ctx.vue.clic ? 'CLIC !' : '…'; msg(el, `Chiffre ${ctx.vue.chiffre} / 3`); });
+        boucle(el, () => { voyant.classList.toggle('clic', ctx.vue.clic); voyant.textContent = ctx.vue.clic ? 'CLIC !' : '…'; msg(el, `Chiffre ${ctx.vue.chiffre} / ${ctx.vue.chiffres || 3}`); });
       }
     },
     vannes(el, ctx) {
@@ -403,7 +411,7 @@ const Taches = (() => {
       const rendre = () => {
         const v = ctx.vue;
         box.innerHTML = v.vannes.map(n => `<button class="tz-vanne ${n <= v.ouvertes ? 'ouverte' : ''}" data-v="${n}">🔧<b>${n}</b></button>`).join('');
-        msg(el, `Vannes ouvertes : ${v.ouvertes} / 4. Annonce tes numéros !`);
+        msg(el, `Vannes ouvertes : ${v.ouvertes} / ${v.total || 4}. Annonce tes numéros !`);
       };
       rendre();
       ctx.surMaj(rendre);
@@ -420,7 +428,7 @@ const Taches = (() => {
         ctx.envoyer('claquer', { t: SJ.now() }).then(r => { if (!r.ok) msg(el, r.msg); });
       });
       box.addEventListener('pointerup', () => { x0 = null; });
-      const rendre = () => msg(el, `Fenêtre ${ctx.vue.fenetre} / 3 : « 3, 2, 1 » et glissez ensemble !`);
+      const rendre = () => msg(el, `Fenêtre ${ctx.vue.fenetre} / ${ctx.vue.fenetres || 3} : « 3, 2, 1 » et glissez ensemble !`);
       rendre(); ctx.surMaj(rendre);
     },
     radio(el, ctx) {
@@ -437,11 +445,11 @@ const Taches = (() => {
         const envoyer = limiter(v => ctx.envoyer('fin', { v }), 120);
         input.addEventListener('input', () => envoyer(Number(input.value)));
         boucle(el, (dt, t) => {
-          const ecart = ctx.vue.ecart - ctx.vue.fin + Number(input.value), bruit = Math.min(1, Math.abs(ecart) / 8);
-          c.clearRect(0, 0, 320, 120); c.strokeStyle = Math.abs(ecart) <= 0.4 ? '#5cc47a' : '#e5a83b'; c.lineWidth = 3; c.beginPath();
+          const marge = ctx.vue.marge || 0.4, ecart = ctx.vue.ecart - ctx.vue.fin + Number(input.value), bruit = Math.min(1, Math.abs(ecart) / 8);
+          c.clearRect(0, 0, 320, 120); c.strokeStyle = Math.abs(ecart) <= marge ? '#5cc47a' : '#e5a83b'; c.lineWidth = 3; c.beginPath();
           for (let x = 0; x <= 320; x += 4) c.lineTo(x, 60 + Math.sin(x / 18 + t / 200) * 30 * (1 - bruit) + (Math.random() - 0.5) * 70 * bruit);
           c.stroke();
-          msg(el, Math.abs(ecart) <= 0.4 ? `Parfait, ne bougez plus ! ${ctx.vue.tenu} / 3 s` : `L'onde est ${Math.abs(ecart) > 8 ? 'brouillée : guide ton partenaire' : 'presque nette : affine'}`);
+          msg(el, Math.abs(ecart) <= marge ? `Parfait, ne bougez plus ! ${ctx.vue.tenu} / ${ctx.vue.duree || 3} s` : `L'onde est ${Math.abs(ecart) > 8 ? 'brouillée : guide ton partenaire' : 'presque nette : affine'}`);
         });
       }
     },
@@ -465,8 +473,8 @@ const Taches = (() => {
     cuve(el, ctx) {
       el.append(h('<div class="tz-ligne"></div>'));
       const ligne = el.firstChild;
-      const setT = jauge(ligne, { zone: [60, 75], couleur: 'var(--danger)', titre: 'Temp.' });
-      const setP = jauge(ligne, { zone: [50, 70], titre: 'Pression' });
+      const setT = jauge(ligne, { zone: ctx.vue.zoneTemp || [60, 75], couleur: 'var(--danger)', titre: 'Temp.' });
+      const setP = jauge(ligne, { zone: ctx.vue.zonePression || [50, 70], titre: 'Pression' });
       if (ctx.role === 0) {
         const input = h('<input type="range" class="tz-vertical" min="0" max="100">');
         ligne.append(input);
@@ -488,7 +496,7 @@ const Taches = (() => {
         setT(temp); setP(local(v.pression, v.pressionAt, v.chute));
         if (v.moitie) msg(el, `Code : ${v.moitie}${ctx.role === 0 ? '··' : ''} ${ctx.role === 0 ? '(les 2 premiers chiffres)' : '(les 2 derniers chiffres)'} — dis-le au 3e joueur !`, true);
         else if (ctx.role === 2 && v.codeVisible) msg(el, 'Le code est apparu : demande les chiffres à tes partenaires !', true);
-        else msg(el, `Gardez les deux jauges dans leur zone : ${v.tenu} / 3 s`);
+        else msg(el, `Gardez les deux jauges dans leur zone : ${v.tenu} / ${v.duree || 3} s`);
       });
     },
   };

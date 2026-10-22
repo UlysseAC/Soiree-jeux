@@ -68,6 +68,9 @@ export function restore(saved) {
     // Sauvegarde d'avant ce champ : ses réglages sont les vrais.
     reglagesMaj: saved.reglagesMaj || (saved.config ? Date.now() : 0),
   };
+  // L'Enquête : l'ancienne liste de salles par défaut devient celle du manoir (les tâches suivent l'ordre des salles).
+  const eq = out.config.games?.enquete;
+  if (eq && eq.salles === enquete.SALLES_AVANT) eq.salles = enquete.SALLES_1930;
   // Sauvegarde d'avant le programme : tous les jeux, comme avant.
   out.config.programme = saved.config && 'programme' in saved.config ? cleanProgramme(saved.config.programme) : def.config.programme;
   return out;

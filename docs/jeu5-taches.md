@@ -23,7 +23,29 @@ Pour obtenir l'indice d'une salle, il faut réussir la tâche de cette salle. Le
 - **Échec et durée.**
   - En cas d'échec, on réessaie tout de suite, sans pénalité.
   - Une tâche dure environ 15 à 30 s.
-- **Réglage.** Dans l'admin, une option permet de revenir à l'indice gratuit, sans tâche.
+- **Réglages** (admin : Réglages des jeux, L'Enquête, cadre « Tâches des salles ») :
+  - **activer ou désactiver les tâches** : désactivées, l'indice est gratuit ;
+  - **difficulté** : facile, normal ou difficile (détail ci-dessous) ;
+  - **chance d'avoir la tâche solo**, 50 % par défaut ;
+  - **pour chaque salle**, cocher ou décocher la tâche solo et la tâche à plusieurs ; une salle sans aucune tâche cochée donne son indice gratuitement.
+
+  La difficulté et la chance se changent aussi pendant la partie (onglet Partie en cours). L'onglet Partie en cours permet aussi de faire tirer une autre tâche à une salle.
+- **Difficulté** (facile / normal / difficile) :
+  - temps à tenir dans la zone (pneus, fourneau, radio, cuve) : 2 / 3 / 4 s ;
+  - largeur des zones (pneus, pendule, fourneau, lampes, cuve) : plus large en facile, plus étroite en difficile ;
+  - machine à écrire : 45 / 30 / 20 s ;
+  - tuyauterie : grille de 3 × 3, 4 × 4 ou 5 × 5 ;
+  - lit : 3 / 5 / 7 plis ;
+  - encyclopédies : 4 / 6 / 8 tomes ;
+  - potion : marge de 6 / 3,5 / 2 % ;
+  - argenterie et malle : propres à 85 / 92 / 96 % ;
+  - roue : 3 / 5 / 6 goujons ;
+  - poker : 2 / 3 / 4 manches ;
+  - lampes : 6 / 10 / 14 s à tenir ;
+  - soufflé : fenêtre de 1,3 / 0,9 / 0,6 s ;
+  - coffre : 2 / 3 / 4 chiffres ;
+  - vannes : 4 / 4 / 6 vannes ;
+  - volets : 2 / 3 / 4 fenêtres, à 0,7 / 0,5 / 0,35 s près.
 
 ## Les 11 salles et leurs 22 tâches
 
