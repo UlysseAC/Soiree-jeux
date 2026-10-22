@@ -54,6 +54,9 @@ export function personnagesDe(texte) {
 // Personnage de chaque joueur : tiré au hasard parmi ceux de l'admin qui ne sont pas déjà en jeu.
 function attribuer(ctx, pids, deja = []) {
   const libres = shuffle(personnagesDe(ctx.cfg.personnages).filter(n => !deja.includes(n)));
+  // le tueur fixé dans l'admin est toujours en jeu
+  const fixe = libres.findIndex(n => n.toLowerCase() === String(ctx.cfg.solution?.perso ?? '').trim().toLowerCase());
+  if (fixe > 0) libres.unshift(...libres.splice(fixe, 1));
   let n = deja.length;
   return Object.fromEntries(pids.map(p => [p, libres.shift() ?? `Personnage ${++n + libres.length}`]));
 }
@@ -70,19 +73,17 @@ function cartesDe(cfg, persos) {
 const deType = (g, t) => Object.values(g.cartes).filter(c => c.type === t).map(c => c.id);
 const nom = (g, id) => g.cartes[id]?.nom ?? '?';
 
-// Distribution : chaque carte (hors solution) une fois, puis les doublons, 2 joueurs au plus par carte,
-// jamais deux fois la même carte au même joueur ; chacun reçoit `parJoueur` cartes.
+// Distribution : chaque carte (hors solution) une fois, puis des doublons (2 joueurs au plus par carte),
+// jamais deux fois la même carte au même joueur ; chacun reçoit exactement `parJoueur` cartes.
+// Les deux exemplaires d'un doublon se suivent dans le paquet, et on distribue en tournant : ils vont à deux joueurs différents.
 export function distribuer(cartes, pids, parJoueur = 3) {
   const total = pids.length * parJoueur;
-  const tas = shuffle(cartes).slice(0, total);
-  if (total > cartes.length) tas.push(...shuffle(cartes).slice(0, Math.min(cartes.length, total - cartes.length)));
+  const base = shuffle(cartes);
+  const doubles = Math.min(base.length, Math.max(0, total - base.length));
+  const paquet = shuffle(base.map((c, i) => (i < doubles ? [c, c] : [c]))).flat().slice(0, total);
+  const ordre = shuffle(pids);
   const mains = Object.fromEntries(pids.map(p => [p, []]));
-  for (const c of tas) {
-    const libres = pids.filter(p => mains[p].length < parJoueur && !mains[p].includes(c));
-    if (!libres.length) continue;
-    const min = Math.min(...libres.map(p => mains[p].length));
-    mains[pick(libres.filter(p => mains[p].length === min))].push(c);
-  }
+  paquet.forEach((c, k) => mains[ordre[k % ordre.length]].push(c));
   return mains;
 }
 
