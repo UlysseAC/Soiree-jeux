@@ -483,11 +483,11 @@ function eqSalle(g) {
   if (g.attente) bloque = 'Attends la réponse à ta question…';
   else if (g.nextAsk) bloque = `Prochaine question dans <span class="mono" data-until="${g.nextAsk}"></span>`;
   h += `<div class="card"><strong>🗣 Interroger quelqu'un</strong>
-    ${g.presents.length ? `<p class="muted" style="margin:0;font-size:14px">1. Touche la personne à interroger · 2. Choisis un personnage et une arme</p><div class="pions">${g.presents.map(p => `<button class="pion choix" style="--c:${p.perso.couleur}" data-eqcible="${p.pid}" aria-pressed="${ui.eqCible === p.pid}" ${p.dernier ? 'disabled title="Tu viens de l\'interroger"' : ''}>${ui.eqCible === p.pid ? '✓ ' : ''}${esc(p.name)}</button>`).join('')}</div>
+    ${g.presents.length ? `<p class="muted" style="margin:0;font-size:14px">1. Clique sur la personne à interroger · 2. Choisis un personnage et une arme</p><div class="pions">${g.presents.map(p => `<button class="pion choix" style="--c:${p.perso.couleur}" data-eqcible="${p.pid}" aria-pressed="${ui.eqCible === p.pid}" ${p.dernier ? 'disabled title="Tu viens de l\'interroger"' : ''}>${ui.eqCible === p.pid ? '✓ ' : ''}${esc(p.name)}</button>`).join('')}</div>
     <select class="in" id="eq-perso">${eqOptions(g.persos, ui.eqPerso, 'Personnage…')}</select>
     <select class="in" id="eq-arme">${eqOptions(g.armes, ui.eqArme, 'Arme…')}</select>
     <p class="muted" style="margin:0;font-size:14px">Lieu : ${esc(g.salle.nom)} (la salle où tu es)</p>
-    ${bloque ? `<p class="center" style="margin:0">${bloque}</p>` : `<button class="btn primary big" data-act="eqInterroger" ${ui.eqCible && ui.eqPerso && ui.eqArme ? '' : 'disabled'}>${!ui.eqCible ? 'Touche d\'abord la personne à interroger' : !ui.eqPerso || !ui.eqArme ? 'Choisis un personnage et une arme' : 'Poser la question'}</button>`}`
+    ${bloque ? `<p class="center" style="margin:0">${bloque}</p>` : `<button class="btn primary big" data-act="eqInterroger" ${ui.eqCible && ui.eqPerso && ui.eqArme ? '' : 'disabled'}>${!ui.eqCible ? 'Clique d\'abord sur la personne à interroger' : !ui.eqPerso || !ui.eqArme ? 'Choisis un personnage et une arme' : 'Poser la question'}</button>`}`
     : '<p class="muted" style="margin:0">Personne d\'autre dans cette salle.</p>'}</div>`;
   return h + eqJournal(g);
 }
@@ -507,7 +507,7 @@ function eqFiche(g) {
     const f = g.fiche[c.id] || {}, st = EQ_STATUTS[f.statut];
     return `<button data-eqcocher="${c.id}" class="${f.statut ? 'barre' : ''}"><span>${eqCarte(c)}</span><span class="muted">${st ? `${st[0]} ${st[1]}${f.par?.length ? ` (${esc(f.par.join(', '))})` : ''}` : ''}</span></button>`;
   }).join('')}</div>`;
-  return `<p class="muted" style="margin:0;font-size:14px">Touche une carte pour la barrer à la main. ✋ ta carte · 👁 montrée par quelqu'un · 💡 éliminée par un indice.</p>`
+  return `<p class="muted" style="margin:0;font-size:14px">Clique sur une carte pour la barrer à la main. ✋ ta carte · 👁 montrée par quelqu'un · 💡 éliminée par un indice.</p>`
     + groupe('Personnages', g.persos) + groupe('Armes', g.armes) + groupe('Salles', g.salles);
 }
 
