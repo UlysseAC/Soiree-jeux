@@ -5,15 +5,21 @@
 // QR code de la tablette ; dans une salle, on interroge un joueur présent ou on demande un indice à la tablette.
 import { createHmac, randomBytes } from 'node:crypto';
 import { shuffle } from '../util.js';
+import * as T from './taches.js';
 
 export const id = 'enquete';
 export const name = "L'Enquête";
 export const minPlayers = 2;
 
 
+const SALLES_1930 = ['Garage', 'Salle de jeu', 'Salle à manger', 'Salon', 'Cuisine', 'Bureau', 'Salle de bains', 'Chambre', 'Grenier', 'Bibliothèque', 'Pharmacie'].join('\n');
+// Ancienne liste par défaut (avant les tâches) : remplacée par celle du manoir si elle n'a pas été modifiée.
+const SALLES_AVANT = ['Cuisine', 'Salon', 'Salle à manger', 'Bibliothèque', 'Bureau', 'Chambre', 'Salle de bain', 'Entrée', 'Jardin', 'Cave', 'Grenier'].join('\n');
+
 export function defaultConfig() {
   return {
-    salles: ['Cuisine', 'Salon', 'Salle à manger', 'Bibliothèque', 'Bureau', 'Chambre', 'Salle de bain', 'Entrée', 'Jardin', 'Cave', 'Grenier'].join('\n'),
+    // Dans cet ordre : chaque salle a ses tâches (voir taches.js et docs/jeu5-taches.md).
+    salles: SALLES_1930,
     // Une ligne par personnage ; chaque joueur en reçoit un au hasard.
     personnages: ['Le Majordome', 'La Comtesse', 'Le Docteur', 'Le Colonel', 'La Cantatrice', 'Le Professeur', 'La Gouvernante', 'Le Notaire', "L'Héritière", 'Le Jardinier', 'La Veuve', 'Le Chef cuisinier', "L'Aventurière", 'Le Pasteur'].join('\n'),
     armes: ['Couteau', 'Corde', 'Chandelier', 'Revolver', 'Poison', 'Clé anglaise', 'Matraque'].join('\n'),
@@ -23,6 +29,7 @@ export function defaultConfig() {
     delaiQuestion: 30, // entre deux questions d'un même joueur (s)
     delaiReponse: 60, // le joueur interrogé a ce temps pour choisir la carte ; ensuite, une carte au hasard (s)
     rotationQr: 30, // le QR code des tablettes change toutes les … s ; 0 = fixe
+    taches: true, // il faut réussir la tâche d'une salle pour en recevoir l'indice (sinon, indice gratuit)
     ficheNumerique: false, // fiche de détective sur le téléphone (sinon, sur papier)
     indicesParSalle: 1, // indices par joueur et par salle
     indicesFinale: 2, // pendant la phase finale
@@ -64,7 +71,7 @@ function attribuer(ctx, pids, deja = []) {
 
 // Cartes de la partie : salles s0…, personnages p0… (un par joueur, dans l'ordre donné), armes a0….
 function cartesDe(cfg, persos) {
-  const salles = lignes(cfg.salles, 20), armes = lignes(cfg.armes, 20);
+  const salles = lignes(cfg.salles === SALLES_AVANT ? SALLES_1930 : cfg.salles, 20), armes = lignes(cfg.armes, 20);
   const c = {};
   salles.forEach((nom, i) => { c[`s${i}`] = { id: `s${i}`, type: 'salle', nom }; });
   persos.forEach((nom, i) => { c[`p${i}`] = { id: `p${i}`, type: 'perso', nom }; });
@@ -145,7 +152,52 @@ function lancer(ctx, g) {
   g.debut = now;
   g.endsAt = now + ctx.cfg.dureeMax * 1000;
   g.finaleAt = ctx.cfg.finaleApres > 0 ? now + ctx.cfg.finaleApres * 1000 : 0;
+  g.taches = Array.from({ length: g.nbSalles }, (_, n) => tirerTache(n));
+  g.sessions = {};
   feed(g, ctx, "🔎 L'enquête commence !");
+}
+
+// ---------- tâches des salles ----------
+function tirerTache(n) {
+  const t = T.tirer(n);
+  return { ...t, params: !t.groupe && T.SOLOS[t.id].params ? T.SOLOS[t.id].params() : {} };
+}
+const maxSalle = (ctx, g) => (g.phase === 'finale' ? ctx.cfg.indicesFinale : ctx.cfg.indicesParSalle);
+const aIndice = (ctx, g, p, s) => (g.joueurs[p].pris[s] || 0) >= maxSalle(ctx, g);
+// Tâche de la salle pour les joueurs qui y sont : la tâche à plusieurs devient la solo s'il ne reste pas assez de joueurs sans l'indice.
+function tacheDe(ctx, g, s) {
+  const n = Number(s.slice(1));
+  const t = g.taches?.[n];
+  if (!t) return null;
+  if (!t.groupe || g.sessions[s]) return t;
+  const besoin = Object.keys(g.joueurs).filter(p => !aIndice(ctx, g, p, s)).length;
+  if (besoin >= T.GROUPES[t.id].n) return t;
+  const solo = T.SALLES[n % T.SALLES.length].solo;
+  return { id: solo, groupe: false, params: T.SOLOS[solo].params ? (t.paramsSolo ??= T.SOLOS[solo].params()) : {} };
+}
+// Réussite : chaque participant reçoit l'indice de la salle (tous ceux de la phase finale d'un coup), puis la salle tire une nouvelle tâche.
+function reussir(ctx, g, s, pids) {
+  const textes = {};
+  for (const p of pids) {
+    const J = g.joueurs[p];
+    if (!J || J.salle !== s) continue;
+    const t = [];
+    while (!aIndice(ctx, g, p, s)) { const r = indice(ctx, g, p, true); if (!r.ok) break; t.push(r.indice); }
+    textes[p] = t;
+  }
+  const n = Number(s.slice(1));
+  feed(g, ctx, `✅ ${pids.map(p => ctx.name(p)).join(' et ')} : tâche réussie (${nom(g, s)})`);
+  delete g.sessions[s];
+  g.taches[n] = tirerTache(n);
+  return textes;
+}
+// Un joueur qui quitte la salle annule la tâche à plusieurs en cours (ou quitte la file d'attente).
+function quitterSession(g, p) {
+  for (const [s, se] of Object.entries(g.sessions || {})) {
+    if (!se.joueurs.includes(p)) continue;
+    if (se.etat === 'jeu' || se.joueurs.length <= 1) delete g.sessions[s];
+    else se.joueurs = se.joueurs.filter(x => x !== p);
+  }
 }
 
 function finale(ctx, g) {
@@ -181,6 +233,12 @@ export function tick(ctx, g) {
   let changed = false;
   for (const q of g.questions) {
     if (q.etat === 'attente' && now >= q.at + ctx.cfg.delaiReponse * 1000) { resoudre(ctx, g, q, pick(enCommun(g, q))); changed = true; }
+  }
+  for (const [s, se] of Object.entries(g.sessions || {})) {
+    const def = T.GROUPES[se.id];
+    if (se.etat !== 'jeu' || !def.tick) continue;
+    const avant = JSON.stringify(se.data.code ?? null);
+    if (def.tick(se.data, now) === 'reussi') { reussir(ctx, g, s, se.joueurs); changed = true; } else if (JSON.stringify(se.data.code ?? null) !== avant) changed = true;
   }
   if (g.phase === 'enquete' && g.finaleAt && now >= g.finaleAt) changed = finale(ctx, g) || changed;
   if (now >= g.endsAt) { terminer(ctx, g); changed = true; }
@@ -219,9 +277,10 @@ function remplir(g, p, texte, n) {
   return { texte: out, elimines };
 }
 
-function indice(ctx, g, p) {
+function indice(ctx, g, p, parTache = false) {
   const J = g.joueurs[p];
   const s = J.salle;
+  if (ctx.cfg.taches && !parTache && g.taches) return err('Réussis la tâche de la salle pour obtenir son indice.');
   const max = g.phase === 'finale' ? ctx.cfg.indicesFinale : ctx.cfg.indicesParSalle;
   const deja = J.pris[s] || 0;
   if (deja >= max) return err(g.phase === 'finale' ? 'Tu as déjà pris tes indices dans cette salle.' : `Tu as déjà pris ${max > 1 ? 'tes indices' : "l'indice"} de cette salle.${ctx.cfg.indicesFinale > max ? ' Il y en aura un autre pendant la phase finale.' : ''}`);
@@ -260,6 +319,7 @@ export function playerAction(ctx, g, p, a) {
       for (const c of fenetres) { const i = c.indexOf(code); if (i >= 0) { s = i; break; } }
     }
     if (s == null) return err('Code de salle incorrect ou expiré : scanne à nouveau la tablette.');
+    if (J.salle !== `s${s}`) quitterSession(g, p);
     J.salle = `s${s}`;
     return ok(`Tu es dans : ${nom(g, J.salle)}`);
   }
@@ -287,6 +347,38 @@ export function playerAction(ctx, g, p, a) {
   if (!J.salle) return err('Scanne d\'abord le QR code de la salle où tu es.');
 
   if (a.type === 'indice') return indice(ctx, g, p);
+
+  if (a.type?.startsWith('tache')) {
+    const s = J.salle, se = g.sessions?.[s], t = tacheDe(ctx, g, s);
+    if (!t) return err('Pas de tâche ici.');
+    if (a.type === 'tacheReussie') { // tâche solo terminée sur le téléphone
+      if (t.groupe) return err('Cette tâche se fait à plusieurs.');
+      if (aIndice(ctx, g, p, s)) return err('Tu as déjà l\'indice de cette salle.');
+      const textes = reussir(ctx, g, s, [p])[p] || [];
+      return { ok: true, msg: textes.map(x => `💡 ${x}`).join('\n'), indice: textes[0] };
+    }
+    if (!t.groupe) return err('Cette tâche se fait seul.');
+    const def = T.GROUPES[t.id];
+    if (a.type === 'tacheLancer' || a.type === 'tacheRejoindre') {
+      if (aIndice(ctx, g, p, s)) return err('Tu as déjà l\'indice de cette salle : laisse la place aux autres.');
+      if (!se) { g.sessions[s] = { id: t.id, salle: s, joueurs: [p], etat: 'attente', data: null }; return ok(`Il faut ${def.n} joueurs : les autres de la salle peuvent rejoindre.`); }
+      if (se.etat !== 'attente') return err('La tâche a déjà commencé.');
+      if (se.joueurs.includes(p)) return err('Tu attends déjà.');
+      se.joueurs.push(p);
+      if (se.joueurs.length >= def.n) { se.etat = 'jeu'; se.data = def.init(now); return ok("C'est parti !"); }
+      return ok(`Encore ${def.n - se.joueurs.length} joueur(s).`);
+    }
+    if (a.type === 'tacheQuitter') { quitterSession(g, p); return ok('Tu as quitté la tâche.'); }
+    if (a.type === 'tache') {
+      if (!se || se.etat !== 'jeu' || !se.joueurs.includes(p)) return err('Tu ne participes pas à cette tâche.');
+      const res = def.action(se.data, se.joueurs.indexOf(p), a, now);
+      if (res === 'reussi') {
+        const textes = reussir(ctx, g, s, se.joueurs)[p] || [];
+        return { ok: true, msg: textes.map(x => `💡 ${x}`).join('\n'), indice: textes[0] };
+      }
+      return res ? err(res) : { ok: true };
+    }
+  }
 
   if (a.type === 'interroger') {
     const cible = a.cible;
@@ -329,9 +421,17 @@ export function adminAction(ctx, g, a) {
     J.perso = a.perso;
     return ok(`${ctx.name(a.pid)} est ${nom(g, a.perso)}.`);
   }
+  if (a.type === 'nouvelleTache') { // l'admin fait tirer une autre tâche à une salle (tâche bloquée, joueurs partis…)
+    const n = Number(String(a.salle).slice(1));
+    if (!g.taches?.[n]) return err('Salle inconnue.');
+    delete g.sessions[`s${n}`];
+    g.taches[n] = tirerTache(n);
+    return ok(`${nom(g, `s${n}`)} : ${T.nomTache(g.taches[n])}`);
+  }
   if (a.type === 'placer') { // l'admin place un joueur dans une salle (QR code qui ne passe pas)
     const J = g.joueurs[a.pid];
     if (!J || g.cartes[a.salle]?.type !== 'salle') return err('Joueur ou salle inconnu.');
+    if (J.salle !== a.salle) quitterSession(g, a.pid);
     J.salle = a.salle;
     return ok(`${ctx.name(a.pid)} est dans : ${nom(g, a.salle)}`);
   }
@@ -393,6 +493,7 @@ export function playerView(ctx, g, p) {
     nextAsk: J.nextAsk > now ? J.nextAsk : 0,
     attente: g.questions.some(q => q.de === p && q.etat === 'attente'),
     indicesRestants: J.salle ? Math.max(0, max - (J.pris[J.salle] || 0)) : 0,
+    tache: J.salle && ctx.cfg.taches && g.taches && !g.finished ? tacheVue(ctx, g, p, J.salle, now) : null,
     // tous les indices obtenus (la fiche de détective se fait sur papier)
     indices: J.indices, notes: (J.notes || []).map(n => ({ t: n.t, salle: nom(g, n.salle), texte: n.texte })),
     aRepondre, mesQuestions, fiche, ...listes(g),
@@ -401,6 +502,21 @@ export function playerView(ctx, g, p) {
     revelation: revelation(ctx, g),
     tueur: g.finished && J.perso === g.solution.perso,
   };
+}
+
+// Tâche de la salle vue par un joueur : la tâche du moment, et s'il y a lieu la tâche à plusieurs (attente ou en cours, avec son rôle).
+function tacheVue(ctx, g, p, s, now) {
+  const t = tacheDe(ctx, g, s);
+  if (!t) return null;
+  const base = { salle: s, id: t.id, groupe: t.groupe, nom: T.nomTache(t), aIndice: aIndice(ctx, g, p, s) };
+  if (!t.groupe) return { ...base, consigne: T.SOLOS[t.id].consigne, params: t.params, cle: `${s}:${t.id}:${g.feed.length}` };
+  const def = T.GROUPES[t.id], se = g.sessions[s];
+  const v = { ...base, n: def.n, roles: def.roles, etat: se?.etat || 'libre', joueurs: (se?.joueurs || []).map(ctx.name), moi: !!se?.joueurs.includes(p) };
+  if (se?.etat === 'jeu' && v.moi) {
+    const role = se.joueurs.indexOf(p);
+    Object.assign(v, { role, roleNom: def.roles[role], consigne: def.consignes[role], vue: def.vue(se.data, role, now), cle: `${s}:${t.id}:${se.joueurs.join(',')}` });
+  }
+  return v;
 }
 
 export function screenView(ctx, g) {
@@ -426,6 +542,7 @@ export function adminView(ctx, g) {
       indices: J.indices, accuse: J.accuse ? (J.accuse.juste ? 'juste' : 'fausse') : null,
     })).sort((a, b) => a.name.localeCompare(b.name, 'fr')),
     attente: g.questions.filter(q => q.etat === 'attente').map(q => ({ de: ctx.name(q.de), a: ctx.name(q.a), salle: nom(g, q.salle) })),
+    taches: (g.taches || []).map((_, n) => { const s = `s${n}`, t = tacheDe(ctx, g, s), se = g.sessions[s]; return t && { salle: s, nomSalle: nom(g, s), nom: T.nomTache(t), groupe: t.groupe, etat: se?.etat || 'libre', joueurs: (se?.joueurs || []).map(ctx.name) }; }).filter(Boolean),
   };
 }
 
@@ -440,6 +557,12 @@ export function salleView(ctx, g, n) {
     code: g.phase === 'intro' || g.finished ? null : codesDe(g, w)[n],
     change: rot > 0 ? (w + 1) * rot : 0,
     joueurs: presents(g, s).map(p => ({ name: ctx.name(p) })),
+    tache: (() => {
+      const t = ctx.cfg.taches && g.taches && !g.finished && g.phase !== 'intro' ? tacheDe(ctx, g, s) : null;
+      if (!t) return null;
+      const se = g.sessions[s], def = t.groupe ? T.GROUPES[t.id] : null;
+      return { nom: T.nomTache(t), groupe: t.groupe, n: def?.n || 1, etat: se?.etat || 'libre', joueurs: (se?.joueurs || []).map(ctx.name), tablette: se?.etat === 'jeu' && def.tablette ? def.tablette(se.data) : null };
+    })(),
   };
 }
 

@@ -6,7 +6,7 @@ import * as E from '../server/games/enquete.js';
 
 function setup(n = 12, tweak = c => c) {
   let t = 1_800_000_000_000;
-  const cfg = tweak(E.defaultConfig());
+  const cfg = tweak({ ...E.defaultConfig(), taches: false });
   const names = {};
   const pids = Array.from({ length: n }, (_, i) => { names['p' + i] = 'J' + i; return 'p' + i; });
   const ctx = { now: () => t, cfg, name: p => names[p] ?? '?', sfx: () => {} };
@@ -38,8 +38,8 @@ test('cartes : 11 salles, autant de personnages que de joueurs, 7 armes ; soluti
 });
 
 test('solution fixée dans l\'admin ; le tueur est le joueur de ce personnage', () => {
-  const { g, ctx } = setup(12, c => ({ ...c, solution: { salle: 'Cave', perso: 'La Comtesse', arme: 'Poison' } }));
-  assert.deepEqual([g.cartes[g.solution.salle].nom, g.cartes[g.solution.perso].nom, g.cartes[g.solution.arme].nom], ['Cave', 'La Comtesse', 'Poison']);
+  const { g, ctx } = setup(12, c => ({ ...c, solution: { salle: 'Grenier', perso: 'La Comtesse', arme: 'Poison' } }));
+  assert.deepEqual([g.cartes[g.solution.salle].nom, g.cartes[g.solution.perso].nom, g.cartes[g.solution.arme].nom], ['Grenier', 'La Comtesse', 'Poison']);
   E.adminAction(ctx, g, { type: 'lancer' });
   E.adminAction(ctx, g, { type: 'terminer' });
   const tueur = Object.keys(g.joueurs).find(p => g.joueurs[p].perso === g.solution.perso);

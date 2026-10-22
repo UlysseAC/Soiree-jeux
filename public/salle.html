@@ -53,8 +53,13 @@ function draw() {
       <div class="tab-code">Code : <b class="mono">${s.code}</b></div>
       ${s.change ? `<div class="muted">Nouveau code dans <span class="mono" data-until="${s.change}"></span></div>` : ''}`;
   }
+  // tâche de la salle ; pour la porte secrète, le code s'affiche ici quand les deux leviers sont baissés
+  const t = s.tache;
+  const tache = !t ? '' : `<div class="tab-tache">🛠 ${esc(t.nom)} <span class="pill">${t.groupe ? (t.n === 3 ? 'Trio' : 'Duo') : 'Solo'}</span>
+    ${t.etat === 'attente' ? `<div class="muted">En attente : ${t.joueurs.map(esc).join(', ')} (${t.joueurs.length} / ${t.n})</div>` : t.etat === 'jeu' ? `<div class="muted">En cours : ${t.joueurs.map(esc).join(', ')}</div>` : ''}
+    ${t.tablette ? (t.tablette.code ? `<div class="tab-secret">${esc(t.tablette.code)}</div>` : `<div class="muted">Leviers baissés : ${t.tablette.leviers.filter(Boolean).length} / 2</div>`) : ''}</div>`;
   SJ.render(app, `<h1 class="tab-nom">${esc(s.nom)}</h1>
-    <div class="tab-centre">${centre}</div>
+    <div class="tab-centre">${centre}${tache}</div>
     <div class="tab-pied"><div class="label">Dans la salle</div><div class="pions">${qui}</div></div>`);
 }
 

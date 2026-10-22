@@ -471,8 +471,9 @@ function eqSalle(g) {
   }
   h += `<div class="card"><div class="row" style="justify-content:space-between"><span style="font-size:20px">📍 <strong>${esc(g.salle.nom)}</strong></span><button class="btn sm" data-act="eqCode">Changer de salle</button></div>
     <div class="label">Avec toi</div><div class="pions">${g.presents.map(p => `<span class="pion">${esc(p.name)}</span>`).join('') || '<span class="muted">Personne</span>'}</div></div>`;
-  // indice de la tablette
-  h += g.indicesRestants
+  // indice de la salle : par sa tâche (si l'admin a activé les tâches), sinon en le demandant à la tablette
+  if (g.tache) h += eqTache(g.tache);
+  else h += g.indicesRestants
     ? `<button class="btn big" data-act="eqIndice">💡 Demander un indice à la salle${g.indicesRestants > 1 ? ` (${g.indicesRestants})` : ''}</button>`
     : '<p class="muted center" style="margin:0">💡 Indice de cette salle déjà pris.</p>';
   // question
@@ -489,6 +490,32 @@ function eqSalle(g) {
     ${bloque ? `<p class="center" style="margin:0">${bloque}</p>` : `<button class="btn primary big" data-act="eqInterroger" ${ui.eqCible && ui.eqPerso && ui.eqArme ? '' : 'disabled'}>${!ui.eqCible ? 'Clique d\'abord sur la personne à interroger' : !ui.eqPerso || !ui.eqArme ? 'Choisis un personnage et une arme' : 'Poser la question'}</button>`}`
     : '<p class="muted" style="margin:0">Personne d\'autre dans cette salle.</p>'}</div>`;
   return h;
+}
+
+// Tâche de la salle : solo (bouton « Commencer »), ou à plusieurs (lancer, rejoindre, jouer son rôle).
+function eqTache(t) {
+  const titre = `<div class="row" style="justify-content:space-between"><strong>🛠 ${esc(t.nom)}</strong><span class="pill">${t.groupe ? (t.n === 3 ? '👥 Trio' : '👥 Duo') : '👤 Solo'}</span></div>`;
+  if (t.aIndice) return `<div class="card">${titre}<p class="muted" style="margin:0">✓ Tu as l'indice de cette salle. Va dans une autre salle !</p></div>`;
+  if (!t.groupe) {
+    const lance = ui.tacheLancee === t.cle;
+    return `<div class="card accent">${titre}<p style="margin:0">${esc(t.consigne)}</p>
+      ${lance ? `<div id="tache-zone" class="tz" data-keep="${esc(t.cle)}"></div>` : '<button class="btn primary big" data-act="eqTacheGo">▶ Commencer la tâche</button>'}
+      <p class="muted" style="margin:0;font-size:13px">Réussis-la pour recevoir l'indice de la salle.</p></div>`;
+  }
+  const qui = t.joueurs.length ? t.joueurs.map(esc).join(', ') : '';
+  if (t.etat === 'jeu' && t.moi) {
+    return `<div class="card accent">${titre}<p style="margin:0">Ton rôle : <strong>${esc(t.roleNom)}</strong> — ${esc(t.consigne)}</p>
+      <div id="tache-zone" class="tz" data-keep="${esc(t.cle)}"></div>
+      <button class="btn sm" data-act="eqTacheQuitter" style="align-self:flex-start">Abandonner</button></div>`;
+  }
+  if (t.etat === 'jeu') return `<div class="card">${titre}<p class="muted" style="margin:0">Tâche en cours : ${qui}. Attends qu'ils aient fini, ou va dans une autre salle.</p></div>`;
+  if (t.etat === 'attente') {
+    return `<div class="card accent">${titre}<p style="margin:0">Il faut ${t.n} joueurs : ${t.joueurs.length} / ${t.n} (${qui}).</p>
+      ${t.moi ? '<p class="muted" style="margin:0">Attends qu\'un autre joueur de la salle rejoigne…</p><button class="btn sm" data-act="eqTacheQuitter" style="align-self:flex-start">Quitter</button>'
+        : '<button class="btn primary big" data-act="eqTacheRejoindre">🤝 Rejoindre la tâche</button>'}</div>`;
+  }
+  return `<div class="card accent">${titre}<p style="margin:0">Cette tâche se fait à ${t.n} : ${t.roles.map(esc).join(' · ')}. Seul, trouve des partenaires ou change de salle.</p>
+    <button class="btn primary big" data-act="eqTacheLancer">▶ Lancer la tâche</button></div>`;
 }
 
 function eqJournal(g) {
@@ -562,6 +589,10 @@ app.addEventListener('click', e => {
   if (a === 'eqCode') { ui.eqCode = true; draw(); }
   if (a === 'eqCodeNon') { ui.eqCode = false; draw(); }
   if (a === 'eqIndice') act({ type: 'indice' });
+  if (a === 'eqTacheGo') { ui.tacheLancee = V.game.tache?.cle; draw(); }
+  if (a === 'eqTacheLancer') act({ type: 'tacheLancer' });
+  if (a === 'eqTacheRejoindre') act({ type: 'tacheRejoindre' });
+  if (a === 'eqTacheQuitter') act({ type: 'tacheQuitter' });
   if (a === 'eqInterroger') act({ type: 'interroger', cible: ui.eqCible, perso: ui.eqPerso, arme: ui.eqArme }).then(r => { if (r.ok) { ui.eqCible = null; draw(); } });
   if (a === 'eqAccuser') {
     const c = ui.eqAcc || {}, n = id => [...V.game.persos, ...V.game.armes, ...V.game.salles].find(x => x.id === id)?.nom;
@@ -875,6 +906,7 @@ function draw() {
     html = waitingScreen();
   }
   SJ.render(app, testPanel() + html);
+  if (V.gameId === 'enquete' && typeof Taches !== 'undefined') Taches.apres(V.game?.tache, { lance: ui.tacheLancee === V.game?.tache?.cle, act });
 }
 
 // Téléphone de test : lancer ou arrêter un test (mot de passe admin demandé une fois, gardé sur ce téléphone).

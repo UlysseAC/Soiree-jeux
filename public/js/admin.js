@@ -331,6 +331,11 @@ function partieEnquete(g) {
       ${g.finished ? '' : ui.eqSolution ? '<button class="btn sm" data-act="eqSolution">Cacher</button>' : '<button class="btn sm" data-act="eqSolution" data-confirm="Révéler la solution, les personnages et les cartes sur cette page d\'admin seulement ?">👁 Révéler (admin seulement)</button>'}</div>
     ${vu ? `<p style="margin:0;font-size:18px">${esc(g.solution.perso)} · ${esc(g.solution.arme)} · ${esc(g.solution.salle)}</p><p class="muted" style="margin:0">Le tueur (sans le savoir) : <strong>${esc(g.tueur)}</strong></p>`
       : '<p class="muted" style="margin:0">Solution, tueur, personnages et cartes des joueurs sont cachés, pour que tu puisses jouer sans avantage. « Révéler » ne les montre que sur cette page (deux clics), jamais sur l\'écran ni les téléphones.</p>'}</div>`;
+  const taches = V.gameConfig?.taches !== false;
+  h += `<div class="box"><div class="spread"><h2>🛠 Tâches des salles</h2><button class="btn ${taches ? 'primary' : ''}" data-act="eqTaches">${taches ? 'Activées · revenir à l\'indice gratuit' : 'Indice gratuit · activer les tâches'}</button></div>
+    <p class="muted" style="margin:0;font-size:14px">${taches ? 'Il faut réussir la tâche d\'une salle pour recevoir son indice.' : 'Les joueurs demandent l\'indice à la tablette, sans tâche.'} Ça change tout de suite.</p>
+    ${taches && g.taches?.length ? `<div class="scroll"><table><thead><tr><th>Salle</th><th>Tâche du moment</th><th>État</th><th></th></tr></thead><tbody>${g.taches.map(t => `<tr><td>${esc(t.nomSalle)}</td><td>${esc(t.nom)} <span class="muted">${t.groupe ? '(à plusieurs)' : '(solo)'}</span></td>
+      <td class="muted">${t.etat === 'libre' ? '' : `${t.etat === 'jeu' ? 'en cours' : 'en attente'} : ${t.joueurs.map(nm).join(', ')}`}</td><td><button class="btn sm" data-jeu="nouvelleTache" data-salle="${t.salle}" data-confirm="Faire tirer une autre tâche à cette salle ?">Autre tâche</button></td></tr>`).join('')}</tbody></table></div>` : ''}</div>`;
   const fiche = !!V.gameConfig?.ficheNumerique;
   h += `<div class="box"><div class="spread"><h2>📋 Fiche de détective</h2><button class="btn ${fiche ? 'primary' : ''}" data-act="eqFiche">${fiche ? 'Sur le téléphone · passer au papier' : 'Sur papier · mettre sur le téléphone'}</button></div>
     <p class="muted" style="margin:0;font-size:14px">${fiche ? 'Les joueurs ont un onglet « Fiche » qui se remplit tout seul (leurs cartes, les cartes montrées, les indices) et où ils barrent des cartes.' : 'Pas de fiche sur le téléphone : les joueurs la font sur papier. Ils gardent l\'onglet « Indices » avec tous leurs indices et leurs questions.'} Ça change tout de suite, même en pleine partie.</p></div>`;
@@ -379,6 +384,7 @@ function reglagesEnquete(c) {
       ${cfgInput('solution.perso', c.solution.perso, 'text', { label: 'Personnage (le tueur)', ph: 'au hasard' })}${cfgInput('solution.arme', c.solution.arme, 'text', { label: 'Arme', ph: 'au hasard' })}${cfgInput('solution.salle', c.solution.salle, 'text', { label: 'Salle', ph: 'au hasard' })}
     </div><p class="muted" style="margin:0;font-size:14px">Vide = tiré au hasard (à garder vide si tu joues : tu ne la connaîtras pas). Sinon le nom exact d'une ligne des listes (utile si tes indices écrits parlent de la solution).</p></div>
     <div class="box"><h2>Temps et règles</h2><div class="grid-auto">
+      ${cfgInput('taches', c.taches, 'bool', { label: 'Tâches pour obtenir les indices (sinon indice gratuit)' })}
       ${cfgInput('ficheNumerique', c.ficheNumerique, 'bool', { label: 'Fiche de détective sur le téléphone (sinon papier)' })}
       ${d('dureeMax', 'Durée max de l\'enquête')}${d('finaleApres', 'Phase finale au bout de (0:00 = à la main)')}${d('delaiQuestion', 'Délai entre deux questions')}${d('delaiReponse', 'Temps pour montrer une carte')}
       ${n('rotationQr', 'QR code changé toutes les … s (0 = fixe)')}${n('indicesParSalle', 'Indices par salle et par joueur')}${n('indicesFinale', 'Indices par salle en phase finale')}
@@ -1008,6 +1014,7 @@ app.addEventListener('click', async e => {
   if (!confirmed(t)) return;
   const a = t.dataset.act;
   if (a === 'masquer') { ui.hideNames = !ui.hideNames; return draw(); }
+  if (a === 'eqTaches') return admin({ type: 'config', scope: 'jeu', gameId: 'enquete', path: 'taches', value: V.gameConfig?.taches === false });
   if (a === 'eqFiche') return admin({ type: 'config', scope: 'jeu', gameId: 'enquete', path: 'ficheNumerique', value: !V.gameConfig?.ficheNumerique });
   if (a === 'eqSolution') { ui.eqSolution = !ui.eqSolution; return draw(); }
   if (a === 'choisirJeu') return admin({ type: 'choisirJeu', gameId: t.dataset.id });
@@ -1052,7 +1059,7 @@ app.addEventListener('click', async e => {
   }
   if (a) return admin({ type: a });
   const j = t.dataset.jeu;
-  const action = { type: j, pid: t.dataset.pid, team: t.dataset.team, duel: t.dataset.duel, winner: t.dataset.winner, sec: t.dataset.sec };
+  const action = { type: j, pid: t.dataset.pid, team: t.dataset.team, duel: t.dataset.duel, winner: t.dataset.winner, sec: t.dataset.sec, salle: t.dataset.salle };
   if (j === 'remplacer') {
     action.remplacant = document.getElementById('rempl-' + t.dataset.pid)?.value;
     if (!action.remplacant) action.remplacant = 'auto';
