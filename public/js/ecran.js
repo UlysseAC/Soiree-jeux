@@ -20,6 +20,13 @@ const ECRAN_TEST = new URLSearchParams(location.search).has('test');
 SJ.sock.on('connect', () => SJ.emit('hello', { role: 'ecran', test: ECRAN_TEST }));
 if (ECRAN_TEST) document.body.insertAdjacentHTML('beforeend', '<div class="badge-test">Écran de test · simulation</div>');
 // Jeu en pause (depuis l'admin) : grand panneau par-dessus tout.
+// L'Enquête : un éclair quand l'admin lance l'enquête (passage de l'introduction à l'enquête).
+let eqPhase = null;
+SJ.sock.on('etat', v => {
+  const ph = v.gameId === 'enquete' && v.game && !v.game.finished ? v.game.phase : null;
+  if (eqPhase === 'intro' && ph === 'enquete') SJ.foudre();
+  eqPhase = ph;
+});
 SJ.sock.on('etat', v => {
   const el = document.getElementById('pause-jeu'), on = v.status === 'playing' && v.paused;
   if (on && !el) document.body.insertAdjacentHTML('beforeend', '<div id="pause-jeu" class="pause-jeu"><div class="pause-jeu-t">⏸ Pause</div><p>Le jeu reprend dans un instant.</p></div>');

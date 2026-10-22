@@ -791,3 +791,10 @@ button.pion.choix:disabled { opacity: .4; }
 .eq-classement li::before { content: counter(r); font: 700 18px var(--mono); color: var(--muted); }
 .eq-classement li .pion { margin-right: auto; }
 @media (max-width: 800px) { .eq-ecran { grid-template-columns: 1fr; } }
+
+/* Éclair du début de L'Enquête */
+.foudre { position: fixed; inset: 0; z-index: 60; pointer-events: none; display: grid; place-items: center; animation: foudre-flash 1.8s ease-out forwards; }
+.foudre svg { height: 85vh; width: auto; fill: #fffbe6; filter: drop-shadow(0 0 24px #fff6c2) drop-shadow(0 0 60px #c9d8ff); opacity: 0; animation: foudre-eclair 1.8s ease-out forwards; }
+@keyframes foudre-flash { 0% { background: rgba(255, 255, 255, 0); } 6% { background: rgba(255, 255, 255, .95); } 12% { background: rgba(255, 255, 255, .1); } 20% { background: rgba(255, 255, 255, .8); } 35%, 100% { background: rgba(255, 255, 255, 0); } }
+@keyframes foudre-eclair { 0%, 4% { opacity: 0; } 8% { opacity: 1; } 14% { opacity: .2; } 22% { opacity: 1; } 60% { opacity: .9; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .foudre, .foudre svg { animation-duration: .01s; } }

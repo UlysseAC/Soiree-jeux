@@ -122,13 +122,24 @@ const SJ = (() => {
     })();
   }
 
+  // Éclair plein écran (début de L'Enquête) : deux flashs et un éclair, puis plus rien.
+  function foudre() {
+    if (document.hidden || document.querySelector('.foudre')) return;
+    const el = document.createElement('div');
+    el.className = 'foudre';
+    el.innerHTML = '<svg viewBox="0 0 100 300" aria-hidden="true"><path d="M58 0 L30 120 L52 122 L22 300 L78 104 L54 102 L80 0 Z"/></svg>';
+    document.body.appendChild(el);
+    navigator.vibrate?.([60, 80, 200]);
+    setTimeout(() => el.remove(), 1900);
+  }
+
   // Empêche l'écran de s'éteindre (écran public, téléphones en jeu).
   async function keepAwake() {
     try { await navigator.wakeLock?.request('screen'); } catch { /* refusé : tant pis */ }
   }
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') keepAwake(); });
 
-  return { sock, espace, base, now, sync, emit, esc, fmt, money, render, toast, store, hearts, confetti, keepAwake, tickTimers };
+  return { sock, espace, base, now, sync, emit, esc, fmt, money, render, toast, store, hearts, confetti, foudre, keepAwake, tickTimers };
 })();
 
 // Décor de chaque mini-jeu sur l'écran et les téléphones (voir body[data-theme] dans style.css).

@@ -338,6 +338,21 @@ function partieEnquete(g) {
 }
 app.addEventListener('change', e => { const pid = e.target.dataset.eqplacer; if (pid && e.target.value) jeu({ type: 'placer', pid, salle: e.target.value }); });
 
+// Couleurs des personnages, dans l'ordre (les mêmes que COULEURS dans server/games/enquete.js).
+const EQ_COULEURS = [['Rouge', '#e7584f'], ['Bleu', '#4f8fe7'], ['Vert', '#5cc47a'], ['Jaune', '#f0c93a'], ['Violet', '#a678e8'], ['Orange', '#e0833d'], ['Rose', '#ef7fb8'], ['Blanc', '#ece6d9'], ['Noir', '#2b2b2b'], ['Gris', '#9aa1ae'], ['Marron', '#8b5a2b'], ['Turquoise', '#3cc8c8'], ['Doré', '#d4af37'], ['Argent', '#c0c6cf']];
+function eqPersos(c) {
+  const noms = String(c.personnages || '').split(/\r?\n/).map(x => x.trim());
+  return `<div class="stack" style="gap:6px">${EQ_COULEURS.map(([coul, hex], i) => `<label class="row" style="gap:8px;flex-wrap:nowrap"><span class="pion" style="--c:${hex};min-width:110px">${coul}</span>
+    <input class="in" data-eqnom="${i}" id="eq-nom-${i}" value="${esc(noms[i] || '')}" placeholder="${coul}" maxlength="40"></label>`).join('')}</div>`;
+}
+// Noms des personnages : enregistrés ensemble (une ligne par couleur ; vide = le nom de la couleur).
+async function eqSauverNoms(el) {
+  const noms = EQ_COULEURS.map(([coul], i) => (document.getElementById(`eq-nom-${i}`)?.value || '').trim() || coul);
+  const r = await admin({ type: 'config', scope: 'jeu', gameId: 'enquete', path: 'personnages', value: noms.join('\n') });
+  if (r.ok) { el.classList.add('saved'); setTimeout(() => el.classList.remove('saved'), 1500); }
+}
+app.addEventListener('change', e => { if (e.target.dataset.eqnom != null) eqSauverNoms(e.target); });
+
 function reglagesEnquete(c) {
   const salles = eqLignes(c.salles);
   const d = (p, l) => cfgInput(p, c[p], 'dur', { label: l });
@@ -345,9 +360,9 @@ function reglagesEnquete(c) {
   return `<div class="box"><h2>Histoire</h2><label class="field"><span class="label">Texte d'introduction affiché à l'écran (une ligne = un paragraphe)</span><textarea class="in" rows="7" id="c-jeu-enquete-intro" data-cfg="intro" data-kind="area" data-scope="jeu" data-game="enquete">${esc(c.intro)}</textarea></label></div>
     <div class="box"><h2>Salles, personnages, armes</h2><div class="grid-auto">
       <label class="field"><span class="label">Salles (une par ligne) · ${salles.length}</span><textarea class="in" rows="12" id="c-jeu-enquete-salles" data-cfg="salles" data-kind="area" data-scope="jeu" data-game="enquete">${esc(c.salles)}</textarea></label>
-      <label class="field"><span class="label">Personnages = couleurs des joueurs (un par ligne) · ${eqLignes(c.personnages).length}</span><textarea class="in" rows="15" id="c-jeu-enquete-personnages" data-cfg="personnages" data-kind="area" data-scope="jeu" data-game="enquete">${esc(c.personnages)}</textarea></label>
+      <div class="field"><span class="label">Personnages : le nom de chaque couleur</span>${eqPersos(c)}</div>
       <label class="field"><span class="label">Armes (une par ligne) · ${eqLignes(c.armes).length}</span><textarea class="in" rows="12" id="c-jeu-enquete-armes" data-cfg="armes" data-kind="area" data-scope="jeu" data-game="enquete">${esc(c.armes)}</textarea></label>
-    </div><p class="muted" style="margin:0;font-size:14px">Chaque joueur reçoit le personnage suivant dans la liste (12 joueurs = les 12 premiers). Les changements servent au lancement de la partie.</p></div>
+    </div><p class="muted" style="margin:0;font-size:14px">Chaque joueur reçoit un personnage dans l'ordre de la liste (12 joueurs = les 12 premiers). Le nom apparaît sur les téléphones, la fiche de détective et l'écran, avec la pastille de couleur. Les changements servent au lancement de la partie.</p></div>
     <div class="box"><h2>Solution</h2><div class="grid-auto">
       ${cfgInput('solution.perso', c.solution.perso, 'text', { label: 'Personnage (le tueur)', ph: 'au hasard' })}${cfgInput('solution.arme', c.solution.arme, 'text', { label: 'Arme', ph: 'au hasard' })}${cfgInput('solution.salle', c.solution.salle, 'text', { label: 'Salle', ph: 'au hasard' })}
     </div><p class="muted" style="margin:0;font-size:14px">Vide = tiré au hasard. Sinon le nom exact d'une ligne des listes (utile si tes indices écrits parlent de la solution).</p></div>
