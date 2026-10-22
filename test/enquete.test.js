@@ -217,6 +217,19 @@ test('personnages tirés au hasard parmi ceux de l\'admin ; l\'admin échange pe
   assert.equal(E.adminAction(ctx, g, { type: 'personnage', pid: 'p1', perso: autre }).ok, false, 'plus après l\'introduction');
 });
 
+test('fiche de détective : sur papier par défaut ; sur le téléphone si l\'admin l\'active (remplie toute seule, barrable)', () => {
+  const { g, ctx } = setup(6);
+  E.adminAction(ctx, g, { type: 'lancer' });
+  assert.equal(E.playerView(ctx, g, 'p0').fiche, null);
+  assert.equal(E.playerAction(ctx, g, 'p0', { type: 'cocher', carte: 's3' }).ok, false);
+  ctx.cfg.ficheNumerique = true;
+  const v = E.playerView(ctx, g, 'p0');
+  assert.equal(v.fiche[v.main[0].id].statut, 'main');
+  const autre = Object.keys(g.cartes).find(c => !v.fiche[c].statut);
+  assert.equal(E.playerAction(ctx, g, 'p0', { type: 'cocher', carte: autre }).ok, true);
+  assert.equal(E.playerView(ctx, g, 'p0').fiche[autre].statut, 'coche');
+});
+
 test('rattrapage : un joueur ajouté en cours reçoit un personnage libre et 3 cartes', () => {
   const { g, ctx } = setup(12);
   assert.equal(E.ajouterJoueur(ctx, g, 'tard').ok, true);

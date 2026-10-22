@@ -501,6 +501,16 @@ function eqJournal(g) {
   return h;
 }
 
+const EQ_STATUTS = { main: ['✋', 'ma carte'], vu: ['👁', 'vue'], indice: ['💡', 'indice'], coche: ['✗', 'barrée'] };
+function eqFiche(g) {
+  const groupe = (titre, liste) => `<div class="label">${titre}</div><div class="list eq-fiche">${liste.map(c => {
+    const f = g.fiche[c.id] || {}, st = EQ_STATUTS[f.statut];
+    return `<button data-eqcocher="${c.id}" class="${f.statut ? 'barre' : ''}"><span>${eqCarte(c)}</span><span class="muted">${st ? `${st[0]} ${st[1]}${f.par?.length ? ` (${esc(f.par.join(', '))})` : ''}` : ''}</span></button>`;
+  }).join('')}</div>`;
+  return `<p class="muted" style="margin:0;font-size:14px">Clique sur une carte pour la barrer à la main. ✋ ta carte · 👁 montrée par quelqu'un · 💡 éliminée par un indice.</p>`
+    + groupe('Personnages', g.persos) + groupe('Armes', g.armes) + groupe('Salles', g.salles);
+}
+
 function eqAccuser(g) {
   if (g.accuse) return `<div class="card danger center"><p style="font-size:20px;margin:0">❌ Ton accusation était fausse.</p><p class="muted" style="margin:0">Tu ne peux plus accuser, mais continue de répondre aux questions.</p></div>`;
   const a = ui.eqAcc || {};
@@ -527,9 +537,10 @@ function enquete(g) {
   h += `<div class="row" style="justify-content:space-between"><span class="muted">⏳ <span class="mono" data-until="${g.endsAt}"></span></span>${g.phase === 'finale' ? '<span class="pill accent">⚡ Phase finale : indices doublés</span>' : ''}</div>`;
   h += eqRepondre(g);
   ui.eqTab ??= 'salle';
-  const tabs = [['salle', g.salle ? '📍 Salle' : '📷 Salle'], ['indices', `💡 Indices (${g.notes.length})`], ['accuser', '⚖️ Accuser']];
+  const tabs = [['salle', g.salle ? '📍 Salle' : '📷 Salle'], ['indices', `💡 Indices (${g.notes.length})`], ...(g.fiche ? [['fiche', '📋 Fiche']] : []), ['accuser', '⚖️ Accuser']];
+  if (ui.eqTab === 'fiche' && !g.fiche) ui.eqTab = 'salle';
   h += `<nav class="tabs" style="justify-content:stretch">${tabs.map(([k, l]) => `<button role="tab" style="flex:1" data-eqtab="${k}" aria-selected="${ui.eqTab === k}">${l}</button>`).join('')}</nav>`;
-  h += ui.eqTab === 'indices' ? eqJournal(g) : ui.eqTab === 'accuser' ? eqAccuser(g) : eqSalle(g) + main;
+  h += ui.eqTab === 'indices' ? eqJournal(g) : ui.eqTab === 'fiche' ? eqFiche(g) : ui.eqTab === 'accuser' ? eqAccuser(g) : eqSalle(g) + main;
   return h;
 }
 app.addEventListener('change', e => {
@@ -541,10 +552,11 @@ app.addEventListener('change', e => {
   draw();
 });
 app.addEventListener('click', e => {
-  const t = e.target.closest('[data-eqtab],[data-eqcible],[data-eqmontrer],[data-act^="eq"]');
+  const t = e.target.closest('[data-eqtab],[data-eqcible],[data-eqmontrer],[data-eqcocher],[data-act^="eq"]');
   if (!t) return;
   if (t.dataset.eqtab) { ui.eqTab = t.dataset.eqtab; return draw(); }
   if (t.dataset.eqcible) { ui.eqCible = t.dataset.eqcible; return draw(); }
+  if (t.dataset.eqcocher) return act({ type: 'cocher', carte: t.dataset.eqcocher });
   if (t.dataset.eqmontrer) return act({ type: 'montrer', q: t.dataset.eqmontrer, carte: t.dataset.carte });
   const a = t.dataset.act;
   if (a === 'eqCode') { ui.eqCode = true; draw(); }

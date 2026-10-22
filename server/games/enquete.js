@@ -23,6 +23,7 @@ export function defaultConfig() {
     delaiQuestion: 30, // entre deux questions d'un même joueur (s)
     delaiReponse: 60, // le joueur interrogé a ce temps pour choisir la carte ; ensuite, une carte au hasard (s)
     rotationQr: 30, // le QR code des tablettes change toutes les … s ; 0 = fixe
+    ficheNumerique: false, // fiche de détective sur le téléphone (sinon, sur papier)
     indicesParSalle: 1, // indices par joueur et par salle
     indicesFinale: 2, // pendant la phase finale
     // Solution : vide = tirée au hasard ; sinon le nom exact (utile si les indices écrits parlent de la solution).
@@ -132,7 +133,7 @@ export function start(ctx, pids) {
   const sol = new Set(Object.values(g.solution));
   const mains = distribuer(Object.keys(g.cartes).filter(c => !sol.has(c)), ordre);
   ordre.forEach((p, i) => {
-    g.joueurs[p] = { perso: `p${i}`, main: mains[p], salle: null, indices: 0, pris: {}, accuse: null, nextAsk: 0, last: null, vus: {}, elimines: [] };
+    g.joueurs[p] = { perso: `p${i}`, main: mains[p], salle: null, indices: 0, pris: {}, accuse: null, nextAsk: 0, last: null, vus: {}, elimines: [], coches: [] };
   });
   return g;
 }
@@ -240,6 +241,12 @@ function indice(ctx, g, p) {
 export function playerAction(ctx, g, p, a) {
   const J = g.joueurs[p];
   if (!J) return err('Tu ne joues pas à cette partie.');
+  if (a.type === 'cocher') { // fiche de détective sur le téléphone : barrer / débarrer une carte
+    if (!ctx.cfg.ficheNumerique) return err('La fiche de détective se fait sur papier.');
+    if (!g.cartes[a.carte]) return err('Carte inconnue.');
+    J.coches = (J.coches || []).includes(a.carte) ? J.coches.filter(c => c !== a.carte) : [...(J.coches || []), a.carte];
+    return { ok: true };
+  }
   if (g.finished) return err("L'enquête est terminée.");
   if (g.phase === 'intro') return err("L'enquête n'a pas encore commencé.");
   const now = ctx.now();
@@ -339,7 +346,7 @@ export function ajouterJoueur(ctx, g, p) {
   g.cartes[`p${i}`] = { id: `p${i}`, type: 'perso', nom: attribuer(ctx, [p], deType(g, 'perso').map(c => g.cartes[c].nom))[p] };
   const sol = new Set(Object.values(g.solution));
   const main = shuffle(Object.keys(g.cartes).filter(c => !sol.has(c))).slice(0, 3);
-  g.joueurs[p] = { perso: `p${i}`, main, salle: null, indices: 0, pris: {}, accuse: null, nextAsk: 0, last: null, vus: {}, elimines: [] };
+  g.joueurs[p] = { perso: `p${i}`, main, salle: null, indices: 0, pris: {}, accuse: null, nextAsk: 0, last: null, vus: {}, elimines: [], coches: [] };
   return { ok: true, detail: nom(g, `p${i}`) };
 }
 
@@ -367,6 +374,9 @@ export function playerView(ctx, g, p) {
   const J = g.joueurs[p];
   if (!J) return { spectator: true, finished: g.finished };
   const now = ctx.now();
+  // fiche de détective sur le téléphone, si l'admin l'a activée : remplie toute seule, barrable à la main
+  const statut = id => (J.main.includes(id) ? 'main' : J.vus[id] ? 'vu' : J.elimines.includes(id) ? 'indice' : (J.coches || []).includes(id) ? 'coche' : '');
+  const fiche = ctx.cfg.ficheNumerique ? Object.fromEntries(Object.keys(g.cartes).map(id => [id, { statut: statut(id), par: (J.vus[id] || []).map(ctx.name) }])) : null;
   const aRepondre = g.questions.filter(q => q.a === p && q.etat === 'attente').map(q => ({
     id: q.id, de: ctx.name(q.de), salle: nom(g, q.salle), perso: nom(g, q.perso), arme: nom(g, q.arme), fin: q.at + ctx.cfg.delaiReponse * 1000,
     choix: enCommun(g, q).map(c => carteVue(g, c)),
@@ -385,7 +395,7 @@ export function playerView(ctx, g, p) {
     indicesRestants: J.salle ? Math.max(0, max - (J.pris[J.salle] || 0)) : 0,
     // tous les indices obtenus (la fiche de détective se fait sur papier)
     indices: J.indices, notes: (J.notes || []).map(n => ({ t: n.t, salle: nom(g, n.salle), texte: n.texte })),
-    aRepondre, mesQuestions, ...listes(g),
+    aRepondre, mesQuestions, fiche, ...listes(g),
     accuse: J.accuse ? { juste: J.accuse.juste } : null,
     winner: g.winner ? ctx.name(g.winner) : null, gagne: g.winner === p,
     revelation: revelation(ctx, g),

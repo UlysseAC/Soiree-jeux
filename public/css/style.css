@@ -759,6 +759,7 @@ button.pion.choix:disabled { opacity: .4; }
 .eq-main { display: flex; flex-wrap: wrap; gap: 6px; }
 .eq-main .eq-carte { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-weight: 600; }
 .eq-choix { display: flex; flex-direction: column; gap: 8px; }
+.eq-fiche button.barre > span:first-child { text-decoration: line-through; text-decoration-color: var(--accent); color: var(--muted); }
 .eq-urgent { animation: eq-pouls 1.6s ease-in-out infinite; }
 @keyframes eq-pouls { 50% { box-shadow: 0 0 0 4px var(--accent-soft); } }
 @media (prefers-reduced-motion: reduce) { .eq-urgent { animation: none; } }
