@@ -118,7 +118,8 @@ function feed(g, ctx, text) {
   g.feed.unshift({ t: ctx.now(), text });
   g.feed.length = Math.min(g.feed.length, 40);
 }
-const qui = (ctx, g, p) => `${ctx.name(p)} (${nom(g, g.joueurs[p].perso)})`;
+// Qui joue quel personnage reste secret pendant la partie : en public, seulement le prénom.
+const qui = (ctx, g, p) => ctx.name(p);
 
 // ---------- départ ----------
 export function start(ctx, pids) {
@@ -399,7 +400,7 @@ export function playerView(ctx, g, p) {
     phase: g.phase, finished: g.finished, endsAt: g.endsAt, finaleAt: g.finaleAt,
     moi: carteVue(g, J.perso), main: J.main.map(c => carteVue(g, c)),
     salle: J.salle ? carteVue(g, J.salle) : null,
-    presents: J.salle ? presents(g, J.salle).filter(x => x !== p).map(x => ({ pid: x, name: ctx.name(x), perso: carteVue(g, g.joueurs[x].perso), dernier: J.last === x })) : [],
+    presents: J.salle ? presents(g, J.salle).filter(x => x !== p).map(x => ({ pid: x, name: ctx.name(x), dernier: J.last === x })) : [],
     nextAsk: J.nextAsk > now ? J.nextAsk : 0,
     attente: g.questions.some(q => q.de === p && q.etat === 'attente'),
     indicesRestants: J.salle ? Math.max(0, max - (J.pris[J.salle] || 0)) : 0,
@@ -416,7 +417,7 @@ export function screenView(ctx, g) {
   return {
     phase: g.phase, finished: g.finished, endsAt: g.endsAt, finaleAt: g.finaleAt, debut: g.debut,
     intro: ctx.cfg.intro,
-    salles: deType(g, 'salle').map(s => ({ ...carteVue(g, s), joueurs: presents(g, s).map(p => ({ name: ctx.name(p), perso: nom(g, g.joueurs[p].perso) })) })),
+    salles: deType(g, 'salle').map(s => ({ ...carteVue(g, s), joueurs: presents(g, s).map(p => ({ name: ctx.name(p) })) })),
     joueurs: Object.keys(g.joueurs).length,
     feed: g.feed.slice(0, 14),
     winner: g.winner ? qui(ctx, g, g.winner) : null,
@@ -448,7 +449,7 @@ export function salleView(ctx, g, n) {
     nom: g.cartes[s].nom, n, phase: g.phase, finished: g.finished,
     code: g.phase === 'intro' || g.finished ? null : codesDe(g, w)[n],
     change: rot > 0 ? (w + 1) * rot : 0,
-    joueurs: presents(g, s).map(p => ({ name: ctx.name(p), perso: nom(g, g.joueurs[p].perso) })),
+    joueurs: presents(g, s).map(p => ({ name: ctx.name(p) })),
   };
 }
 

@@ -214,6 +214,20 @@ test('personnages liés aux prénoms (accents et majuscules ignorés), les autre
   assert.equal(E.adminAction(ctx, g, { type: 'personnage', pid: 'p0', perso: majordome }).ok, false, 'plus après l\'introduction');
 });
 
+test('écran, tablettes et autres téléphones : le prénom des joueurs, jamais leur personnage (sauf à la révélation)', () => {
+  const { g, ctx } = setup(6);
+  E.adminAction(ctx, g, { type: 'lancer' });
+  for (const p of Object.keys(g.joueurs)) E.adminAction(ctx, g, { type: 'placer', pid: p, salle: 's1' });
+  const persos = Object.values(g.cartes).filter(c => c.type === 'perso').map(c => c.nom);
+  const p2 = E.playerView(ctx, g, 'p0').persos.find(c => !E.playerView(ctx, g, 'p2').main.some(m => m.id === c.id));
+  E.playerAction(ctx, g, 'p0', { type: 'interroger', cible: 'p2', perso: p2.id, arme: 'a0' });
+  const publics = JSON.stringify([E.screenView(ctx, g), E.salleView(ctx, g, 1), E.playerView(ctx, g, 'p1').presents]);
+  for (const n of persos) assert.ok(!publics.includes(n), `${n} visible`);
+  assert.ok(publics.includes('J1'), 'les prénoms sont visibles');
+  E.adminAction(ctx, g, { type: 'terminer' });
+  assert.equal(E.screenView(ctx, g).revelation.classement.length, 6);
+});
+
 test('rattrapage : un joueur ajouté en cours reçoit son personnage (ou un libre) et 3 cartes', () => {
   const { g, ctx } = setup(12, c => { c.personnages += '\n? = Le Retardataire'; return c; });
   ctx.name = p => (p === 'tard' ? '?' : 'J' + p.slice(1));

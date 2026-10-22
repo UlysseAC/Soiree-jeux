@@ -43,7 +43,7 @@ function draw() {
   const s = V.salle;
   if (!s) return SJ.render(app, `<div class="tab-attente"><h1 class="tab-nom">L'Enquête</h1><p class="muted">Salle n° ${n + 1} — en attente de la partie…</p></div>`);
   if (s.inconnue) return SJ.render(app, `<div class="tab-attente"><h1 class="tab-nom">Salle n° ${n + 1} ?</h1><p class="muted">Cette salle n'existe pas dans les réglages.</p></div>`);
-  const qui = s.joueurs.length ? s.joueurs.map(j => `<span class="pion">${esc(j.name)} <small class="pion-perso">${esc(j.perso)}</small></span>`).join('') : '<span class="muted">Personne pour l\'instant</span>';
+  const qui = s.joueurs.length ? s.joueurs.map(j => `<span class="pion">${esc(j.name)}</span>`).join('') : '<span class="muted">Personne pour l\'instant</span>';
   let centre;
   if (s.finished) centre = `<p class="tab-msg">L'enquête est terminée.<br>Regardez l'écran !</p>`;
   else if (!s.code) centre = `<p class="tab-msg">L'enquête va commencer…</p>`;

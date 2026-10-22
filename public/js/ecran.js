@@ -482,7 +482,7 @@ function enquete(g) {
   const sub = `${g.phase === 'finale' ? '<strong style="color:var(--accent)">⚡ Phase finale : indices doublés</strong> · ' : ''}Fin dans <span class="mono" data-until="${g.endsAt}"></span>`;
   return `${head(sub)}<div class="eq-ecran">
     <div class="eq-salles">${g.salles.map(s => `<div class="eq-salle ${s.joueurs.length ? 'occupee' : ''}"><strong>${esc(s.nom)}</strong>
-      <div class="pions">${s.joueurs.map(j => `<span class="pion">${esc(j.name)} <small class="pion-perso">${esc(j.perso)}</small></span>`).join('')}</div></div>`).join('')}</div>
+      <div class="pions">${s.joueurs.map(j => `<span class="pion">${esc(j.name)}</span>`).join('')}</div></div>`).join('')}</div>
     <div class="stack"><div class="label">En direct</div><div class="feed">${g.feed.map(f => `<div><time>${hm(f.t)}</time><span>${esc(f.text)}</span></div>`).join('')}</div></div>
   </div>`;
 }
