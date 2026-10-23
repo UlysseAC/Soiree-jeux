@@ -20,12 +20,13 @@ const code = (ctx, g, n) => E.salleView(ctx, g, n).code;
 
 test('le tueur a des indices plus précis : deux cartes innocentées à chaque indice automatique', () => {
   const { g, ctx, tueur, innocents } = setup();
+  ctx.cfg.sallesPropres = 0; g.propres = [];
   placer(ctx, g, 's0', tueur, innocents[0]);
   act(ctx, g, tueur, { type: 'indice' });
   assert.equal(g.joueurs[tueur].elimines.length, 2);
-  ctx.cfg.modeles = "« {carte} » n'a rien à voir avec le crime.";
+  // un innocent reçoit un fait de la salle (au plus 1 carte éliminée)
   act(ctx, g, innocents[0], { type: 'indice' });
-  assert.equal(g.joueurs[innocents[0]].elimines.length, 1);
+  assert.ok(g.joueurs[innocents[0]].elimines.length <= 1);
 });
 
 test('auto-accusation : seconde chance si seul le personnage est juste ; juste = tueur actif en secret', () => {

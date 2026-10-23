@@ -45,7 +45,13 @@ export function defaultConfig() {
     solution: { salle: '', perso: '', arme: '' },
     // Indices de chaque salle (une ligne = un indice, dans l'ordre). {carte} = une carte qui n'est pas dans la solution ;
     // {salle}, {perso}, {arme} = une salle, un personnage, une arme qui ne sont pas dans la solution.
-    indices: Array.from({ length: 11 }, () => ''),
+    // Trois indices écrits par salle, avec la chance (en %) qu'ils soient donnés en premier (p1) puis en deuxième (p2).
+    // Un joueur ne reçoit jamais deux fois le même indice, ni un indice qui cite une carte qu'il connaît déjà.
+    // Un emplacement vide est rempli au lancement avec un vrai fait tiré de la solution (visible dans l'admin).
+    indicesSalles: Array.from({ length: 11 }, () => ({ textes: ['', '', ''], p1: [34, 33, 33], p2: [34, 33, 33] })),
+    indices: Array.from({ length: 11 }, () => ''), // ancien format (une ligne = un indice), repris dans indicesSalles
+    sallesPropres: 2, // nombre de salles « trop propres » (indice général : le crime n'a pas eu lieu ici)
+    textePropre: "Cette salle est trop propre : il est impossible qu'un crime y ait eu lieu.",
     // Indices automatiques (quand une salle n'a plus d'indice écrit) : une ligne = un modèle, tiré au hasard.
     // {3salle}, {3arme}, {3perso}, {3carte} = 3 cartes dont AU PLUS UNE est dans la solution (indice à recouper).
     modeles: [
@@ -123,6 +129,21 @@ function feed(g, ctx, text) {
 // Qui joue quel personnage reste secret pendant la partie : en public, seulement le prénom.
 const qui = (ctx, g, p) => ctx.name(p);
 
+// ---------- indices de remplissage (faits vrais tirés de la solution) ----------
+const listeNoms = noms => (noms.length > 1 ? `${noms.slice(0, -1).join(', ')} et ${noms.at(-1)}` : noms[0] || '…');
+function indiceAuto(g) {
+  const sol = Object.values(g.solution), type = pick(['salle', 'perso', 'arme']);
+  const innocentes = Object.values(g.cartes).filter(c => !sol.includes(c.id)).map(c => c.id);
+  if (Math.random() < 0.5) { // une carte innocentée
+    const c = pick(innocentes);
+    return { texte: `Un souvenir revient : « ${nom(g, c)} » n'a rien à voir avec le crime.`, elim: [c] };
+  }
+  const lib = innocentes.filter(c => g.cartes[c].type === type), laSol = g.solution[type];
+  const choix = shuffle([...shuffle(lib).slice(0, 2), laSol]).map(c => nom(g, c)); // au moins 2 sur 3 sont innocentes
+  const mot = { salle: 'salles ne sont pas le lieu du crime', perso: 'personnages sont innocents', arme: 'armes n\'ont pas servi' }[type];
+  return { texte: `Au moins 2 de ces 3 ${mot} : ${listeNoms(choix)}.`, elim: [] };
+}
+
 // ---------- départ ----------
 export function start(ctx, pids) {
   const cfg = ctx.cfg;
@@ -138,6 +159,7 @@ export function start(ctx, pids) {
     feed: [], finished: false, winner: null, finishedAt: 0, solution: null,
   };
   g.nbSalles = deType(g, 'salle').length;
+  g.auto = []; g.propres = [];
   // Solution : celle fixée dans l'admin si elle existe, sinon au hasard.
   const fixe = (t, n) => deType(g, t).find(id => n && g.cartes[id].nom.toLowerCase() === String(n).trim().toLowerCase());
   g.solution = {
@@ -145,6 +167,9 @@ export function start(ctx, pids) {
     perso: fixe('perso', cfg.solution?.perso) || pick(deType(g, 'perso')),
     arme: fixe('arme', cfg.solution?.arme) || pick(deType(g, 'arme')),
   };
+  // salles « trop propres » (jamais la salle du crime) et indices de remplissage tirés de la vraie solution
+  g.propres = shuffle(deType(g, 'salle').filter(x => x !== g.solution.salle)).slice(0, Math.max(0, Math.round(Number(cfg.sallesPropres) || 0)));
+  g.auto = Array.from({ length: g.nbSalles }, () => [0, 1, 2].map(() => indiceAuto(g)));
   const sol = new Set(Object.values(g.solution));
   const mains = distribuer(Object.keys(g.cartes).filter(c => !sol.has(c)), ordre);
   ordre.forEach((p, i) => {
@@ -294,7 +319,6 @@ function inconnues(g, p, type = null) {
   const J = g.joueurs[p], sol = new Set(Object.values(g.solution));
   return Object.values(g.cartes).filter(c => !sol.has(c.id) && (!type || c.type === type) && !J.main.includes(c.id) && !J.vus[c.id] && !J.elimines.includes(c.id)).map(c => c.id);
 }
-const listeNoms = noms => (noms.length > 1 ? `${noms.slice(0, -1).join(', ')} et ${noms.at(-1)}` : noms[0] || '…');
 function remplir(g, p, texte, n) {
   const elimines = [];
   const prendre = type => {
@@ -320,6 +344,36 @@ function remplir(g, p, texte, n) {
   return { texte: out, elimines };
 }
 
+// Indice de la salle s pour le joueur p : l'indice général « trop propre » d'abord, puis un des 3 indices de la salle tiré selon
+// les chances réglées (1er ou 2e indice du joueur dans cette salle), sans jamais répéter un indice ni citer une carte qu'il connaît.
+function choisirIndice(ctx, g, p, s) {
+  const J = g.joueurs[p], n = Number(s.slice(1));
+  J.recus ??= {};
+  const recus = J.recus[s] ??= [];
+  const connu = new Set([...J.main, ...Object.keys(J.vus), ...J.elimines]);
+  const norm = x => String(x).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const cite = texte => [...connu].some(id => nom(g, id).length >= 3 && norm(texte).includes(norm(nom(g, id))));
+  if (g.propres?.includes(s) && !recus.includes('propre') && !connu.has(s)) {
+    return { cle: 'propre', texte: String(ctx.cfg.textePropre || ''), concret: true, elim: [s] };
+  }
+  const cfgS = ctx.cfg.indicesSalles?.[n] || {};
+  const rang = recus.filter(x => x !== 'propre').length >= 1 ? 'p2' : 'p1';
+  const candidats = [];
+  for (let k = 0; k < 3; k++) {
+    if (recus.includes(k)) continue;
+    const ecrit = String(cfgS.textes?.[k] ?? '').trim();
+    const c = ecrit ? { cle: k, texte: ecrit, concret: false, auto: false } : g.auto?.[n]?.[k] ? { cle: k, texte: g.auto[n][k].texte, concret: true, elim: g.auto[n][k].elim, auto: true } : null;
+    if (!c || cite(c.texte)) continue;
+    candidats.push({ ...c, poids: Math.max(0, Number(cfgS[rang]?.[k]) || 0) });
+  }
+  if (!candidats.length) return null;
+  let total = candidats.reduce((a, c) => a + c.poids, 0);
+  if (total <= 0) { candidats.forEach(c => { c.poids = 1; }); total = candidats.length; }
+  let t = Math.random() * total;
+  for (const c of candidats) { t -= c.poids; if (t <= 0) return c; }
+  return candidats.at(-1);
+}
+
 function indice(ctx, g, p, parTache = false) {
   const J = g.joueurs[p];
   const s = J.salle;
@@ -327,13 +381,18 @@ function indice(ctx, g, p, parTache = false) {
   const max = g.phase === 'finale' ? ctx.cfg.indicesFinale : ctx.cfg.indicesParSalle;
   const deja = J.pris[s] || 0;
   if (deja >= max) return err(g.phase === 'finale' ? 'Tu as déjà pris tes indices dans cette salle.' : `Tu as déjà pris ${max > 1 ? 'tes indices' : "l'indice"} de cette salle.${ctx.cfg.indicesFinale > max ? ' Il y en aura un autre pendant la phase finale.' : ''}`);
-  const ecrits = String(ctx.cfg.indices?.[Number(s.slice(1))] ?? '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
   const modeles = String(ctx.cfg.modeles ?? '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
   // Le tueur (qui ne le sait pas encore) a des souvenirs plus précis : deux cartes innocentées à chaque indice automatique.
   const tueur = J.perso === g.solution.perso && !J.tueur;
-  const brut = ecrits[deja] ?? (tueur ? 'Un souvenir précis te revient : « {carte} » n\'a rien à voir avec le crime.' : modeles.length ? pick(modeles) : "« {carte} » n'a rien à voir avec le crime.");
-  // phase finale : un indice automatique donne deux cartes au lieu d'une
-  const r = remplir(g, p, brut, g.phase === 'finale' || tueur ? 2 : 1);
+  const choix = choisirIndice(ctx, g, p, s);
+  let r;
+  if (choix && !(tueur && choix.auto)) {
+    r = choix.concret ? { texte: choix.texte, elimines: choix.elim || [] } : remplir(g, p, choix.texte, g.phase === 'finale' ? 2 : 1);
+    (J.recus[s] ??= []).push(choix.cle);
+  } else { // plus d'indice disponible pour ce joueur dans cette salle : indice automatique de secours
+    const brut = tueur ? 'Un souvenir précis te revient : « {carte} » n\'a rien à voir avec le crime.' : modeles.length ? pick(modeles) : "« {carte} » n'a rien à voir avec le crime.";
+    r = remplir(g, p, brut, g.phase === 'finale' || tueur ? 2 : 1);
+  }
   J.pris[s] = deja + 1;
   J.indices++;
   for (const c of r.elimines) if (!J.elimines.includes(c)) J.elimines.push(c);
@@ -686,6 +745,8 @@ export function adminView(ctx, g) {
       indices: J.indices, accuse: J.accuse ? (J.accuse.tueur ? 'tueur' : J.accuse.juste ? 'juste' : 'fausse') : null, mort: !!J.mort, tueurActif: !!J.tueur, victimes: J.tueur?.victimes || 0,
     })).sort((a, b) => a.name.localeCompare(b.name, 'fr')),
     attente: g.questions.filter(q => q.etat === 'attente').map(q => ({ de: ctx.name(q.de), a: ctx.name(q.a), salle: nom(g, q.salle) })),
+    // indices des salles : écrits ou remplis au lancement avec la solution (réservé à l'admin)
+    indicesSalles: (g.auto || []).map((auto, n) => ({ salle: nom(g, `s${n}`), propre: !!g.propres?.includes(`s${n}`), indices: auto.map((a, k) => ({ texte: String(ctx.cfg.indicesSalles?.[n]?.textes?.[k] ?? '').trim() || a.texte, ecrit: !!String(ctx.cfg.indicesSalles?.[n]?.textes?.[k] ?? '').trim() })) })),
     taches: (g.taches || []).map((_, n) => { const s = `s${n}`, t = tacheDe(ctx, g, s), se = g.sessions[s]; return { salle: s, nomSalle: nom(g, s), nom: t ? T.nomTache(t) : 'Aucune : indice gratuit', groupe: !!t?.groupe, aucune: !t, etat: se?.etat || 'libre', joueurs: (se?.joueurs || []).map(ctx.name) }; }),
   };
 }

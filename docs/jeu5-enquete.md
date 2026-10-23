@@ -56,17 +56,25 @@ Le texte d'introduction s'écrit dans **Réglages des jeux → L'Enquête → Hi
 
    L'écran révèle alors la solution et le tueur.
 
-## Indices des tablettes
+## Indices des salles
 
-Les indices s'écrivent dans **Réglages → L'Enquête → Indices des tablettes**, avec une zone par salle.
+Dans **Réglages, L'Enquête, cadre « Indices des salles »**, tu écris **jusqu'à 3 indices par salle**.
 
-- **Ordre.** Une ligne de texte est un indice, donné dans l'ordre : la 1re ligne au 1er indice du joueur dans cette salle, la 2e ligne au suivant (en phase finale), etc.
-- **Repères à remplacer.**
-  - `{carte}` est remplacé par une carte qui n'est pas dans la solution et que le joueur ne connaît pas encore.
-  - `{perso}`, `{arme}` et `{salle}` font la même chose pour un seul type de carte.
-  - La carte donnée n'est jamais une carte que le joueur connaît déjà.
-- **Indice à recouper.** `{3salle}`, `{3arme}`, `{3perso}` et `{3carte}` sont remplacés par 3 cartes dont **au plus une** est dans la solution (une fois sur deux). Exemple : « Au moins 2 de ces 3 salles ne sont pas le lieu du crime : {3salle}. » Le joueur doit recouper avec d'autres infos.
-- **Indices automatiques.** Quand une salle n'a plus de ligne écrite, un des modèles automatiques est tiré au hasard (une ligne = un modèle) : par défaut, une carte innocentée, ou 3 salles, armes ou personnages dont au moins 2 sont innocents.
+- **Chances.** À côté de chaque indice, deux pourcentages : la chance qu'il soit donné **en premier** à un joueur, puis **en deuxième** (phase finale).
+- **Jamais deux fois le même.** Un joueur ne reçoit jamais deux fois le même indice dans une salle.
+- **Jamais une carte déjà connue.** Un joueur ne reçoit pas un indice qui cite une carte qu'il a déjà : cartes en main, cartes montrées ou cartes éliminées.
+- **Emplacement vide.** Il est rempli automatiquement au lancement avec un vrai fait tiré de la solution, par exemple une carte innocentée ou « Au moins 2 de ces 3 salles ne sont pas le lieu du crime : … ». Tu les vois dans Partie en cours, après « Révéler ». L'icône 🎲 marque ceux qui sont remplis automatiquement.
+- **Repères dans un texte.**
+  - `{carte}`, `{perso}`, `{arme}` et `{salle}` donnent une carte innocente que le joueur ne connaît pas encore.
+  - `{3salle}`, `{3arme}`, `{3perso}` et `{3carte}` donnent 3 cartes dont au plus une est dans la solution.
+  - En phase finale, chaque repère donne deux cartes.
+- **Indices de secours.** Quand un joueur n'a plus d'indice disponible dans une salle, un des modèles de secours est tiré au hasard (une ligne = un modèle).
+
+### Salles « trop propres »
+
+- Le réglage « Salles trop propres » est de 2 par défaut. Ce nombre de salles est tiré au hasard, jamais la salle du crime.
+- Dans ces salles, le **premier indice de chaque joueur** est l'indice général : « Cette salle est trop propre : il est impossible qu'un crime y ait eu lieu. » Le texte se modifie, et la salle est éliminée sur la fiche.
+- Un joueur qui a déjà la carte de cette salle reçoit un indice normal.
 
 ## Classement de la soirée
 

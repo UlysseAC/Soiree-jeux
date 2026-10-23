@@ -131,13 +131,13 @@ test('sans réponse à temps, une carte au hasard ; sans carte en commun, « auc
 });
 
 test('indices : un par salle (deux en phase finale, avec deux cartes), écrits ou automatiques, tous consultables', () => {
-  const { g, ctx } = setup(12, c => { c.indices[0] = 'Le majordome a vu quelque chose près de « {arme} ».\nDeuxième indice : {salle}'; c.modeles = "Un souvenir revient : « {carte} » n'a rien à voir avec le crime."; return c; });
+  const { g, ctx } = setup(12, c => { c.sallesPropres = 0; c.indicesSalles[0].textes = ['Un témoin a vu quelque chose près de « {arme} ».', 'Deuxième indice : {salle}', ''];c.indicesSalles[0].p1 = [100, 0, 0]; c.indicesSalles[0].p2 = [0, 100, 0]; c.sallesPropres = 0; c.modeles = "Un souvenir revient : « {carte} » n'a rien à voir avec le crime."; return c; });
   E.adminAction(ctx, g, { type: 'lancer' });
   const P = Object.keys(g.joueurs).find(x => g.joueurs[x].perso !== g.solution.perso); // pas le tueur : ses indices sont plus précis
   entrer(ctx, g, P, 0);
   const r = E.playerAction(ctx, g, P, { type: 'indice' });
   assert.equal(r.ok, true);
-  assert.match(r.indice, /^Le majordome a vu quelque chose près de « .+ »\.$/);
+  assert.match(r.indice, /^Un témoin a vu quelque chose près de « .+ »\.$/);
   const elim = g.joueurs[P].elimines;
   assert.equal(elim.length, 1);
   assert.equal(g.cartes[elim[0]].type, 'arme');
@@ -146,7 +146,7 @@ test('indices : un par salle (deux en phase finale, avec deux cartes), écrits o
   assert.equal(E.playerAction(ctx, g, P, { type: 'indice' }).ok, false, 'un seul par salle');
   // autre salle : le modèle automatique
   entrer(ctx, g, P, 4);
-  assert.match(E.playerAction(ctx, g, P, { type: 'indice' }).indice, /n'a rien à voir avec le crime/);
+  assert.match(E.playerAction(ctx, g, P, { type: 'indice' }).indice, /n'a rien à voir avec le crime|Au moins 2 de ces 3/);
   // phase finale : un deuxième indice dans la salle, avec deux cartes
   E.adminAction(ctx, g, { type: 'finale' });
   entrer(ctx, g, P, 0);
@@ -159,7 +159,7 @@ test('indices : un par salle (deux en phase finale, avec deux cartes), écrits o
 test('indice à recouper : 3 cartes du même type, au plus une de la solution, rien de barré', () => {
   let avecSolution = 0;
   for (let k = 0; k < 60; k++) {
-    const { g, ctx } = setup(12, c => { c.indices[0] = 'Au moins 2 de ces 3 salles ne sont pas le lieu du crime : {3salle}.'; return c; });
+    const { g, ctx } = setup(12, c => { c.indicesSalles[0].textes[0] = 'Au moins 2 de ces 3 salles ne sont pas le lieu du crime : {3salle}.'; c.indicesSalles[0].p1 = [100, 0, 0]; c.sallesPropres = 0; return c; });
     E.adminAction(ctx, g, { type: 'lancer' });
     entrer(ctx, g, 'p0', 0);
     const r = E.playerAction(ctx, g, 'p0', { type: 'indice' });
@@ -246,3 +246,49 @@ test('rattrapage : un joueur ajouté en cours reçoit un personnage libre et 3 c
 });
 
 void createHmac;
+
+test('3 indices par salle : chances du 1er et du 2e, jamais deux fois le même, jamais une carte déjà connue', () => {
+  const base = c => { c.sallesPropres = 0; c.indicesParSalle = 2; c.indicesSalles[0] = { textes: ['Indice A', 'Indice B', 'Indice C'], p1: [100, 0, 0], p2: [0, 100, 0] }; return c; };
+  const { g, ctx } = setup(6, base);
+  E.adminAction(ctx, g, { type: 'lancer' });
+  const P = Object.keys(g.joueurs).find(x => g.joueurs[x].perso !== g.solution.perso);
+  entrer(ctx, g, P, 0);
+  assert.equal(E.playerAction(ctx, g, P, { type: 'indice' }).indice, 'Indice A', 'p1 = 100 % pour A en premier');
+  assert.equal(E.playerAction(ctx, g, P, { type: 'indice' }).indice, 'Indice B', 'p2 = 100 % pour B en deuxième');
+  // jamais deux fois le même, sur beaucoup de tirages
+  for (let k = 0; k < 40; k++) {
+    const { g: g2, ctx: c2 } = setup(6, c => { base(c); c.indicesSalles[0].p1 = [30, 30, 40]; c.indicesSalles[0].p2 = [30, 30, 40]; return c; });
+    E.adminAction(c2, g2, { type: 'lancer' });
+    const Q = Object.keys(g2.joueurs).find(x => g2.joueurs[x].perso !== g2.solution.perso);
+    entrer(c2, g2, Q, 0);
+    const a = E.playerAction(c2, g2, Q, { type: 'indice' }).indice, b2 = E.playerAction(c2, g2, Q, { type: 'indice' }).indice;
+    assert.ok(/^Indice [ABC]$/.test(a) && /^Indice [ABC]$/.test(b2) && a !== b2, `${a} / ${b2}`);
+  }
+  // un indice qui cite une carte déjà dans la main du joueur ne lui est pas donné
+  const { g: g3, ctx: c3 } = setup(6, c => { c.sallesPropres = 0; c.indicesSalles[0] = { textes: ['', '', ''], p1: [1, 1, 1], p2: [1, 1, 1] }; return c; });
+  E.adminAction(c3, g3, { type: 'lancer' });
+  const R = Object.keys(g3.joueurs).find(x => g3.joueurs[x].perso !== g3.solution.perso);
+  const carte = g3.joueurs[R].main[0];
+  g3.auto[0] = [{ texte: `Un souvenir revient : « ${g3.cartes[carte].nom} » n'a rien à voir.`, elim: [carte] }, { texte: 'Autre fait sûr.', elim: [] }, { texte: 'Troisième.', elim: [] }];
+  entrer(c3, g3, R, 0);
+  for (let k = 0; k < 1; k++) assert.ok(!E.playerAction(c3, g3, R, { type: 'indice' }).indice.includes(g3.cartes[carte].nom));
+});
+
+test('salles « trop propres » : N salles (réglable), jamais la salle du crime ; l\'indice général vient en premier et élimine la salle', () => {
+  const { g, ctx } = setup(6, c => { c.sallesPropres = 3; c.indicesParSalle = 2; return c; });
+  assert.equal(g.propres.length, 3);
+  assert.ok(!g.propres.includes(g.solution.salle));
+  E.adminAction(ctx, g, { type: 'lancer' });
+  const s = g.propres[0], n = Number(s.slice(1));
+  const P = Object.keys(g.joueurs).find(x => g.joueurs[x].perso !== g.solution.perso && !g.joueurs[x].main.includes(s));
+  entrer(ctx, g, P, n);
+  const r = E.playerAction(ctx, g, P, { type: 'indice' });
+  assert.match(r.indice, /trop propre/);
+  assert.ok(g.joueurs[P].elimines.includes(s));
+  assert.doesNotMatch(E.playerAction(ctx, g, P, { type: 'indice' }).indice, /trop propre/, 'une seule fois');
+  // un joueur qui a déjà cette salle dans ses cartes reçoit un indice normal
+  const Q = Object.keys(g.joueurs).find(x => g.joueurs[x].main.includes(s) && g.joueurs[x].perso !== g.solution.perso);
+  if (Q) { entrer(ctx, g, Q, n); assert.doesNotMatch(E.playerAction(ctx, g, Q, { type: 'indice' }).indice, /trop propre/); }
+  // réglable : 0 salle propre
+  assert.equal(setup(6, c => { c.sallesPropres = 0; return c; }).g.propres.length, 0);
+});
