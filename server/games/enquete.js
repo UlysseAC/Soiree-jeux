@@ -373,13 +373,19 @@ function inconnues(g, p, type = null) {
   const J = g.joueurs[p], sol = new Set(Object.values(g.solution));
   return Object.values(g.cartes).filter(c => !sol.has(c.id) && (!type || c.type === type) && !J.main.includes(c.id) && !J.vus[c.id] && !J.elimines.includes(c.id)).map(c => c.id);
 }
+// Joueurs dont on peut donner le nom à p dans un indice : vivants, pas lui-même, jamais le même nom deux fois pour lui.
+const joueurNommable = (g, p) => Object.keys(g.joueurs).filter(x => x !== p && !g.joueurs[x].mort && !(g.joueurs[p].nommes || []).includes(x));
 function remplir(g, p, texte, n, nomJoueur = x => x) {
   const elimines = [];
   // {joueur} : le nom d'un autre joueur (de préférence dont le personnage est encore inconnu de celui qui lit) ;
   // avec {3perso}, les 3 personnages proposés contiennent le vrai personnage de ce joueur.
-  const autres = Object.keys(g.joueurs).filter(x => x !== p && !g.joueurs[x].mort);
-  const J0 = g.joueurs[p], inconnuPerso = x => !J0.main.includes(g.joueurs[x].perso) && !J0.vus[g.joueurs[x].perso] && !J0.elimines.includes(g.joueurs[x].perso);
-  const cible = /\{joueur\}/.test(texte) && autres.length ? pick(autres.filter(inconnuPerso).length ? autres.filter(inconnuPerso) : autres) : null;
+  const J0 = g.joueurs[p];
+  // parmi les joueurs les moins nommés jusque-là dans la partie
+  const nommables = /\{joueur\}/.test(texte) ? joueurNommable(g, p) : [], min = Math.min(...nommables.map(x => g.nommes?.[x] || 0));
+  const cible = nommables.filter(x => (g.nommes?.[x] || 0) === min);
+  const inconnuPerso = x => !J0.main.includes(g.joueurs[x].perso) && !J0.vus[g.joueurs[x].perso] && !J0.elimines.includes(g.joueurs[x].perso);
+  const cibleNom = cible.length ? pick(cible.filter(inconnuPerso).length ? cible.filter(inconnuPerso) : cible) : null;
+  if (cibleNom) { (J0.nommes ??= []).push(cibleNom); (g.nommes ??= {})[cibleNom] = (g.nommes[cibleNom] || 0) + 1; }
   let vide = false; // plus aucune carte à éliminer de ce type pour ce joueur
   const prendre = type => {
     const libres = inconnues(g, p, type).filter(c => !elimines.includes(c));
@@ -390,8 +396,8 @@ function remplir(g, p, texte, n, nomJoueur = x => x) {
   };
   // Indice à recouper : k cartes dont au plus une est dans la solution (une fois sur deux). Ces cartes ne comptent pas comme éliminées.
   const groupe = (k, type) => {
-    if (cible && type === 'perso') { // « X peut être A, B ou C » : le vrai personnage de X parmi k personnages
-      const vrai = g.joueurs[cible].perso, autresPersos = shuffle(deType(g, 'perso').filter(c => c !== vrai && c !== g.joueurs[p].perso));
+    if (cibleNom && type === 'perso') { // « X peut être A, B ou C » : le vrai personnage de X parmi k personnages
+      const vrai = g.joueurs[cibleNom].perso, autresPersos = shuffle(deType(g, 'perso').filter(c => c !== vrai && c !== g.joueurs[p].perso));
       const noms = shuffle([vrai, ...autresPersos.slice(0, Math.max(1, k - 1))]).map(c => nom(g, c));
       return noms.length > 1 ? `${noms.slice(0, -1).join(', ')} ou ${noms.at(-1)}` : noms[0];
     }
@@ -405,7 +411,7 @@ function remplir(g, p, texte, n, nomJoueur = x => x) {
     return listeNoms(shuffle(choix).map(c => nom(g, c)));
   };
   const out = texte
-    .replace(/\{joueur\}/g, cible ? nomJoueur(cible) : 'Quelqu\'un')
+    .replace(/\{joueur\}/g, cibleNom ? nomJoueur(cibleNom) : 'Quelqu\'un')
     .replace(/\{(\d)(carte|salle|perso|arme)s?\}/g, (_, k, t) => groupe(Math.max(2, Number(k)), t === 'carte' ? null : t))
     .replace(/\{(carte|salle|perso|arme)\}/g, (_, k) => prendre(k === 'carte' ? null : k));
   if (vide) return { texte: "Tu as déjà éliminé toutes les pistes que cette salle pouvait t'apprendre : il ne te revient rien de nouveau.", elimines: [] };
@@ -432,6 +438,7 @@ function choisirIndice(ctx, g, p, s) {
     const ecrit = String(cfgS.textes?.[k] ?? '').trim();
     const c = ecrit ? { cle: k, texte: ecrit, concret: false, auto: false } : g.auto?.[n]?.[k] ? { cle: k, texte: g.auto[n][k].texte, concret: true, elim: g.auto[n][k].elim, auto: true } : null;
     if (!c || cite(c.texte)) continue;
+    if (!c.concret && /\{joueur\}/.test(c.texte) && !joueurNommable(g, p).length) continue; // il a déjà eu tous les noms
     candidats.push({ ...c, poids: Math.max(0, Number(cfgS[rang]?.[k]) || 0) });
   }
   if (!candidats.length) return null;

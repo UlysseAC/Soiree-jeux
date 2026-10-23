@@ -314,3 +314,23 @@ test('indice « {joueur} est peut-être {3perso} » : le nom d\'un autre joueur 
   const vrai = g.cartes[g.joueurs[m[1]].perso].nom;
   assert.ok([m[2], m[3], m[4]].includes(vrai), `${t} (vrai : ${vrai})`);
 });
+
+test('{joueur} : jamais deux fois le même nom pour un joueur, noms répartis dans la partie, jamais son propre nom', () => {
+  const { g, ctx } = setup(6, c => { c.sallesPropres = 0; for (let n = 0; n < 4; n++) c.indicesSalles[n] = { textes: ['{joueur} est peut-être {3perso}.', '', ''], p1: [100, 0, 0], p2: [0, 0, 0] }; return c; });
+  ctx.name = p => 'Joueur-' + p;
+  E.adminAction(ctx, g, { type: 'lancer' });
+  const P = Object.keys(g.joueurs).find(x => g.joueurs[x].perso !== g.solution.perso);
+  const noms = [];
+  for (let n = 0; n < 4; n++) {
+    E.adminAction(ctx, g, { type: 'placer', pid: P, salle: `s${n}` });
+    const t = E.playerAction(ctx, g, P, { type: 'indice' }).indice;
+    noms.push(t.match(/^Joueur-(\w+)/)[1]);
+  }
+  assert.equal(new Set(noms).size, 4, noms.join(','));
+  assert.ok(!noms.includes(P));
+  // 6 joueurs : 5 autres noms au plus pour lui ; le 6e indice n'a plus de nom à donner
+  const Q = Object.keys(g.joueurs).find(x => x !== P && g.joueurs[x].perso !== g.solution.perso);
+  const vus = new Set();
+  for (let n = 0; n < 4; n++) { E.adminAction(ctx, g, { type: 'placer', pid: Q, salle: `s${n}` }); vus.add(E.playerAction(ctx, g, Q, { type: 'indice' }).indice.match(/^Joueur-(\w+)/)?.[1]); }
+  assert.ok(g.nommes && Object.values(g.nommes).every(v => v <= 2), 'les noms sont répartis entre les joueurs : ' + JSON.stringify(g.nommes));
+});
