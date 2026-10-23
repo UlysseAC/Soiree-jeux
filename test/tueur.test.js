@@ -5,7 +5,7 @@ import * as E from '../server/games/enquete.js';
 
 function setup(n = 6) {
   let t = 1_800_000_000_000;
-  const cfg = { ...E.defaultConfig(), taches: false };
+  const cfg = { ...E.defaultConfig(), taches: false, panne: false };
   const names = {};
   const pids = Array.from({ length: n }, (_, i) => { names['p' + i] = 'J' + i; return 'p' + i; });
   const ctx = { now: () => t, cfg, name: p => names[p] ?? '?', sfx: () => {} };
@@ -125,4 +125,61 @@ test('« Quitter la salle » : chrono pendant lequel on reste dans la salle ; ou
   assert.match(act(ctx, g, p, { type: 'indice' }).msg, /immobilisé/);
   avance(ctx.cfg.penaliteOubli * 1000);
   assert.equal(act(ctx, g, p, { type: 'indice' }).ok, true);
+});
+
+test('panne de courant : une salle chacun d\'abord (2 pour certaines), un code par joueur sur la tablette, tous le tapent pour commencer', () => {
+  for (const n of [12, 14]) {
+    let t = 1_800_000_000_000;
+    const cfg = { ...E.defaultConfig(), taches: false };
+    const names = {};
+    const pids = Array.from({ length: n }, (_, i) => { names['p' + i] = 'J' + i; return 'p' + i; });
+    const ctx = { now: () => t, cfg, name: p => names[p], sfx: () => {} };
+    const g = E.start(ctx, pids);
+    E.adminAction(ctx, g, { type: 'lancer' });
+    assert.equal(g.phase, 'panne');
+    const parSalle = {};
+    for (const p of pids) (parSalle[g.panne.salles[p]] ??= []).push(p);
+    assert.equal(Object.keys(parSalle).length, 11, 'chaque salle a au moins un occupant');
+    assert.ok(Object.values(parSalle).every(x => x.length <= 4));
+    assert.equal(new Set(Object.values(g.panne.codes)).size, n, 'un code par joueur');
+    // la tablette montre les codes de sa salle, sans noms ; l'enquête n'a pas commencé
+    const s0 = Object.keys(parSalle)[0], i0 = Number(s0.slice(1));
+    const v = E.salleView(ctx, g, i0);
+    assert.deepEqual(v.panne.codes, parSalle[s0].map(p => g.panne.codes[p]).sort());
+    assert.equal(v.code, null);
+    assert.ok(!JSON.stringify(v).includes('J0'));
+    // le téléphone indique la salle (jamais le code) ; rien d'autre n'est possible
+    const mv = E.playerView(ctx, g, 'p0');
+    assert.equal(mv.panne.salle, g.cartes[g.panne.salles.p0].nom);
+    assert.ok(!JSON.stringify(mv).includes(g.panne.codes.p0));
+    assert.match(act(ctx, g, 'p0', { type: 'indice' }).msg, /plombs/);
+    assert.match(act(ctx, g, 'p0', { type: 'panne', code: '0000' }).msg, /Mauvais code/);
+    // chacun tape son code
+    pids.forEach((p, k) => {
+      const r = act(ctx, g, p, { type: 'panne', code: g.panne.codes[p] });
+      assert.equal(r.ok, true);
+      assert.equal(g.phase, k === n - 1 ? 'enquete' : 'panne');
+    });
+    assert.equal(act(ctx, g, 'p0', { type: 'panne', code: g.panne.codes.p0 }).ok, false);
+    assert.ok(pids.every(p => g.joueurs[p].salle === g.panne.salles[p]), 'chacun est dans sa salle');
+    assert.ok(g.endsAt > t, 'le chrono démarre à la réparation');
+  }
+});
+
+test('panne : le code d\'un voisin de salle est refusé ; l\'admin peut forcer le début', () => {
+  let t = 1_800_000_000_000;
+  const cfg = { ...E.defaultConfig(), taches: false };
+  const ctx = { now: () => t, cfg, name: p => p, sfx: () => {} };
+  const pids = Array.from({ length: 14 }, (_, i) => 'p' + i);
+  const g = E.start(ctx, pids);
+  E.adminAction(ctx, g, { type: 'lancer' });
+  const [a, b] = pids.filter(p => pids.some(q => q !== p && g.panne.salles[q] === g.panne.salles[p]));
+  const voisin = pids.find(q => q !== a && g.panne.salles[q] === g.panne.salles[a]);
+  assert.match(act(ctx, g, a, { type: 'panne', code: g.panne.codes[voisin] }).msg, /quelqu'un d'autre/);
+  act(ctx, g, a, { type: 'panne', code: g.panne.codes[a] });
+  assert.equal(g.phase, 'panne');
+  assert.equal(E.adminAction(ctx, g, { type: 'commencer' }).ok, true);
+  assert.equal(g.phase, 'enquete');
+  assert.ok(pids.every(p => g.joueurs[p].salle === g.panne.salles[p]), 'les absents sont placés');
+  void b;
 });

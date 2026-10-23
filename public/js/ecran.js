@@ -24,7 +24,7 @@ if (ECRAN_TEST) document.body.insertAdjacentHTML('beforeend', '<div class="badge
 let eqPhase = null;
 SJ.sock.on('etat', v => {
   const ph = v.gameId === 'enquete' && v.game && !v.game.finished ? v.game.phase : null;
-  if (eqPhase === 'intro' && ph === 'enquete') SJ.foudre();
+  if (eqPhase === 'intro' && (ph === 'enquete' || ph === 'panne')) SJ.foudre();
   eqPhase = ph;
 });
 SJ.sock.on('etat', v => {
@@ -469,6 +469,11 @@ function enquete(g) {
     return `<div class="eq-intro"><div class="label" style="font-size:18px">${esc(V.gameName)}</div>
       <div class="eq-recit">${esc(g.intro).split(/\r?\n/).filter(Boolean).map(l => `<p>${l}</p>`).join('')}</div>
       <p class="muted">${g.joueurs} enquêteurs · regardez votre téléphone : votre personnage et vos 3 cartes vous attendent.</p></div>`;
+  }
+  if (g.phase === 'panne' && !g.finished) {
+    return `<div class="eq-panne"><div class="eq-eclair">⚡</div><h2 class="eq-titre">Les plombs ont sauté !</h2>
+      <p class="eq-recit-p">La foudre a frappé le chalet. Chacun doit rejoindre la salle indiquée sur son téléphone, et taper le code affiché sur la tablette pour réparer le courant.</p>
+      <div class="eq-compte"><b>${g.panne.entres}</b> / ${g.panne.total} <span>joueurs ont réparé leur salle</span></div></div>`;
   }
   const r = g.revelation;
   if (g.finished && r) {

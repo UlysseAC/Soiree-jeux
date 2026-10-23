@@ -6,7 +6,7 @@ import * as T from '../server/games/taches.js';
 
 function setup(n = 6) {
   let t = 1_800_000_000_000;
-  const cfg = E.defaultConfig();
+  const cfg = { ...E.defaultConfig(), panne: false };
   const names = {};
   const pids = Array.from({ length: n }, (_, i) => { names['p' + i] = 'J' + i; return 'p' + i; });
   const ctx = { now: () => t, cfg, name: p => names[p] ?? '?', sfx: () => {} };

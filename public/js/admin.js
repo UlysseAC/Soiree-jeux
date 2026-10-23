@@ -233,7 +233,7 @@ function partieChemin(g) {
       ? `<select class="in" id="rempl-${p.pid}" style="width:auto"><option value="auto">Répartir entre les autres randoms</option>${mates.map(x => `<option value="${x.pid}">${esc(x.name)}</option>`).join('')}</select>
          <button class="btn sm" data-jeu="remplacer" data-pid="${p.pid}">Remplacer</button><button class="btn sm danger" data-jeu="sauter" data-pid="${p.pid}" data-confirm="Sauter son étape ? L'équipe ne pourra plus gagner en finissant.">Sauter</button>`
       : `<button class="btn sm danger" data-parti="${p.pid}">Joueur parti</button>`;
-    return `<tr><td>${nm(p.name)}</td><td><span class="pill ${p.team.toLowerCase()}">${p.team}</span></td><td>${p.role === 'random' ? 'Random' : 'Détective'}</td><td>${state}</td>
+    return `<tr><td>${nm(p.name)}${p.panne ? ` <span class="pill ${p.panne.entre ? 'ok' : ''}">${p.panne.entre ? '✓' : '⏳'} ${esc(p.panne.salle)}</span>` : ''}</td><td><span class="pill ${p.team.toLowerCase()}">${p.team}</span></td><td>${p.role === 'random' ? 'Random' : 'Détective'}</td><td>${state}</td>
       <td class="nowrap"><div class="row">${p.safeUntil ? `<button class="btn sm" data-jeu="finSafe" data-pid="${p.pid}">Retirer safe zone</button>` : `<button class="btn sm" data-jeu="safe" data-pid="${p.pid}">🛡 Safe zone</button>`}
       ${p.block ? `<button class="btn sm" data-jeu="liberer" data-pid="${p.pid}">Libérer</button>` : ''}${parti}</div></td></tr>`;
   }).join('');
@@ -318,10 +318,11 @@ const eqLignes = t => String(t || '').split(/\r?\n/).map(x => x.trim()).filter(B
 const eqTablettes = n => `<div class="row" style="flex-wrap:wrap">${Array.from({ length: n }, (_, i) => `<a class="btn sm" href="${SJ.base}/salle?n=${i}" target="_blank" rel="noopener">Tablette ${i + 1}</a>`).join('')}</div>
   <p class="muted" style="margin:0;font-size:14px">Ouvre chaque lien sur la tablette de sa salle (le code orga est demandé une fois : ${esc(V.config.orgaCode)}). Le QR code change toutes les ${esc(V.fullConfig.games.enquete.rotationQr)} s : une photo du QR code ne marche pas longtemps.</p>`;
 function partieEnquete(g) {
-  const phase = g.finished ? 'Terminée' : { intro: 'Introduction (texte à l\'écran)', enquete: 'Enquête en cours', finale: '⚡ Phase finale' }[g.phase];
-  let h = `<div class="spread"><div class="row"><span class="pill accent">${phase}</span>${g.endsAt && !g.finished ? `<span class="muted">fin dans <span class="mono" data-until="${g.endsAt}"></span>${g.finaleAt && g.phase === 'enquete' ? ` · phase finale dans <span class="mono" data-until="${g.finaleAt}"></span>` : ''}</span>` : ''}</div>
+  const phase = g.finished ? 'Terminée' : { intro: 'Introduction (texte à l\'écran)', panne: '⚡ Panne de courant', enquete: 'Enquête en cours', finale: '⚡ Phase finale' }[g.phase];
+  let h = `<div class="spread"><div class="row"><span class="pill accent">${phase}</span>${g.endsAt && !g.finished ? `${g.panne ? `<span class="muted">⚡ Panne : ${g.panne.entres} / ${g.panne.total} salles réparées</span>` : ''}<span class="muted">fin dans <span class="mono" data-until="${g.endsAt}"></span>${g.finaleAt && g.phase === 'enquete' ? ` · phase finale dans <span class="mono" data-until="${g.finaleAt}"></span>` : ''}</span>` : ''}</div>
     <div class="row">
       ${g.phase === 'intro' && !g.finished ? '<button class="btn primary" data-jeu="lancer">▶ Lancer l\'enquête</button>' : ''}
+      ${g.phase === 'panne' ? '<button class="btn primary" data-jeu="commencer" data-confirm="Rétablir le courant et commencer sans attendre les joueurs restants ?">💡 Rétablir le courant maintenant</button>' : ''}
       ${g.phase === 'enquete' && !g.finished ? '<button class="btn" data-jeu="finale" data-confirm="Lancer la phase finale (indices doublés) ?">⚡ Phase finale</button>' : ''}
       ${!g.finished ? '<button class="btn sm danger" data-jeu="terminer" data-confirm="Terminer l\'enquête et révéler la solution ?">Terminer</button>' : ''}</div></div>`;
   // Tout ce qui donnerait un avantage (solution, tueur, personnages, cartes) reste caché, même ici, jusqu'à « Révéler » :
@@ -405,7 +406,7 @@ function reglagesEnquete(c) {
     <div class="box"><h2>Temps et règles</h2><div class="grid-auto">
       ${cfgInput('ficheNumerique', c.ficheNumerique, 'bool', { label: 'Fiche de détective sur le téléphone (sinon papier)' })}
       ${d('dureeMax', 'Durée max de l\'enquête')}
-      ${d('delaiQuitter', 'Chrono « Quitter la salle » (reste dans la salle)')}${d('rechargeArme', 'Tueur : temps entre deux meurtres')}${d('penaliteOubli', 'Immobilisé si on oublie « Quitter la salle »')}${d('finaleApres', 'Phase finale au bout de (0:00 = à la main)')}${d('delaiQuestion', 'Délai entre deux questions')}${d('delaiReponse', 'Temps pour montrer une carte')}
+      ${cfgInput('panne', c.panne, 'bool', { label: 'Début : panne de courant (chacun répare une salle)' })}${d('delaiQuitter', 'Chrono « Quitter la salle » (reste dans la salle)')}${d('rechargeArme', 'Tueur : temps entre deux meurtres')}${d('penaliteOubli', 'Immobilisé si on oublie « Quitter la salle »')}${d('finaleApres', 'Phase finale au bout de (0:00 = à la main)')}${d('delaiQuestion', 'Délai entre deux questions')}${d('delaiReponse', 'Temps pour montrer une carte')}
       ${n('rotationQr', 'QR code changé toutes les … s (0 = fixe)')}${n('indicesParSalle', 'Indices par salle et par joueur')}${n('indicesFinale', 'Indices par salle en phase finale')}
     </div></div>
     <div class="box"><h2>Indices des tablettes</h2>

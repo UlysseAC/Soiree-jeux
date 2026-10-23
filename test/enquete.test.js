@@ -6,7 +6,7 @@ import * as E from '../server/games/enquete.js';
 
 function setup(n = 12, tweak = c => c) {
   let t = 1_800_000_000_000;
-  const cfg = tweak({ ...E.defaultConfig(), taches: false });
+  const cfg = tweak({ ...E.defaultConfig(), taches: false, panne: false });
   const names = {};
   const pids = Array.from({ length: n }, (_, i) => { names['p' + i] = 'J' + i; return 'p' + i; });
   const ctx = { now: () => t, cfg, name: p => names[p] ?? '?', sfx: () => {} };

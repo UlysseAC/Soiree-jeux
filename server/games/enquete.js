@@ -35,6 +35,7 @@ export function defaultConfig() {
     chanceSolo: 50, // chance (%) que la salle tire sa tâche solo plutôt que celle à plusieurs
     difficulte: 'normal', // facile | normal | difficile
     rechargeArme: 180, // le tueur actif doit attendre ce temps entre deux meurtres (s)
+    panne: true, // début de partie : les plombs ont sauté, chacun va réparer dans sa salle (sinon l'enquête démarre tout de suite)
     delaiQuitter: 10, // après « Quitter la salle », le joueur reste dans la salle ce temps (s)
     penaliteOubli: 30, // immobilisé ce temps s'il scanne une autre salle sans avoir quitté la sienne (s)
     ficheNumerique: false, // fiche de détective sur le téléphone (sinon, sur papier)
@@ -153,15 +154,33 @@ export function start(ctx, pids) {
 }
 
 // L'admin lance l'enquête après le texte d'introduction.
+// Début : l'admin lance → les plombs sautent (panne) : chaque joueur reçoit une salle (une au moins par salle, 2 pour certaines)
+// et un code à taper sur la tablette de cette salle. Quand tous l'ont tapé, l'enquête commence.
 function lancer(ctx, g) {
+  if (!ctx.cfg.panne) return commencer(ctx, g);
+  const pids = shuffle(Object.keys(g.joueurs)), salles = shuffle(deType(g, 'salle'));
+  const codes = new Set();
+  g.panne = { salles: {}, codes: {}, entres: [] };
+  pids.forEach((p, i) => {
+    g.panne.salles[p] = i < salles.length ? salles[i] : pick(salles); // une personne par salle d'abord, puis les autres au hasard
+    let c; do { c = String(Math.floor(1000 + Math.random() * 9000)); } while (codes.has(c));
+    codes.add(c); g.panne.codes[p] = c;
+  });
+  g.phase = 'panne';
+  feed(g, ctx, '⚡ La foudre a frappé : les plombs ont sauté ! Chacun doit rejoindre sa salle pour les réparer.');
+  ctx.sfx?.('annonce');
+}
+// Tous les codes tapés (ou l'admin force) : le courant revient et l'enquête commence.
+function commencer(ctx, g) {
   const now = ctx.now();
+  for (const [p, s] of Object.entries(g.panne?.salles ?? {})) if (!g.joueurs[p].salle) g.joueurs[p].salle = s;
   g.phase = 'enquete';
   g.debut = now;
   g.endsAt = now + ctx.cfg.dureeMax * 1000;
   g.finaleAt = ctx.cfg.finaleApres > 0 ? now + ctx.cfg.finaleApres * 1000 : 0;
   g.taches = Array.from({ length: g.nbSalles }, (_, n) => tirerTache(ctx, n));
   g.sessions = {};
-  feed(g, ctx, "🔎 L'enquête commence !");
+  feed(g, ctx, g.panne ? '💡 Le courant est revenu : l\'enquête commence !' : "🔎 L'enquête commence !");
 }
 
 // ---------- tâches des salles ----------
@@ -251,7 +270,7 @@ function sortir(g, p) {
 }
 
 export function tick(ctx, g) {
-  if (g.finished || g.phase === 'intro') return false;
+  if (g.finished || g.phase === 'intro' || g.phase === 'panne') return false;
   const now = ctx.now();
   let changed = false;
   for (const [p, J] of Object.entries(g.joueurs)) if (J.quitteA && now >= J.quitteA) { sortir(g, p); changed = true; }
@@ -369,6 +388,20 @@ export function playerAction(ctx, g, p, a) {
   }
   if (g.finished) return err("L'enquête est terminée.");
   if (g.phase === 'intro') return err("L'enquête n'a pas encore commencé.");
+  if (g.phase === 'panne') { // il faut d'abord réparer : taper le code affiché sur la tablette de sa salle
+    if (a.type !== 'panne') return err('Les plombs ont sauté : rejoins ta salle et tape le code de la tablette.');
+    const P = g.panne;
+    if (P.entres.includes(p)) return err('Tu as déjà réparé ta salle : attends les autres.');
+    const c = String(a.code ?? '').trim();
+    if (c !== P.codes[p]) {
+      const autre = Object.keys(P.codes).find(x => P.codes[x] === c && P.salles[x] === P.salles[p]);
+      return err(autre ? 'Ce code est celui de quelqu\'un d\'autre dans la salle : prends le tien.' : 'Mauvais code : regarde la tablette de ta salle.');
+    }
+    P.entres.push(p);
+    J.salle = P.salles[p];
+    if (P.entres.length >= Object.keys(g.joueurs).length) { commencer(ctx, g); return ok('Le courant est revenu !'); }
+    return ok(`Réparé ! Plus que ${Object.keys(g.joueurs).length - P.entres.length} joueur(s)…`);
+  }
   if (J.mort) return err('Tu as été assassiné : reste où tu es, les enquêteurs vont te trouver.');
   const now = ctx.now();
 
@@ -499,6 +532,11 @@ export function adminAction(ctx, g, a) {
   if (a.type === 'lancer') {
     if (g.phase !== 'intro') return err("L'enquête a déjà commencé.");
     lancer(ctx, g);
+    return ok(g.phase === 'panne' ? 'Les plombs ont sauté !' : "L'enquête commence !");
+  }
+  if (a.type === 'commencer') { // forcer la fin de la panne (un joueur n'arrive pas à entrer son code)
+    if (g.phase !== 'panne') return err('Pas de panne en cours.');
+    commencer(ctx, g);
     return ok("L'enquête commence !");
   }
   if (a.type === 'finale') return finale(ctx, g) ? ok('Phase finale lancée.') : err("La phase finale n'est possible que pendant l'enquête.");
@@ -543,6 +581,7 @@ export function ajouterJoueur(ctx, g, p) {
   const sol = new Set(Object.values(g.solution));
   const main = shuffle(Object.keys(g.cartes).filter(c => !sol.has(c))).slice(0, 3);
   g.joueurs[p] = { perso: `p${i}`, main, salle: null, indices: 0, pris: {}, accuse: null, nextAsk: 0, last: null, vus: {}, elimines: [], coches: [] };
+  if (g.panne && g.phase === 'panne') { g.panne.salles[p] = pick(deType(g, 'salle')); g.panne.codes[p] = String(Math.floor(1000 + Math.random() * 9000)); }
   return { ok: true, detail: nom(g, `p${i}`) };
 }
 
@@ -587,6 +626,7 @@ export function playerView(ctx, g, p) {
     salle: J.salle ? carteVue(g, J.salle) : null,
     presents: J.salle ? presents(g, J.salle).filter(x => x !== p).map(x => ({ pid: x, name: ctx.name(x), dernier: J.last === x, ...(J.tueur ? { indices: g.joueurs[x].indices } : {}) })) : [],
     mort: J.mort ? { salle: nom(g, J.mort.salle), victime: p, jeton: J.mort.jeton, trouve: J.mort.trouvePar.length } : null,
+    panne: g.phase === 'panne' ? { salle: nom(g, g.panne.salles[p]), entre: g.panne.entres.includes(p), restants: Object.keys(g.joueurs).length - g.panne.entres.length } : null,
     bloque: J.bloque > now ? J.bloque : 0,
     quitteA: J.quitteA > now ? J.quitteA : 0,
     secondeChance: !!J.secondeChance,
@@ -627,6 +667,7 @@ export function screenView(ctx, g) {
     intro: ctx.cfg.intro,
     salles: deType(g, 'salle').map(s => ({ ...carteVue(g, s), joueurs: presents(g, s).map(p => ({ name: ctx.name(p) })) })),
     joueurs: Object.keys(g.joueurs).length,
+    panne: g.phase === 'panne' ? { entres: g.panne.entres.length, total: Object.keys(g.joueurs).length } : null,
     feed: g.feed.slice(0, 14),
     winner: g.winner ? qui(ctx, g, g.winner) : null,
     revelation: revelation(ctx, g),
@@ -641,6 +682,7 @@ export function adminView(ctx, g) {
     ...listes(g),
     liste: Object.entries(g.joueurs).map(([p, J]) => ({
       pid: p, name: ctx.name(p), perso: carteVue(g, J.perso), main: J.main.map(c => nom(g, c)), salle: J.salle ? nom(g, J.salle) : null,
+      panne: g.phase === 'panne' ? { salle: nom(g, g.panne.salles[p]), entre: g.panne.entres.includes(p) } : null,
       indices: J.indices, accuse: J.accuse ? (J.accuse.tueur ? 'tueur' : J.accuse.juste ? 'juste' : 'fausse') : null, mort: !!J.mort, tueurActif: !!J.tueur, victimes: J.tueur?.victimes || 0,
     })).sort((a, b) => a.name.localeCompare(b.name, 'fr')),
     attente: g.questions.filter(q => q.etat === 'attente').map(q => ({ de: ctx.name(q.de), a: ctx.name(q.a), salle: nom(g, q.salle) })),
@@ -656,7 +698,9 @@ export function salleView(ctx, g, n) {
   const rot = ctx.cfg.rotationQr * 1000;
   return {
     nom: g.cartes[s].nom, n, phase: g.phase, finished: g.finished,
-    code: g.phase === 'intro' || g.finished ? null : codesDe(g, w)[n],
+    code: g.phase === 'intro' || g.phase === 'panne' || g.finished ? null : codesDe(g, w)[n],
+    // panne : les codes des joueurs envoyés dans cette salle (sans nom), à taper sur leur téléphone
+    panne: g.phase === 'panne' ? { codes: Object.keys(g.panne.salles).filter(x => g.panne.salles[x] === s && !g.panne.entres.includes(x)).map(x => g.panne.codes[x]).sort(), repare: Object.keys(g.panne.salles).filter(x => g.panne.salles[x] === s).every(x => g.panne.entres.includes(x)) } : null,
     change: rot > 0 ? (w + 1) * rot : 0,
     joueurs: presents(g, s).map(p => ({ name: ctx.name(p) })),
     tache: (() => {

@@ -27,7 +27,11 @@ Le texte d'introduction s'écrit dans **Réglages des jeux → L'Enquête → Hi
 
 ## Déroulé
 
-1. **Introduction.** Au lancement, l'écran affiche le texte d'introduction. Chaque téléphone affiche son personnage et ses 3 cartes. Clique sur **« Lancer l'enquête »** dans l'admin pour démarrer le chrono.
+1. **Introduction.** L'écran affiche le texte d'introduction. Chaque téléphone affiche son personnage et ses 3 cartes. Clique sur **« Lancer l'enquête »** dans l'admin : l'éclair frappe.
+   - **Panne de courant.** Les plombs ont sauté. Chaque joueur reçoit une salle (une personne par salle d'abord, puis les autres au hasard : avec 13 joueurs, 2 salles ont 2 occupants), indiquée sur son téléphone.
+   - Chaque tablette affiche seulement le nom de la salle et **un code par joueur attendu** (sans nom). Le joueur tape son code sur son téléphone, ce qui le place dans sa salle.
+   - **Quand tout le monde a tapé son code, le courant revient** et le chrono de l'enquête démarre. L'écran compte les joueurs qui ont réparé.
+   - L'admin peut forcer le début (« Rétablir le courant maintenant ») ou désactiver la panne (Réglages, Temps et règles).
 2. **Se déplacer.** Le joueur scanne le QR code de la tablette avec l'appareil photo. Il peut aussi taper le code à 4 chiffres dans « Changer de salle ». Il n'est que dans une salle à la fois.
    - Si un QR code ne passe pas, l'admin place le joueur dans la bonne salle depuis le tableau des enquêteurs.
 3. **Interroger.** On choisit un joueur présent dans la même salle, un personnage et une arme. Le lieu est toujours la salle où l'on se trouve.

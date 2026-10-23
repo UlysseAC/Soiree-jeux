@@ -900,3 +900,13 @@ input.tz-large { width: 100%; height: 40px; accent-color: var(--accent); }
 .tz-code input { font: 700 26px var(--mono); letter-spacing: .3em; text-align: center; }
 
 .tz-qr-corps { width: min(70vw, 280px); height: auto; background: #fff; border-radius: 12px; padding: 8px; align-self: center; }
+
+/* Panne de courant (début de L'Enquête) */
+.eq-panne { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3vh; text-align: center; }
+.eq-eclair { font-size: clamp(80px, 12vw, 200px); animation: eq-clignote 1.6s steps(1) infinite; }
+@keyframes eq-clignote { 0%, 60% { opacity: 1; } 65%, 80% { opacity: .15; } 85% { opacity: 1; } 90% { opacity: .3; } }
+@media (prefers-reduced-motion: reduce) { .eq-eclair { animation: none; } }
+.eq-recit-p { font-size: clamp(22px, 2.6vw, 44px); max-width: 1100px; margin: 0; }
+.eq-compte { font: 800 clamp(40px, 6vw, 100px) var(--mono); }
+.eq-compte span { display: block; font: 500 clamp(16px, 1.8vw, 28px) var(--body); color: var(--muted); }
+.tab-codes { display: flex; flex-wrap: wrap; gap: 3vw; justify-content: center; }

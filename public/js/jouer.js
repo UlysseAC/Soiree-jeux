@@ -16,7 +16,7 @@ if (TEL_TEST) document.body.insertAdjacentHTML('beforeend', '<div class="badge-t
 let eqPhase = null;
 SJ.sock.on('etat', v => {
   const ph = v.gameId === 'enquete' && v.game && !v.game.finished ? v.game.phase : null;
-  if (eqPhase === 'intro' && ph === 'enquete') SJ.foudre();
+  if (eqPhase === 'intro' && (ph === 'enquete' || ph === 'panne')) SJ.foudre();
   eqPhase = ph;
 });
 SJ.sock.on('etat', v => {
@@ -584,6 +584,13 @@ function enquete(g) {
       ${g.tueur ? '<p style="font-size:20px;margin:0">🔪 C\'était toi le tueur… sans le savoir !</p>' : r?.tueur ? `<p class="muted" style="margin:0">Le tueur était ${esc(r.tueur)}.</p>` : ''}
       <p class="muted" style="margin:0">${g.indices} indice${g.indices > 1 ? 's' : ''} obtenu${g.indices > 1 ? 's' : ''}</p></div>`;
     return h + main + eqJournal(g);
+  }
+  if (g.phase === 'panne') {
+    const P = g.panne;
+    PAD_ACTIONS.panne = v => act({ type: 'panne', code: v });
+    return h + `<div class="card danger center"><div class="huge">⚡</div><p style="font-size:20px;margin:0">Les plombs ont sauté !</p>
+      ${P.entre ? `<p style="margin:0">✓ Tu as réparé ta salle. Plus que <strong>${P.restants}</strong> joueur(s)…</p>`
+        : `<p style="margin:0">Va dans : <strong style="font-size:24px">${esc(P.salle)}</strong></p><p class="muted" style="margin:0">Tape le code affiché sur la tablette de cette salle.</p>${pad('panne', 'Réparer')}`}</div>`;
   }
   if (g.phase === 'intro') return h + `<div class="card center"><p style="font-size:20px;margin:0">Tu es <strong>${esc(g.moi.nom)}</strong>.</p><p class="muted" style="margin:0">Regarde l'écran : l'enquête va commencer.</p></div>` + main;
   h += `<div class="row" style="justify-content:space-between"><span class="muted">⏳ <span class="mono" data-until="${g.endsAt}"></span></span>${g.phase === 'finale' ? '<span class="pill accent">⚡ Phase finale : indices doublés</span>' : ''}</div>`;
