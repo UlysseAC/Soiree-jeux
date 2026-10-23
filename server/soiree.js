@@ -73,6 +73,8 @@ export function restore(saved) {
   if (eq && (eq.salles === enquete.SALLES_AVANT || eq.salles === enquete.SALLES_V1)) eq.salles = enquete.SALLES_1930;
   if (eq && eq.personnages === enquete.PERSOS_AVANT) eq.personnages = enquete.PERSOS_1930;
   if (eq && eq.armes === enquete.ARMES_AVANT) eq.armes = enquete.ARMES_1930;
+  // L'Enquête : l'ancien réglage (1 indice par salle, 2 en phase finale) devient les 3 indices par salle.
+  if (eq && eq.indicesParSalle === 1 && eq.indicesFinale === 2) { eq.indicesParSalle = 3; eq.indicesFinale = 3; }
   // L'Enquête : réglages des armes d'un joueur, enregistrés avant que la corde et le poison aient leur propre effet.
   if (eq?.armes === enquete.ARMES_1930 && eq.armesReglages) {
     if (eq.armesReglages[3]?.joueur?.effet === 2) eq.armesReglages[3].joueur.effet = 60;

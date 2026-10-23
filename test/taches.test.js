@@ -38,8 +38,32 @@ test('tâche solo réussie : l\'indice de la salle, puis une nouvelle tâche ; p
   assert.equal(r.ok, true);
   assert.ok(r.indice);
   assert.equal(g.joueurs.p0.indices, 1);
-  assert.equal(E.playerView(ctx, g, 'p0').tache.aIndice, true);
+  assert.equal(E.playerView(ctx, g, 'p0').tache, null, 'plus de tâche tant qu\'il n\'est pas passé dans une autre salle');
+  assert.equal(E.playerView(ctx, g, 'p0').indice.etat, 'attente');
   assert.equal(act(ctx, g, 'p0', { type: 'tacheReussie' }).ok, false);
+});
+
+test('3 indices par salle : 1er et 2e par une tâche, une autre salle avant le 2e, deux autres avant le 3e (sans tâche)', () => {
+  const { g, ctx } = setup();
+  ctx.cfg.sallesPropres = 0; g.propres = [];
+  const ici = 's5', tache = () => { g.taches[5] = { id: 'machine', groupe: false, params: { mot: 'MONOCLE' } }; };
+  tache(); placer(ctx, g, ici, 'p0');
+  assert.equal(act(ctx, g, 'p0', { type: 'tacheReussie' }).ok, true);                       // 1er indice
+  assert.match(act(ctx, g, 'p0', { type: 'indice' }).msg, /autre salle/, 'pas tout de suite le suivant');
+  placer(ctx, g, 's1', 'p0'); placer(ctx, g, ici, 'p0');                                    // une autre salle
+  tache();
+  assert.equal(E.playerView(ctx, g, 'p0').tache.id, 'machine');
+  assert.match(act(ctx, g, 'p0', { type: 'indice' }).msg, /tâche/, 'le 2e demande une tâche');
+  assert.equal(act(ctx, g, 'p0', { type: 'tacheReussie' }).ok, true);                       // 2e indice
+  assert.equal(g.joueurs.p0.indices, 2);
+  placer(ctx, g, 's1', 'p0'); placer(ctx, g, ici, 'p0');                                    // une seule autre salle : trop tôt
+  assert.match(act(ctx, g, 'p0', { type: 'indice' }).msg, /1 autre salle/);
+  placer(ctx, g, 's2', 'p0'); placer(ctx, g, ici, 'p0');                                    // deux autres salles (s1 et s2)
+  assert.equal(E.playerView(ctx, g, 'p0').tache, null, 'le 3e se demande sans tâche');
+  assert.equal(act(ctx, g, 'p0', { type: 'indice' }).ok, true);                             // 3e indice
+  assert.equal(g.joueurs.p0.indices, 3);
+  assert.match(act(ctx, g, 'p0', { type: 'indice' }).msg, /tous les indices/);
+  assert.equal(E.playerView(ctx, g, 'p0').indice.etat, 'fini');
 });
 
 test('tâche à plusieurs : lancer, rejoindre, rôles ; réussite = un indice pour chacun ; quitter la salle annule', () => {
@@ -86,14 +110,14 @@ test('pas assez de joueurs sans l\'indice pour un trio : la salle propose sa tâ
   assert.equal(act(ctx, g, 'p2', { type: 'tacheLancer' }).ok, false);
 });
 
-test('phase finale : une tâche réussie donne directement les 2 indices de la salle', () => {
+test('phase finale : une tâche réussie donne un indice, comme d\'habitude', () => {
   const { g, ctx } = setup();
   E.adminAction(ctx, g, { type: 'finale' });
   g.taches[0] = { id: 'pneus', groupe: false, params: {} };
   placer(ctx, g, 's0', 'p0');
   const r = act(ctx, g, 'p0', { type: 'tacheReussie' });
-  assert.equal(g.joueurs.p0.indices, 2);
-  assert.equal(r.msg.split('\n').length, 2);
+  assert.equal(g.joueurs.p0.indices, 1);
+  assert.equal(r.msg.split('\n').length, 1);
 });
 
 // Chaque tâche à plusieurs se réussit avec les bons gestes.

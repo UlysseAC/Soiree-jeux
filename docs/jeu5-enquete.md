@@ -40,11 +40,12 @@ Le texte d'introduction s'écrit dans **Réglages des jeux → L'Enquête → Hi
    - On ne peut pas interroger deux fois de suite la même personne.
    - Il faut attendre 30 s entre deux questions.
    - L'écran indique qu'une carte a été montrée, sans dire laquelle.
-4. **Indice de la salle.** Chaque joueur a droit à un indice par salle, tiré du texte écrit pour cette salle (voir plus bas).
+4. **Indices d'une salle.** Chaque joueur peut recevoir jusqu'à **3 indices par salle**, tirés des textes écrits pour cette salle (voir plus bas), dans cet ordre :
+   - le **1er** en réussissant la tâche de la salle ;
+   - le **2e** en réussissant une nouvelle tâche dans cette salle, après être passé dans **1 autre salle** ;
+   - le **3e** sans tâche (bouton « Demander le prochain indice »), après être passé dans **2 autres salles** depuis le 2e. Les autres salles doivent être différentes.
 5. **Fiche de détective : sur papier.** Le téléphone garde, dans l'onglet **💡 Indices**, tous les indices obtenus (avec la salle et l'heure) et toutes les questions posées avec la carte montrée.
-6. **Phase finale.** Elle commence automatiquement au bout de 1 h 30, ou quand l'admin la lance avec le bouton. Pendant la phase finale :
-   - chaque joueur a 2 indices par salle ;
-   - chaque `{…}` d'un indice donne 2 cartes au lieu d'une.
+6. **Phase finale.** Elle commence automatiquement au bout de 1 h 30, ou quand l'admin la lance avec le bouton. Pendant la phase finale, chaque `{…}` d'un indice donne 2 cartes au lieu d'une. Le nombre d'indices par salle (3) reste réglable pour la phase finale.
 7. **Accuser.** Chaque joueur peut accuser **une seule fois**.
    - Si l'accusation est juste, il gagne et l'enquête s'arrête.
    - Sinon, il ne peut plus accuser, mais il doit toujours répondre aux questions.
@@ -60,7 +61,7 @@ Le texte d'introduction s'écrit dans **Réglages des jeux → L'Enquête → Hi
 
 Dans **Réglages, L'Enquête, cadre « Indices des salles »**, tu écris **jusqu'à 3 indices par salle**.
 
-- **Chances.** À côté de chaque indice, deux pourcentages : la chance qu'il soit donné **en premier** à un joueur, puis **en deuxième** (phase finale).
+- **Chances.** À côté de chaque indice, deux pourcentages : la chance qu'il soit donné **en premier** à un joueur, puis **en deuxième**. Le troisième indice donné est celui qui reste. Cela n'a rien à voir avec la phase finale.
 - **Jamais deux fois le même.** Un joueur ne reçoit jamais deux fois le même indice dans une salle.
 - **Jamais une carte déjà connue.** Un joueur ne reçoit pas un indice qui cite une carte qu'il a déjà : cartes en main, cartes montrées ou cartes éliminées.
 - **Emplacement vide.** Il est rempli automatiquement au lancement avec un vrai fait tiré de la solution, par exemple une carte innocentée ou « Au moins 2 de ces 3 salles ne sont pas le lieu du crime : … ». Tu les vois dans Partie en cours, après « Révéler ». L'icône 🎲 marque ceux qui sont remplis automatiquement.

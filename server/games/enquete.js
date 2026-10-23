@@ -56,8 +56,8 @@ export function defaultConfig() {
     rejoindreEnCours: true, // un joueur peut rejoindre la partie déjà lancée, avec un personnage qui n'est joué par personne
     liensSalles: true, // l'admin peut copier des liens permanents vers chaque salle (ils marchent sans scanner la tablette)
     ficheNumerique: false, // fiche de détective sur le téléphone (sinon, sur papier)
-    indicesParSalle: 1, // indices par joueur et par salle
-    indicesFinale: 2, // pendant la phase finale
+    indicesParSalle: 3, // indices par joueur et par salle (au plus 3 : les 3 indices écrits de la salle)
+    indicesFinale: 3, // pendant la phase finale
     // Solution : vide = tirée au hasard ; sinon le nom exact (utile si les indices écrits parlent de la solution).
     solution: { salle: '', perso: '', arme: '' },
     // Indices de chaque salle (une ligne = un indice, dans l'ordre). {carte} = une carte qui n'est pas dans la solution ;
@@ -236,7 +236,22 @@ function tirerTache(ctx, n, precedent = null) {
   return t && { ...t, params: t.groupe ? {} : paramsSolo(ctx, t.id) };
 }
 const maxSalle = (ctx, g) => (g.phase === 'finale' ? ctx.cfg.indicesFinale : ctx.cfg.indicesParSalle);
-const aIndice = (ctx, g, p, s) => (g.joueurs[p].pris[s] || 0) >= maxSalle(ctx, g);
+// Où en est un joueur dans une salle : indice n° 1 et 2 = par une tâche ; entre deux indices, il faut passer dans d'autres salles
+// (1 autre salle avant le 2e, 2 autres salles avant le 3e) ; le 3e se demande sans tâche.
+function etatBase(ctx, g, p, s) {
+  const J = g.joueurs[p], c = J.pris[s] || 0;
+  if (c >= maxSalle(ctx, g)) return { etat: 'fini', c };
+  const besoin = Math.min(c, 2), vu = new Set((J.histo || []).slice(J.dernier?.[s] ?? 0).filter(x => x !== s)).size;
+  if (c > 0 && vu < besoin) return { etat: 'attente', c, reste: besoin - vu };
+  return { etat: 'ok', c };
+}
+// Peut-il faire la tâche de la salle pour gagner un indice ? (sinon : indice déjà pris, trop tôt, ou 3e indice qui se demande sans tâche)
+const aIndice = (ctx, g, p, s) => { const e = etatBase(ctx, g, p, s); return !(e.etat === 'ok' && e.c < 2); };
+function etatIndice(ctx, g, p, s) {
+  const e = etatBase(ctx, g, p, s);
+  if (e.etat !== 'ok') return e;
+  return { ...e, etat: e.c < 2 && ctx.cfg.taches && g.taches && tacheDe(ctx, g, s) ? 'tache' : 'libre' };
+}
 // Tâche de la salle pour les joueurs qui y sont : la tâche à plusieurs devient la solo s'il ne reste pas assez de joueurs sans l'indice.
 function tacheDe(ctx, g, s) {
   const n = Number(s.slice(1));
@@ -260,7 +275,7 @@ function reussir(ctx, g, s, pids) {
     const J = g.joueurs[p];
     if (!J || J.salle !== s) continue;
     const t = [];
-    while (!aIndice(ctx, g, p, s)) { const r = indice(ctx, g, p, true); if (!r.ok) break; t.push(r.indice); }
+    if (!aIndice(ctx, g, p, s)) { const r = indice(ctx, g, p, true); if (r.ok) t.push(r.indice); }
     if (ctx.cfg.armesJoueurs && !J.arme && Math.random() * 100 < (ctx.cfg.chanceArmeTache ?? 0)) {
       const i = pick(armesNoms(g));
       donnerArme(ctx, g, p, i);
@@ -419,10 +434,11 @@ function choisirIndice(ctx, g, p, s) {
 function indice(ctx, g, p, parTache = false) {
   const J = g.joueurs[p];
   const s = J.salle;
-  if (ctx.cfg.taches && !parTache && g.taches && tacheDe(ctx, g, s)) return err('Réussis la tâche de la salle pour obtenir son indice.');
-  const max = g.phase === 'finale' ? ctx.cfg.indicesFinale : ctx.cfg.indicesParSalle;
-  const deja = J.pris[s] || 0;
-  if (deja >= max) return err(g.phase === 'finale' ? 'Tu as déjà pris tes indices dans cette salle.' : `Tu as déjà pris ${max > 1 ? 'tes indices' : "l'indice"} de cette salle.${ctx.cfg.indicesFinale > max ? ' Il y en aura un autre pendant la phase finale.' : ''}`);
+  const e = etatIndice(ctx, g, p, s);
+  if (e.etat === 'fini') return err('Tu as déjà tous les indices de cette salle.');
+  if (e.etat === 'attente') return err(`Prochain indice de cette salle : passe d'abord dans ${e.reste} autre${e.reste > 1 ? 's' : ''} salle${e.reste > 1 ? 's' : ''}.`);
+  if (e.etat === 'tache' && !parTache) return err('Réussis la tâche de la salle pour obtenir son indice.');
+  const deja = e.c;
   const modeles = String(ctx.cfg.modeles ?? '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
   // Le tueur (qui ne le sait pas encore) a des souvenirs plus précis : deux cartes innocentées à chaque indice automatique.
   const tueur = J.perso === g.solution.perso && !J.tueur;
@@ -437,6 +453,7 @@ function indice(ctx, g, p, parTache = false) {
   }
   if (J.aveugle) { J.aveugle = false; r = { texte: '☠️ Le texte est illisible : tes yeux te brûlent… (le poison a abîmé ta vue)', elimines: [] }; }
   J.pris[s] = deja + 1;
+  (J.dernier ??= {})[s] = (J.histo || []).length; // le prochain indice demande de passer dans d'autres salles à partir d'ici
   J.indices++;
   for (const c of r.elimines) if (!J.elimines.includes(c)) J.elimines.push(c);
   (J.notes ??= []).unshift({ t: ctx.now(), salle: s, texte: r.texte });
@@ -716,6 +733,7 @@ export function playerAction(ctx, g, p, a) {
     if (change) quitterSession(g, p);
     J.quitteA = 0;
     J.salle = `s${s}`;
+    if (change) (J.histo ??= []).push(J.salle);
     if (J.tueur && !J.tueur.arme && J.salle === J.tueur.cache) J.tueur.arme = true; // le tueur retrouve son arme (rien ne s'affiche ailleurs)
     if (change && J.poison && --J.poison.restant <= 0) { // le poison agit : il ne le savait pas
       mettreAMort(ctx, g, J.poison.par, p, { poison: true });
@@ -876,7 +894,7 @@ export function adminAction(ctx, g, a) {
   if (a.type === 'placer') { // l'admin place un joueur dans une salle (QR code qui ne passe pas)
     const J = g.joueurs[a.pid];
     if (!J || g.cartes[a.salle]?.type !== 'salle') return err('Joueur ou salle inconnu.');
-    if (J.salle !== a.salle) quitterSession(g, a.pid);
+    if (J.salle !== a.salle) { quitterSession(g, a.pid); (J.histo ??= []).push(a.salle); }
     J.quitteA = 0;
     J.salle = a.salle;
     return ok(`${ctx.name(a.pid)} est dans : ${nom(g, a.salle)}`);
@@ -963,7 +981,7 @@ export function playerView(ctx, g, p) {
   const mesQuestions = g.questions.filter(q => q.de === p).reverse().map(q => ({
     a: ctx.name(q.a), salle: nom(g, q.salle), perso: nom(g, q.perso), arme: nom(g, q.arme), etat: q.etat, carte: q.carte ? carteVue(g, q.carte) : null, rien: q.etat === 'repondue' && !q.carte && enCommun(g, q).length > 0,
   }));
-  const max = g.phase === 'finale' ? ctx.cfg.indicesFinale : ctx.cfg.indicesParSalle;
+  const max = maxSalle(ctx, g), ei = J.salle ? etatIndice(ctx, g, p, J.salle) : null;
   return {
     phase: g.phase, finished: g.finished, endsAt: g.endsAt, finaleAt: g.finaleAt,
     moi: carteVue(g, J.perso), main: J.main.map(c => carteVue(g, c)),
@@ -984,8 +1002,9 @@ export function playerView(ctx, g, p) {
     secret: J.tueur ? secretTueur(ctx, g, p, now) : null,
     nextAsk: J.nextAsk > now ? J.nextAsk : 0,
     attente: g.questions.some(q => q.de === p && q.etat === 'attente'),
-    indicesRestants: J.salle ? Math.max(0, max - (J.pris[J.salle] || 0)) : 0,
-    tache: J.salle && ctx.cfg.taches && g.taches && !g.finished ? tacheVue(ctx, g, p, J.salle, now) : null,
+    indicesRestants: ei && (ei.etat === 'libre' || ei.etat === 'tache') ? 1 : 0,
+    indice: ei ? { etat: ei.etat, pris: ei.c, max, reste: ei.reste || 0 } : null,
+    tache: J.salle && ctx.cfg.taches && g.taches && !g.finished && (ei.etat === 'tache' || g.sessions?.[J.salle]?.joueurs.includes(p)) ? tacheVue(ctx, g, p, J.salle, now) : null,
     // tous les indices obtenus (la fiche de détective se fait sur papier)
     indices: J.indices, notes: (J.notes || []).map(n => ({ t: n.t, salle: n.salle ? nom(g, n.salle) : '', texte: n.texte })),
     aRepondre, mesQuestions, fiche, ...listes(g),

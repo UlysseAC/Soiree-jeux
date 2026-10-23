@@ -15,6 +15,8 @@ function setup(n = 12, tweak = c => c) {
 }
 // code de la salle du moment, comme sur la tablette
 const code = (ctx, g, n) => E.salleView(ctx, g, n).code;
+// Passe par k autres salles puis revient dans la salle n (nécessaire entre deux indices d'une même salle).
+const detour = (ctx, g, p, n, k = 1) => { const autres = [0, 1, 2, 3].filter(x => x !== n).slice(0, k); autres.forEach(x => E.adminAction(ctx, g, { type: 'placer', pid: p, salle: `s${x}` })); E.adminAction(ctx, g, { type: 'placer', pid: p, salle: `s${n}` }); };
 const entrer = (ctx, g, p, n) => { ctx.cfg.delaiQuitter = 0; E.playerAction(ctx, g, p, { type: 'quitter' }); return E.playerAction(ctx, g, p, { type: 'entrer', salle: n, code: code(ctx, g, n) }); };
 
 test('cartes : 11 salles, autant de personnages que de joueurs, 10 armes ; solution hors des mains ; 3 cartes chacun, 2 joueurs au plus par carte', () => {
@@ -248,20 +250,25 @@ test('rattrapage : un joueur ajouté en cours reçoit un personnage libre et 3 c
 void createHmac;
 
 test('3 indices par salle : chances du 1er et du 2e, jamais deux fois le même, jamais une carte déjà connue', () => {
-  const base = c => { c.sallesPropres = 0; c.indicesParSalle = 2; c.indicesSalles[0] = { textes: ['Indice A', 'Indice B', 'Indice C'], p1: [100, 0, 0], p2: [0, 100, 0] }; return c; };
+  const base = c => { c.sallesPropres = 0; c.indicesSalles[0] = { textes: ['Indice A', 'Indice B', 'Indice C'], p1: [100, 0, 0], p2: [0, 100, 0] }; return c; };
   const { g, ctx } = setup(6, base);
   E.adminAction(ctx, g, { type: 'lancer' });
   const P = Object.keys(g.joueurs).find(x => g.joueurs[x].perso !== g.solution.perso);
   entrer(ctx, g, P, 0);
   assert.equal(E.playerAction(ctx, g, P, { type: 'indice' }).indice, 'Indice A', 'p1 = 100 % pour A en premier');
+  detour(ctx, g, P, 0, 1);
   assert.equal(E.playerAction(ctx, g, P, { type: 'indice' }).indice, 'Indice B', 'p2 = 100 % pour B en deuxième');
+  detour(ctx, g, P, 0, 2);
+  assert.equal(E.playerAction(ctx, g, P, { type: 'indice' }).indice, 'Indice C', 'le troisième est celui qui reste');
   // jamais deux fois le même, sur beaucoup de tirages
   for (let k = 0; k < 40; k++) {
     const { g: g2, ctx: c2 } = setup(6, c => { base(c); c.indicesSalles[0].p1 = [30, 30, 40]; c.indicesSalles[0].p2 = [30, 30, 40]; return c; });
     E.adminAction(c2, g2, { type: 'lancer' });
     const Q = Object.keys(g2.joueurs).find(x => g2.joueurs[x].perso !== g2.solution.perso);
     entrer(c2, g2, Q, 0);
-    const a = E.playerAction(c2, g2, Q, { type: 'indice' }).indice, b2 = E.playerAction(c2, g2, Q, { type: 'indice' }).indice;
+    const a = E.playerAction(c2, g2, Q, { type: 'indice' }).indice;
+    detour(c2, g2, Q, 0, 1);
+    const b2 = E.playerAction(c2, g2, Q, { type: 'indice' }).indice;
     assert.ok(/^Indice [ABC]$/.test(a) && /^Indice [ABC]$/.test(b2) && a !== b2, `${a} / ${b2}`);
   }
   // un indice qui cite une carte déjà dans la main du joueur ne lui est pas donné
@@ -275,7 +282,7 @@ test('3 indices par salle : chances du 1er et du 2e, jamais deux fois le même, 
 });
 
 test('salles « trop propres » : N salles (réglable), jamais la salle du crime ; l\'indice général vient en premier et élimine la salle', () => {
-  const { g, ctx } = setup(6, c => { c.sallesPropres = 3; c.indicesParSalle = 2; return c; });
+  const { g, ctx } = setup(6, c => { c.sallesPropres = 3; return c; });
   assert.equal(g.propres.length, 3);
   assert.ok(!g.propres.includes(g.solution.salle));
   E.adminAction(ctx, g, { type: 'lancer' });
@@ -285,6 +292,7 @@ test('salles « trop propres » : N salles (réglable), jamais la salle du crime
   const r = E.playerAction(ctx, g, P, { type: 'indice' });
   assert.match(r.indice, /trop propre/);
   assert.ok(g.joueurs[P].elimines.includes(s));
+  detour(ctx, g, P, n, 1);
   assert.doesNotMatch(E.playerAction(ctx, g, P, { type: 'indice' }).indice, /trop propre/, 'une seule fois');
   // un joueur qui a déjà cette salle dans ses cartes reçoit un indice normal
   const Q = Object.keys(g.joueurs).find(x => g.joueurs[x].main.includes(s) && g.joueurs[x].perso !== g.solution.perso);

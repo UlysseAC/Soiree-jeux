@@ -481,9 +481,9 @@ function eqSalle(g) {
     <div class="label">Avec toi</div><div class="pions">${g.presents.map(p => `<span class="pion ${p.barre ? 'barre' : ''}">${esc(p.name)}</span>`).join('') || '<span class="muted">Personne</span>'}</div></div>`;
   // indice de la salle : par sa tâche (si l'admin a activé les tâches), sinon en le demandant à la tablette
   if (g.tache) h += eqTache(g.tache);
-  else h += g.indicesRestants
-    ? `<button class="btn big" data-act="eqIndice">💡 Demander un indice à la salle${g.indicesRestants > 1 ? ` (${g.indicesRestants})` : ''}</button>`
-    : '<p class="muted center" style="margin:0">💡 Indice de cette salle déjà pris.</p>';
+  else if (g.indicesRestants) h += `<button class="btn big" data-act="eqIndice">💡 Demander ${g.indice.pris ? 'le prochain indice' : 'un indice'} à la salle${g.indice.pris >= 2 ? ' (sans tâche)' : ''}</button>`;
+  else if (g.indice?.etat === 'attente') h += `<div class="card"><p style="margin:0">💡 Indice n° ${g.indice.pris + 1} de cette salle : passe d'abord dans <strong>${g.indice.reste} autre${g.indice.reste > 1 ? 's' : ''} salle${g.indice.reste > 1 ? 's' : ''}</strong>${g.indice.pris === 1 ? ' (puis une nouvelle tâche ici)' : ''}.</p><p class="muted" style="margin:0;font-size:13px">Indices pris ici : ${g.indice.pris} / ${g.indice.max}</p></div>`;
+  else h += `<p class="muted center" style="margin:0">💡 Tu as tous les indices de cette salle (${g.indice?.pris ?? ''} / ${g.indice?.max ?? ''}).</p>`;
   // question
   const libres = g.presents.filter(p => !p.dernier && !p.barre);
   if (!libres.some(p => p.pid === ui.eqCible)) ui.eqCible = null;

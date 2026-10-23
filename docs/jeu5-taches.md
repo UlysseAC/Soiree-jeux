@@ -15,11 +15,11 @@ Pour obtenir l'indice d'une salle, il faut réussir la tâche de cette salle. Le
   - Un joueur seul doit trouver des partenaires ou changer de salle.
   - Si un participant change de salle, la tâche est annulée.
 - **Qui peut participer.**
-  - Seuls les joueurs qui n'ont pas encore l'indice de la salle peuvent participer.
+  - Seuls les joueurs qui peuvent gagner un indice par la tâche (1er ou 2e indice de la salle, après avoir visité une autre salle pour le 2e) peuvent participer.
   - S'il ne reste pas assez de joueurs sans cet indice pour la tâche à plusieurs (par exemple seulement 2 pour un trio), la salle ne propose plus que sa tâche solo.
 - **Récompense.**
   - Chaque participant d'une tâche réussie reçoit son propre indice.
-  - En phase finale, une réussite donne directement les 2 indices de la salle.
+  - Une réussite donne un seul indice. Le 3e indice d'une salle se demande sans tâche.
 - **Échec et durée.**
   - En cas d'échec, on réessaie tout de suite, sans pénalité.
   - Une tâche dure environ 15 à 30 s.
