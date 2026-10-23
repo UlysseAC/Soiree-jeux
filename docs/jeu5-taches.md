@@ -47,6 +47,14 @@ Pour obtenir l'indice d'une salle, il faut réussir la tâche de cette salle. Le
   - canalisations (duo) : grille de 3 × 3, 4 × 4 ou 5 × 5 ;
   - volets : 2 / 3 / 4 fenêtres, à 0,7 / 0,5 / 0,35 s près.
 
+## Tester les tâches
+
+Dans l'admin (onglet Partie en cours ou Réglages, L'Enquête), le cadre « 🧪 Tester les tâches » affiche un QR code et un lien vers `/test-taches` (code orga demandé).
+- La page liste les 22 tâches. « Tout enchaîner » les joue une après l'autre : à chaque réussite, la suivante démarre toute seule. On peut aussi en choisir une, ou en passer une.
+- Aucune partie n'est lancée et aucun joueur n'est nécessaire.
+- Une tâche à plusieurs affiche un panneau par rôle : le même appareil joue tous les rôles, à plusieurs doigts si les gestes doivent être simultanés (leviers de la porte secrète, volets, roue…).
+- La difficulté réglée dans l'admin s'applique. Les tâches réussies sont cochées ✅ sur l'appareil.
+
 ## Les 11 salles et leurs 22 tâches
 
 La liste des salles se règle dans l'admin, dans cet ordre. Chaque tâche est liée à la position de sa salle dans la liste.

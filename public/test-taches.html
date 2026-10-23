@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#14110f">
+<title>L'Enquête — test des tâches</title>
+<link rel="icon" href="data:,">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Rye&display=swap">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-game="enquete">
+<main class="page" id="app" style="padding:16px;display:flex;flex-direction:column;gap:12px;max-width:560px;margin:0 auto"><p class="muted">Connexion…</p></main>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/vendor/morphdom.js"></script>
+<script src="/js/common.js"></script>
+<script src="/js/temple-carte.js"></script>
+<script src="/js/taches.js"></script>
+<script>
+// Test des tâches de L'Enquête : sans partie ni joueurs. On joue les 22 tâches, une par une ou à la suite.
+// Pour une tâche à plusieurs, cet appareil joue tous les rôles : un panneau par rôle, utilisables ensemble avec plusieurs doigts.
+const app = document.getElementById('app');
+const { esc } = SJ;
+let authed = false, liste = null, D = null, suite = false, timerSuivant = null;
+const etats = [{}, {}, {}];
+const faits = new Set((() => { try { return JSON.parse(localStorage.getItem('sj-test-taches') || '[]'); } catch { return []; } })());
+const pids = ['t1', 't2', 't3'];
+const emit = payload => SJ.emit('testtaches', payload);
+
+async function login(code) {
+  const r = await SJ.emit('hello', { role: 'orga', code });
+  authed = r.ok;
+  if (r.ok) { SJ.store('sj-orga', code); const l = await emit({ op: 'liste' }); liste = l.liste; D = (await emit({ op: 'vue' })); } else { SJ.store('sj-orga', null); SJ.toast(r); }
+  draw();
+}
+SJ.sock.on('connect', () => { const c = SJ.store('sj-orga'); if (c) login(c); else draw(); });
+
+const type = it => (it.groupe ? (it.joueurs === 3 ? '👥 Trio' : '👥 Duo') : '👤 Solo');
+function draw() {
+  if (!authed) {
+    if (!document.getElementById('code')) SJ.render(app, `<h1 style="margin:0">Test des tâches</h1><form id="login" class="stack"><label class="field"><span class="label">Code orga</span><input class="in" id="code" inputmode="numeric" style="font-size:22px"></label><button class="btn primary big">Entrer</button></form>`);
+    return;
+  }
+  if (!D || D.courant < 0) {
+    SJ.render(app, `<h1 style="margin:0">🧪 Test des tâches</h1>
+      <p class="muted" style="margin:0">Joue les tâches comme les joueurs, sans lancer de partie. Une tâche à plusieurs affiche un panneau par rôle : tu joues tous les rôles sur cet appareil.</p>
+      <button class="btn primary big" data-act="suite">▶ Tout enchaîner (${liste.length} tâches)</button>
+      <div class="list">${liste.map((it, i) => `<button class="btn" data-tache="${i}" style="justify-content:space-between;text-align:left"><span>${faits.has(i) ? '✅ ' : ''}${it.n + 1}. ${esc(it.salle)} — ${esc(it.nom)}</span><span class="pill">${type(it)}</span></button>`).join('')}</div>
+      ${faits.size ? '<button class="btn sm" data-act="raz">Remettre les ✅ à zéro</button>' : ''}`);
+    return;
+  }
+  const it = D.item, i = D.courant;
+  const panneaux = D.vues.map(v => {
+    const t = v.tache, role = v.role;
+    if (!it.groupe) return `<div class="card accent"><p style="margin:0">${esc(t?.consigne || '')}</p><div class="tz" id="tz-0" data-keep="${i}:0"></div></div>`;
+    const actif = t && t.etat === 'jeu' && t.moi;
+    return `<div class="card accent"><strong>Joueur ${role + 1} · ${esc(t?.roleNom || '')}</strong><p class="muted" style="margin:0">${esc(t?.consigne || '')}</p>${actif ? `<div class="tz" id="tz-${role}" data-keep="${i}:${role}"></div>` : '<p class="muted" style="margin:0">…</p>'}</div>`;
+  }).join('');
+  const tablette = D.tablette ? `<div class="card"><span class="label">📟 Tablette de la salle</span>${D.tablette.code ? `<div class="tab-secret">${esc(D.tablette.code)}</div>` : `<div class="muted">Leviers baissés : ${(D.tablette.leviers || []).filter(Boolean).length} / 2</div>`}</div>` : '';
+  SJ.render(app, `<div class="spread"><button class="btn sm" data-act="liste">‹ Liste</button><span class="muted">${i + 1} / ${liste.length}${suite ? ' · à la suite' : ''}</span><button class="btn sm" data-act="passer">Passer ›</button></div>
+    <h2 style="margin:0">${it.n + 1}. ${esc(it.salle)} — ${esc(it.nom)} <span class="pill">${type(it)}</span></h2>
+    ${D.succes ? `<div class="card accent center"><div class="huge">✅</div><p style="margin:0;font-size:20px">Tâche réussie !</p><button class="btn primary" data-act="passer">Suivante ▶</button></div>` : ''}
+    ${panneaux}${tablette}`);
+  if (D.succes) return;
+  D.vues.forEach((v, k) => {
+    const el = document.getElementById(`tz-${k}`), t = v.tache;
+    if (!el || !t) return;
+    const envoi = (op, donnees = {}) => emit({ op: 'action', pid: pids[k], a: { type: 'tache', op, ...donnees } }).then(r => { maj(r); return r.r || r; });
+    const arg = it.groupe ? { groupe: true, id: it.id, role: k, vue: t.vue } : t;
+    Taches.monter(etats[k], el, arg, { lance: true, envoi, act: a => emit({ op: 'action', pid: 't1', a }).then(maj) });
+  });
+}
+
+function maj(r) {
+  if (!r || r.ok === false && !r.vues) return;
+  const avant = D && D.succes;
+  D = r;
+  if (r.succes && !avant) { faits.add(r.courant); try { localStorage.setItem('sj-test-taches', JSON.stringify([...faits])); } catch {} draw(); if (suite) timerSuivant = setTimeout(() => suivante(), 1500); }
+}
+async function choisir(i) { clearTimeout(timerSuivant); etats.forEach(e => { e.actif = null; }); D = await emit({ op: 'choisir', i }); draw(); }
+function suivante() { if (!D || D.courant < 0) return; if (D.courant + 1 >= liste.length) { suite = false; D = { ok: true, courant: -1, liste }; draw(); SJ.toast({ ok: true, msg: 'Toutes les tâches ont été parcourues.' }); } else choisir(D.courant + 1); }
+
+setInterval(async () => {
+  if (!authed || !D || D.courant < 0 || D.succes) return;
+  const r = await emit({ op: 'vue' });
+  if (r.ok) { maj(r); if (!D.succes) draw(); }
+}, 700);
+
+app.addEventListener('submit', e => { if (e.target.id === 'login') { e.preventDefault(); login(document.getElementById('code').value); } });
+app.addEventListener('click', e => {
+  const t = e.target.closest('[data-tache],[data-act]');
+  if (!t) return;
+  if (t.dataset.tache != null) { suite = false; return choisir(Number(t.dataset.tache)); }
+  const a = t.dataset.act;
+  if (a === 'suite') { suite = true; choisir(0); }
+  if (a === 'liste') { suite = false; clearTimeout(timerSuivant); D = { ok: true, courant: -1, liste }; draw(); }
+  if (a === 'passer') { clearTimeout(timerSuivant); suivante(); }
+  if (a === 'raz') { faits.clear(); try { localStorage.removeItem('sj-test-taches'); } catch {} draw(); }
+});
+</script>
+</body>
+</html>

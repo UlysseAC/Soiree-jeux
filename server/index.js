@@ -5,6 +5,7 @@ import { networkInterfaces } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { Server } from 'socket.io';
+import { creerBac } from './testtaches.js';
 import QRCode from 'qrcode';
 import { creerGestion, CODE_ESPACE } from './espaces.js';
 import edition from './edition.js';
@@ -62,7 +63,7 @@ app.get('/qr.svg', async (req, res) => {
 });
 // Pages d'un espace client : les mêmes pages, sous /s/<code>/… (le code est relu par la page elle-même).
 if (MULTI) {
-  app.get('/s/:code/:page', (req, res, next) => (['jouer', 'ecran', 'admin', 'orga', 'salle'].includes(req.params.page) && CODE_ESPACE.test(req.params.code) ? res.sendFile(join(pub, `${req.params.page}.html`)) : next()));
+  app.get('/s/:code/:page', (req, res, next) => (['jouer', 'ecran', 'admin', 'orga', 'salle', 'test-taches'].includes(req.params.page) && CODE_ESPACE.test(req.params.code) ? res.sendFile(join(pub, `${req.params.page}.html`)) : next()));
   app.get('/s/:code', (req, res) => res.redirect(`/s/${req.params.code}/jouer`));
 }
 
@@ -146,6 +147,14 @@ io.on('connection', sock => {
     cb(r ?? { ok: true });
     E.broadcast();
   });
+  // Test des tâches (L'Enquête) : bac à sable privé à cet appareil, réservé à ceux qui ont le code orga.
+  sock.on('testtaches', avec((E, a, cb) => {
+    if (sock.data.role !== 'orga') return cb({ ok: false, msg: 'Non autorisé.' });
+    try {
+      const bac = sock.data.bac ??= creerBac(E.soiree.s.config.games.enquete);
+      cb(a.op === 'choisir' ? bac.choisir(a.i) : a.op === 'action' ? bac.action(a.pid, a.a) : a.op === 'liste' ? bac.liste() : bac.vue());
+    } catch (e) { console.error(e); cb({ ok: false, msg: 'Erreur interne.' }); }
+  }));
   sock.on('jeuData', avec((E, q, cb) => {
     if (sock.data.role !== 'ecran' && sock.data.role !== 'admin') return cb(null);
     cb(E.src(sock).data(q));

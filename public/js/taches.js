@@ -4,7 +4,6 @@
 /* global SJ */
 const Taches = (() => {
   const { esc } = SJ;
-  let actif = null; // { cle, el, maj }
 
   // ---------- outils ----------
   const h = (html) => { const t = document.createElement('div'); t.innerHTML = html.trim(); return t.firstElementChild; };
@@ -505,27 +504,30 @@ const Taches = (() => {
   };
   GROUPES.vannes = GROUPES.canalisations; // anciennes parties en cours
 
-  // Appelé après chaque rendu de la page : monte le mini-jeu dans sa zone, ou lui transmet le nouvel état.
-  function apres(t, { lance, act }) {
-    const el = document.getElementById('tache-zone');
-    if (!el || !t) { actif = null; return; }
-    const cle = el.dataset.keep;
+  // Monte le mini-jeu dans sa zone, ou lui transmet le nouvel état. `st` garde le mini-jeu en cours de cette zone ;
+  // `envoi(op, donnees)` remplace l'envoi au serveur (test des tâches : un panneau par rôle).
+  function monter(st, el, t, { lance, act, envoi }) {
+    if (!el || !t) { st.actif = null; return; }
+    const cle = el.dataset.keep, actif = st.actif;
     if (actif && actif.cle === cle && actif.el === el && el.firstChild) { if (t.vue) actif.maj(t.vue); return; }
     el.innerHTML = '';
     if (!t.groupe) {
       if (!lance) return;
       SOLOS[t.id]?.(el, t.params || {}, () => act({ type: 'tacheReussie' }));
-      actif = { cle, el, maj: () => {} };
+      st.actif = { cle, el, maj: () => {} };
       return;
     }
     const abonnes = [];
     const ctx = {
       role: t.role, vue: t.vue,
-      envoyer: (op, donnees = {}) => SJ.emit('joueur', { type: 'tache', op, ...donnees }).then(r => { if (r?.msg && r.indice) SJ.toast(r); return r || { ok: false }; }),
+      envoyer: envoi || ((op, donnees = {}) => SJ.emit('joueur', { type: 'tache', op, ...donnees }).then(r => { if (r?.msg && r.indice) SJ.toast(r); return r || { ok: false }; })),
       surMaj: f => abonnes.push(f),
     };
     GROUPES[t.id]?.(el, ctx);
-    actif = { cle, el, maj: vue => { ctx.vue = vue; abonnes.forEach(f => f(vue)); } };
+    st.actif = { cle, el, maj: vue => { ctx.vue = vue; abonnes.forEach(f => f(vue)); } };
   }
-  return { apres };
+  const principal = {};
+  // Appelé après chaque rendu de la page de jeu.
+  const apres = (t, o) => monter(principal, document.getElementById('tache-zone'), t, o);
+  return { apres, monter };
 })();

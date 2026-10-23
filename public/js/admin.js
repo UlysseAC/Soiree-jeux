@@ -317,6 +317,13 @@ function partieJeu() {
 const eqLignes = t => String(t || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
 const eqTablettes = n => `<div class="row" style="flex-wrap:wrap">${Array.from({ length: n }, (_, i) => `<a class="btn sm" href="${SJ.base}/salle?n=${i}" target="_blank" rel="noopener">Tablette ${i + 1}</a>`).join('')}</div>
   <p class="muted" style="margin:0;font-size:14px">Ouvre chaque lien sur la tablette de sa salle (le code orga est demandé une fois : ${esc(V.config.orgaCode)}). Le QR code change toutes les ${esc(V.fullConfig.games.enquete.rotationQr)} s : une photo du QR code ne marche pas longtemps.</p>`;
+// Test des tâches : un lien (et son QR code) vers la page qui fait jouer les 22 tâches sans lancer de partie.
+function eqTestTaches() {
+  const url = `${location.origin}${SJ.base}/test-taches`;
+  return `<div class="box"><h2>🧪 Tester les tâches</h2>
+    <p class="muted" style="margin:0;font-size:14px">Joue les 22 tâches à la suite, sans lancer de partie : scanne ce QR code avec ton téléphone (code orga : ${esc(V.config.orgaCode)}). Pour une tâche à plusieurs, tu joues tous les rôles sur le même appareil.</p>
+    <div class="row" style="flex-wrap:wrap;align-items:center"><img src="/qr.svg?d=${encodeURIComponent(url)}" alt="QR code du test des tâches" width="150" height="150" style="background:#fff;border-radius:8px"><a class="btn primary" href="${url}" target="_blank" rel="noopener">🧪 Ouvrir le test</a></div></div>`;
+}
 function partieEnquete(g) {
   const phase = g.finished ? 'Terminée' : { intro: 'Introduction (texte à l\'écran)', panne: '⚡ Panne de courant', enquete: 'Enquête en cours', finale: '⚡ Phase finale' }[g.phase];
   let h = `<div class="spread"><div class="row"><span class="pill accent">${phase}</span>${g.endsAt && !g.finished ? `${g.panne ? `<span class="muted">⚡ Panne : ${g.panne.entres} / ${g.panne.total} salles réparées</span>` : ''}<span class="muted">fin dans <span class="mono" data-until="${g.endsAt}"></span>${g.finaleAt && g.phase === 'enquete' ? ` · phase finale dans <span class="mono" data-until="${g.finaleAt}"></span>` : ''}</span>` : ''}</div>
@@ -342,6 +349,7 @@ function partieEnquete(g) {
   const fiche = !!V.gameConfig?.ficheNumerique;
   h += `<div class="box"><div class="spread"><h2>📋 Fiche de détective</h2><button class="btn ${fiche ? 'primary' : ''}" data-act="eqFiche">${fiche ? 'Sur le téléphone · passer au papier' : 'Sur papier · mettre sur le téléphone'}</button></div>
     <p class="muted" style="margin:0;font-size:14px">${fiche ? 'Les joueurs ont un onglet « Fiche » qui se remplit tout seul (leurs cartes, les cartes montrées, les indices) et où ils barrent des cartes.' : 'Pas de fiche sur le téléphone : les joueurs la font sur papier. Ils gardent l\'onglet « Indices » avec tous leurs indices et leurs questions.'} Ça change tout de suite, même en pleine partie.</p></div>`;
+  h += eqTestTaches();
   h += `<div class="box"><h2>Tablettes des salles</h2>${eqTablettes(g.salles.length)}</div>`;
   if (g.attente.length) h += `<div class="box"><h2>Questions en attente de réponse</h2>${g.attente.map(q => `<p style="margin:0">${esc(q.de)} → ${esc(q.a)} <span class="muted">(${esc(q.salle)})</span></p>`).join('')}</div>`;
   h += `<div class="box"><h2>Enquêteurs (${g.liste.length})</h2><div class="scroll"><table><thead><tr><th>Joueur</th><th>Personnage</th><th>Cartes</th><th>Salle</th><th>Indices</th><th>Accusation</th></tr></thead><tbody>${g.liste.map(p => `<tr>
@@ -375,7 +383,7 @@ app.addEventListener('change', e => { if (e.target.dataset.eqnom != null) eqSauv
 
 // Tâches de chaque salle, dans l'ordre des salles (les mêmes que SALLES dans server/games/taches.js).
 const EQ_TACHES = [['Pression des pneus', 'Changer la roue', 2], ['Ranger les boules de billard', 'La table de poker truquée', 2], ['Polir l\'argenterie', 'Dresser la table', 2], ['Remonter la pendule', 'Les lampes à pétrole', 2],
-  ['Fourneau à charbon', 'Le soufflé', 2], ['Machine à écrire', 'Le coffre-fort', 2], ['Réparer la tuyauterie', 'Purger les canalisations', 2], ['Faire le lit', 'Fermer les lourds volets', 2],
+  ['Fourneau à charbon', 'Le soufflé', 2], ['Machine à écrire', 'Le coffre-fort', 2], ['Réparer la tuyauterie', 'Réparer les canalisations', 2], ['Faire le lit', 'Fermer les lourds volets', 2],
   ['Épousseter la malle', 'La radio à galène', 2], ['Les encyclopédies', 'La porte secrète', 3], ['Préparer la potion', 'La cuve de stérilisation', 3]];
 const eqDifficulte = c => `<label class="field"><span class="label">Difficulté des tâches</span><select class="in" id="c-jeu-enquete-difficulte" data-cfg="difficulte" data-kind="text" data-scope="jeu" data-game="enquete">${[['facile', 'Facile'], ['normal', 'Normal'], ['difficile', 'Difficile']].map(([k, l]) => `<option value="${k}" ${c.difficulte === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`;
 function eqReglagesTaches(c, salles) {
@@ -436,6 +444,7 @@ function reglagesEnquete(c) {
         <div class="muted" style="display:grid;grid-template-columns:1fr 80px 80px;gap:8px;font-size:12px"><span>Indice</span><span>% 1er</span><span>% 2e</span></div>
         ${[0, 1, 2].map(k => `<div style="display:grid;grid-template-columns:1fr 80px 80px;gap:8px;align-items:start">${cfgInput(`indicesSalles.${i}.textes.${k}`, is.textes[k], 'area', { ph: 'vide = rempli automatiquement' })}${cfgInput(`indicesSalles.${i}.p1.${k}`, is.p1[k], 'num')}${cfgInput(`indicesSalles.${i}.p2.${k}`, is.p2[k], 'num')}</div>`).join('')}</div>`).join('')}
     </div>
+    ${eqTestTaches()}
     <div class="box"><h2>Étages des salles</h2><p class="muted" style="margin:0;font-size:14px">Les armes à feu tuent n'importe qui du même étage, et le coup de feu indique cet étage à tout le monde. Écris le nom de l'étage de chaque salle.</p>
       <div class="grid-auto">${salles.map((nomSalle, i) => cfgInput(`etages.${i}`, c.etages[i] ?? c.etages[0], 'text', { label: `${i + 1}. ${nomSalle}` })).join('')}</div></div>
     <div class="box"><h2>Armes</h2><p class="muted" style="margin:0;font-size:14px">Pour chaque arme : le délai entre deux victimes dans la même salle, le nombre maximum de victimes par passage dans une salle, le délai de rechargement une fois la salle quittée, et son effet. Le <strong>tueur</strong> n'a que l'arme du crime (une fois son rôle découvert). Les <strong>joueurs</strong> ramassent des armes qui apparaissent dans les salles ou qu'ils gagnent en réussissant une tâche, et s'en servent les uns contre les autres (un seul à la fois).</p>

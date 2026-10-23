@@ -837,7 +837,7 @@ button.pion.choix:disabled { opacity: .4; }
 .tz-rang { display: flex; gap: 3px; justify-content: center; width: 100%; }
 .tz-touche { flex: 1; max-width: 34px; min-width: 0; height: 40px; border-radius: 50%; border: 2px solid #b9a27a; background: #2a241c; color: #efe6d6; font: 700 15px var(--mono); padding: 0; }
 .tz-touche.faux { background: var(--danger); }
-.tz-tuyaux { position: relative; display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 4px; margin: 0 26px; aspect-ratio: 1; }
+.tz-tuyaux { position: relative; display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 4px; margin: 0 26px 30px; }
 .tz-tuyau { aspect-ratio: 1; padding: 0; border-radius: 8px; border: 1px solid var(--line); background: var(--panel2); transition: transform .12s; }
 .tz-tuyau svg { width: 100%; height: 100%; fill: none; stroke: #8f8578; stroke-width: 22; stroke-linecap: square; }
 .tz-tuyau.eau svg { stroke: #4fa3e7; }
