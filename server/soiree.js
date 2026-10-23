@@ -284,6 +284,8 @@ export class Soiree {
       case 'terminerSoiree':
         this.s.soiree = { ...this.s.soiree, started: false };
         return { ok: true, msg: 'Soirée terminée. Le classement reste visible.' };
+      case 'simulerIndices': // L'Enquête : relire ses indices sans lancer de partie
+        return enquete.simulerIndices(this.s.config.games.enquete, a.joueurs);
       case 'importerReglages': {
         const c = a.config;
         if (!c || typeof c !== 'object' || !c.games) return { ok: false, msg: 'Fichier de réglages invalide.' };

@@ -152,3 +152,7 @@ Chaque joueur a un complice, tiré au hasard au lancement : deux par deux (si le
 5. **Tueur.** Un tueur actif qui retrouve son complice, dans la même salle, peut lui **proposer** de devenir tueur (une seule proposition). Le complice, dans la même salle, **accepte ou refuse**. S'il accepte, il devient tueur actif, mais n'a pas d'arme : il doit en ramasser une qui traîne dans une salle, qui sert alors comme arme de tueur (avec les réglages « tueur » de cette arme). Tous les tueurs gagnent quand il ne reste aucun innocent. Le corps d'une victime d'un complice recruté, une fois scanné, indique que le meurtrier est l'un de **5 personnages** (dont le sien) : il reste à trouver quel joueur incarne lequel.
 
 Réglages : Réglages, L'Enquête, cadre « 🤝 Complices » (activer, noms des 3 salles, les 3 textes). L'admin voit les complices dans le tableau des enquêteurs, après « Révéler ».
+
+## Simulateur d'indices
+
+Réglages, L'Enquête, cadre « 🧪 Simulateur d'indices » : le bouton « Simuler les indices » affiche, pour chaque salle, les indices dans l'ordre où un joueur les reçoit (1er, 2e, 3e), avec les repères remplacés (`{joueur}`, `{3perso}`…) et les emplacements vides remplis (🎲). Il montre aussi les textes des complices. Aucune partie n'est lancée : une partie simulée est créée pour chaque salle, avec des prénoms inventés (de 3 à 14 joueurs). Chaque clic donne un nouveau tirage.

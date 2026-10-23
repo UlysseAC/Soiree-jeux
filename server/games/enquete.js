@@ -289,6 +289,40 @@ function complice(ctx, g, p, a) {
   return err('Action inconnue.');
 }
 
+// ---------- simulateur d'indices (admin) ----------
+// Pour chaque salle : une partie simulée toute neuve, et un joueur simulé qui récupère ses indices à la suite (en passant par d'autres salles
+// entre deux indices). Rien n'est enregistré : c'est pour relire ses textes tels que les joueurs les verront.
+const PRENOMS = ['Léa', 'Hugo', 'Emma', 'Louis', 'Chloé', 'Jules', 'Manon', 'Adam', 'Inès', 'Lucas', 'Camille', 'Noé', 'Sarah', 'Tom'];
+export function simulerIndices(cfgJeu, nb = 8) {
+  const n = Math.max(3, Math.min(14, Math.round(Number(nb)) || 8));
+  const cfg = { ...cfgJeu, taches: false, panne: false, armesJoueurs: false };
+  const noms = {}, pids = Array.from({ length: n }, (_, i) => { noms[`s${i}`] = PRENOMS[i % PRENOMS.length] + (i >= PRENOMS.length ? i : ''); return `s${i}`; });
+  const ctx = { now: () => Date.now(), cfg, name: p => noms[p] ?? '?', sfx: () => {} };
+  const nbSalles = lignes(cfg.salles === SALLES_AVANT || cfg.salles === SALLES_V1 ? SALLES_1930 : cfg.salles, 20).length;
+  const salles = [];
+  for (let i = 0; i < nbSalles; i++) {
+    const g = start(ctx, pids);
+    adminAction(ctx, g, { type: 'lancer' });
+    const P = pids.find(x => g.joueurs[x].perso !== g.solution.perso && !g.joueurs[x].main.includes(`s${i}`)) ?? pids.find(x => g.joueurs[x].perso !== g.solution.perso);
+    const J = g.joueurs[P], ecrits = cfg.indicesSalles?.[i]?.textes || [];
+    const indices = [];
+    for (let k = 0; k < Math.max(1, Math.min(4, maxSalle(ctx, g))); k++) {
+      if (k > 0) for (const x of [(i + 1) % nbSalles, (i + 2) % nbSalles].slice(0, Math.min(k, 2))) adminAction(ctx, g, { type: 'placer', pid: P, salle: `s${x}` });
+      adminAction(ctx, g, { type: 'placer', pid: P, salle: `s${i}` });
+      const r = playerAction(ctx, g, P, { type: 'indice' });
+      if (!r.ok) break;
+      const cle = J.recus?.[`s${i}`]?.at(-1);
+      indices.push({ texte: r.indice, source: cle === 'propre' ? 'propre' : typeof cle !== 'number' ? 'secours' : String(ecrits[cle] ?? '').trim() ? 'écrit' : 'auto', ...(r.complice ? { complice: r.complice } : {}) });
+    }
+    salles.push({ nom: nom(g, `s${i}`), indices });
+  }
+  // textes des complices vus par un joueur simulé
+  const g = start(ctx, pids), P = pids[0];
+  const complices = { personne: g.joueurs[P].complice ? nom(g, g.joueurs[g.joueurs[P].complice].perso) : '', joueur: g.joueurs[P].complice ? noms[g.joueurs[P].complice] : '',
+    bureau: texteComplice(ctx, g, P, cfg.texteBureauComplice), jeu: texteComplice(ctx, g, P, cfg.texteJeuComplice), grenier: texteComplice(ctx, g, P, cfg.texteGrenierComplice) };
+  return { ok: true, joueurs: n, salles, complices: cfg.complices ? complices : null };
+}
+
 // L'admin lance l'enquête après le texte d'introduction.
 // Début : l'admin lance → les plombs sautent (panne) : chaque joueur reçoit une salle (une au moins par salle, 2 pour certaines)
 // et un code à taper sur la tablette de cette salle. Quand tous l'ont tapé, l'enquête commence.

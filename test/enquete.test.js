@@ -334,3 +334,19 @@ test('{joueur} : jamais deux fois le même nom pour un joueur, noms répartis da
   for (let n = 0; n < 4; n++) { E.adminAction(ctx, g, { type: 'placer', pid: Q, salle: `s${n}` }); vus.add(E.playerAction(ctx, g, Q, { type: 'indice' }).indice.match(/^Joueur-(\w+)/)?.[1]); }
   assert.ok(g.nommes && Object.values(g.nommes).every(v => v <= 2), 'les noms sont répartis entre les joueurs : ' + JSON.stringify(g.nommes));
 });
+
+test('simulateur d\'indices : 3 indices par salle, textes écrits repris, repères remplacés', () => {
+  const cfg = E.defaultConfig();
+  cfg.sallesPropres = 0;
+  cfg.indicesSalles[0].textes = ['Mon indice A', '{joueur} est peut-être {3perso}.', ''];
+  cfg.indicesSalles[0].p1 = [100, 0, 0]; cfg.indicesSalles[0].p2 = [0, 100, 0];
+  const r = E.simulerIndices(cfg, 8);
+  assert.equal(r.salles.length, 11);
+  assert.ok(r.salles.every(s => s.indices.length === 3), 'trois indices par salle');
+  const [a, b, c] = r.salles[0].indices;
+  assert.deepEqual([a.texte, a.source], ['Mon indice A', 'écrit']);
+  assert.match(b.texte, /^\w+ est peut-être .+ ou .+/);
+  assert.equal(c.source, 'auto', 'emplacement vide rempli');
+  assert.ok(r.salles.flatMap(s => s.indices).every(i => !i.texte.includes('{')), 'aucun repère laissé tel quel');
+  assert.ok(r.complices.bureau && r.complices.jeu && r.complices.grenier);
+});

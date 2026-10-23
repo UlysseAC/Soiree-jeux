@@ -324,6 +324,16 @@ function eqTestTaches() {
     <p class="muted" style="margin:0;font-size:14px">Joue les 22 tâches à la suite, sans lancer de partie : scanne ce QR code avec ton téléphone (code orga : ${esc(V.config.orgaCode)}). Pour une tâche à plusieurs, tu joues tous les rôles sur le même appareil.</p>
     <div class="row" style="flex-wrap:wrap;align-items:center"><img src="/qr.svg?d=${encodeURIComponent(url)}" alt="QR code du test des tâches" width="150" height="150" style="background:#fff;border-radius:8px"><a class="btn primary" href="${url}" target="_blank" rel="noopener">🧪 Ouvrir le test</a></div></div>`;
 }
+// Simulateur d'indices : les indices de chaque salle, à la suite, tels qu'un joueur les recevrait (sans partie, avec des joueurs simulés).
+function eqSimulateur() {
+  const r = ui.simIndices, SRC = { écrit: '', auto: '<span title="rempli automatiquement avec la solution">🎲 </span>', propre: '<span class="pill accent">trop propre</span> ', secours: '<span title="indice de secours">🛟 </span>' };
+  return `<div class="box"><h2>🧪 Simulateur d'indices</h2>
+    <p class="muted" style="margin:0;font-size:14px">Montre, pour chaque salle, les indices dans l'ordre où un joueur les reçoit (1er, 2e, 3e), avec les repères remplacés ({joueur}, {3perso}…) et les emplacements vides remplis. Aucune partie n'est lancée : une partie simulée est créée pour chaque salle, avec des prénoms inventés. Chaque clic donne un tirage différent.</p>
+    <div class="row" style="align-items:end"><label class="field"><span class="label">Joueurs simulés</span><input class="in" id="sim-nb" inputmode="numeric" value="${esc(ui.simNb || 8)}" style="width:90px"></label><button class="btn primary" data-act="simIndices">🎲 Simuler les indices</button></div>
+    ${r ? `<p class="muted" style="margin:0;font-size:13px">🎲 = rempli automatiquement · 🛟 = indice de secours · ${r.joueurs} joueurs simulés</p>
+      <div class="scroll"><table><thead><tr><th>Salle</th><th>Indice 1</th><th>Indice 2</th><th>Indice 3</th></tr></thead><tbody>${r.salles.map(x => `<tr><td><strong>${esc(x.nom)}</strong></td>${[0, 1, 2].map(k => { const i = x.indices[k]; return `<td>${i ? `${SRC[i.source] || ''}${esc(i.texte)}${i.complice ? `<div class="muted">🤝 ${esc(i.complice)}</div>` : ''}` : '<span class="muted">—</span>'}</td>`; }).join('')}</tr>`).join('')}</tbody></table></div>
+      ${r.complices ? `<div class="label">Complices (pour un joueur simulé dont le complice est ${esc(r.complices.joueur)}, qui joue ${esc(r.complices.personne)})</div><ul style="margin:0"><li>Bureau : ${esc(r.complices.bureau)}</li><li>Salle de jeu : ${esc(r.complices.jeu)}</li><li>Grenier : ${esc(r.complices.grenier)}</li></ul>` : ''}` : ''}</div>`;
+}
 // Liens permanents des salles : une ligne par salle, à copier-coller dans un message pour que chacun clique sur sa salle.
 function eqLiensSalles(g) {
   if (!g.liensSalles?.length) return '';
@@ -454,6 +464,7 @@ function reglagesEnquete(c) {
         <div class="muted" style="display:grid;grid-template-columns:1fr 80px 80px;gap:8px;font-size:12px"><span>Indice</span><span>% 1er</span><span>% 2e</span></div>
         ${[0, 1, 2].map(k => `<div style="display:grid;grid-template-columns:1fr 80px 80px;gap:8px;align-items:start">${cfgInput(`indicesSalles.${i}.textes.${k}`, is.textes[k], 'area', { ph: 'vide = rempli automatiquement' })}${cfgInput(`indicesSalles.${i}.p1.${k}`, is.p1[k], 'num')}${cfgInput(`indicesSalles.${i}.p2.${k}`, is.p2[k], 'num')}</div>`).join('')}</div>`).join('')}
     </div>
+    ${eqSimulateur()}
     ${eqTestTaches()}
     <div class="box"><h2>🤝 Complices</h2>
       <p class="muted" style="margin:0;font-size:14px">Chaque joueur a un complice (deux par deux). Pour le retrouver : l'indice du <strong>Bureau</strong> (donné avec le 1er indice de la salle) annonce qu'il y a des complices et fait apparaître le bouton « Complice » ; la <strong>Salle de jeu</strong> donne le personnage du complice, le <strong>Grenier</strong> le joueur qui l'incarne : l'info arrive en <strong>scannant le QR code de la salle</strong>. Ensuite, dans la même salle, ils échangent une carte chacun, et un tueur peut proposer à son complice de devenir tueur (le complice accepte ou refuse). Dans les textes : <span class="mono">{complice}</span> = le personnage du complice, <span class="mono">{joueur}</span> = le joueur qui l'incarne. Les noms des salles sont ceux de ta liste.</p>
@@ -1119,6 +1130,13 @@ app.addEventListener('click', async e => {
     return c && admin({ type: 'importerReglages', config: c.config });
   }
   if (a === 'oublierCopie') { SJ.store('sj-admin-reglages', null); return draw(); }
+  if (a === 'simIndices') {
+    ui.simNb = Math.max(3, Math.min(14, Number(document.getElementById('sim-nb')?.value) || 8));
+    const r = await SJ.emit('admin', { type: 'simulerIndices', joueurs: ui.simNb });
+    if (!r.ok) return SJ.toast(r);
+    ui.simIndices = r;
+    return draw();
+  }
   if (a === 'copierLiens') {
     const ta = document.getElementById('eq-liens');
     if (!ta) return;
