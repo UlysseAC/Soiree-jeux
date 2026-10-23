@@ -405,17 +405,20 @@ const Taches = (() => {
         boucle(el, () => { voyant.classList.toggle('clic', ctx.vue.clic); voyant.textContent = ctx.vue.clic ? 'CLIC !' : '…'; msg(el, `Chiffre ${ctx.vue.chiffre} / ${ctx.vue.chiffres || 3}`); });
       }
     },
-    vannes(el, ctx) {
-      const box = h('<div class="tz-vannes"></div>');
+    canalisations(el, ctx) {
+      const box = h('<div class="tz-tuyaux"></div>');
       el.append(box, h('<p class="tz-msg"></p>'));
+      const dessin = k => (k.type === 'droit' ? '<path d="M50 0V100"/>' : '<path d="M50 0V50H100"/>');
       const rendre = () => {
-        const v = ctx.vue;
-        box.innerHTML = v.vannes.map(n => `<button class="tz-vanne ${n <= v.ouvertes ? 'ouverte' : ''}" data-v="${n}">🔧<b>${n}</b></button>`).join('');
-        msg(el, `Vannes ouvertes : ${v.ouvertes} / ${v.total || 4}. Annonce tes numéros !`);
+        const v = ctx.vue, plein = new Set(v.plein);
+        box.style.setProperty('--n', v.n);
+        box.innerHTML = v.cases.map((k, i) => `<button class="tz-tuyau ${plein.has(i) ? 'eau' : ''} ${(i % v.n < v.coupe ? 0 : 1) === ctx.role ? '' : 'autre'}" data-i="${i}" style="transform:rotate(${k.rot * 90}deg)"><svg viewBox="0 0 100 100">${dessin(k)}</svg></button>`).join('')
+          + `<span class="tz-entree" style="top:calc(${v.entree} * 100% / ${v.n} + 50% / ${v.n})">💧</span><span class="tz-sortie" style="top:calc(${v.sortie} * 100% / ${v.n} + 50% / ${v.n})">🛁</span>`;
+        msg(el, ctx.role === 0 ? 'Tu tournes les tuyaux de gauche (clairs). Ton partenaire tourne ceux de droite.' : 'Tu tournes les tuyaux de droite (clairs). Ton partenaire tourne ceux de gauche.');
       };
       rendre();
       ctx.surMaj(rendre);
-      box.addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (b) ctx.envoyer('ouvrir', { v: Number(b.dataset.v) }).then(r => { if (!r.ok) msg(el, r.msg); }); });
+      box.addEventListener('click', e => { const b = e.target.closest('[data-i]'); if (b) ctx.envoyer('tourner', { i: Number(b.dataset.i) }).then(r => { if (!r.ok) msg(el, r.msg); }); });
     },
     volets(el, ctx) {
       const box = h('<div class="tz-volets"><div class="battant g"></div><div class="battant d"></div><small>glisse ici</small></div>');
@@ -500,6 +503,7 @@ const Taches = (() => {
       });
     },
   };
+  GROUPES.vannes = GROUPES.canalisations; // anciennes parties en cours
 
   // Appelé après chaque rendu de la page : monte le mini-jeu dans sa zone, ou lui transmet le nouvel état.
   function apres(t, { lance, act }) {

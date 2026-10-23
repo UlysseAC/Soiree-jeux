@@ -19,12 +19,60 @@ export const SALLES = [
   { solo: 'pendule', groupe: 'lampes' },
   { solo: 'fourneau', groupe: 'souffle' },
   { solo: 'machine', groupe: 'coffre' },
-  { solo: 'tuyaux', groupe: 'vannes' },
+  { solo: 'tuyaux', groupe: 'canalisations' },
   { solo: 'lit', groupe: 'volets' },
   { solo: 'malle', groupe: 'radio' },
   { solo: 'livres', groupe: 'porte' },
   { solo: 'potion', groupe: 'cuve' },
 ];
+
+// Tuyauterie : un chemin de l'entrée (à gauche) à la sortie (à droite), puis chaque tuyau est tourné de 1 à 3 quarts de tour.
+const DIR = [[-1, 0], [0, 1], [1, 0], [0, -1]]; // haut, droite, bas, gauche
+const liensTuyau = k => (k.type === 'droit' ? [k.rot % 4, (k.rot + 2) % 4] : [k.rot % 4, (k.rot + 1) % 4]);
+function eauTuyaux(d) {
+  const { n, cases } = d, plein = [];
+  let r = d.entree, c = 0, depuis = 3, ok = false;
+  for (let pas = 0; pas < n * n + 1; pas++) {
+    const l = liensTuyau(cases[r * n + c]);
+    if (!l.includes(depuis) || plein.includes(r * n + c)) break;
+    plein.push(r * n + c);
+    const vers = l.find(x => x !== depuis);
+    if (c === n - 1 && vers === 1 && r === d.sortie) { ok = true; break; }
+    r += DIR[vers][0]; c += DIR[vers][1]; depuis = (vers + 2) % 4;
+    if (r < 0 || c < 0 || r >= n || c >= n) break;
+  }
+  return { ok, plein };
+}
+function grilleTuyaux(n) {
+  const entree = entier(0, n - 1);
+  const essai = (r, c, vu, acc) => {
+    if (c === n - 1 && Math.random() < 0.6 || acc.length > n * 3 && c === n - 1) return [...acc, [r, c]];
+    for (const dd of melange([0, 1, 2, 3])) {
+      const rr = r + DIR[dd][0], cc = c + DIR[dd][1];
+      if (rr < 0 || cc < 0 || rr >= n || cc >= n || vu.has(rr * n + cc)) continue;
+      vu.add(rr * n + cc);
+      const res = essai(rr, cc, vu, [...acc, [r, c]]);
+      if (res) return res;
+      vu.delete(rr * n + cc);
+    }
+    return c === n - 1 ? [...acc, [r, c]] : null;
+  };
+  for (;;) {
+    let chemin = null;
+    while (!chemin) chemin = essai(entree, 0, new Set([entree * n]), []);
+    const cases = Array.from({ length: n * n }, () => ({ type: Math.random() < 0.5 ? 'droit' : 'coude', rot: 0 }));
+    const dirDe = (a, b) => DIR.findIndex(dd => a[0] + dd[0] === b[0] && a[1] + dd[1] === b[1]);
+    chemin.forEach((cell, i) => {
+      const avant = i === 0 ? 3 : dirDe(cell, chemin[i - 1]), apres = i === chemin.length - 1 ? 1 : dirDe(cell, chemin[i + 1]);
+      const k = cases[cell[0] * n + cell[1]];
+      if ((avant + 2) % 4 === apres) Object.assign(k, { type: 'droit', rot: avant % 2 });
+      else Object.assign(k, { type: 'coude', rot: [0, 1, 2, 3].find(x => [x, (x + 1) % 4].includes(avant) && [x, (x + 1) % 4].includes(apres)) });
+    });
+    const d = { n, cases, entree, sortie: chemin[chemin.length - 1][0], sol: cases.map(k => k.rot) }; // sol : la bonne orientation de chaque tuyau
+    cases.forEach(k => { k.rot = (k.rot + 1 + entier(0, 2)) % 4; });
+    if (!eauTuyaux(d).ok) return d;
+  }
+}
 
 const MOTS = ['TELEGRAMME', 'MAJORDOME', 'CHANDELIER', 'GRAMOPHONE', 'LIMOUSINE', 'CHARLESTON', 'MONOCLE', 'CIGARILLO', 'BIBLIOTHEQUE', 'TESTAMENT'];
 
@@ -162,19 +210,19 @@ export const GROUPES = {
     },
     vue: (d, role) => (role === 0 ? { molette: d.molette, chiffre: d.i + 1, chiffres: d.code.length } : { clic: ecartMolette(d.molette, d.code[d.i]) <= N(d, [3, 2, 1]), chiffre: d.i + 1, chiffres: d.code.length }),
   },
-  vannes: {
-    nom: 'Purger les canalisations', n: 2, roles: ['Vannes A', 'Vannes B'],
-    consignes: ['Ouvrez les vannes dans l\'ordre (1, 2, 3…) à vous deux : annoncez vos numéros !', 'Ouvrez les vannes dans l\'ordre (1, 2, 3…) à vous deux : annoncez vos numéros !'],
-    init: (now, nv) => { const t = [4, 4, 6][nv], n = melange(Array.from({ length: t }, (_, i) => i + 1)); return { total: t, a: [n.slice(0, t / 2).sort((x, y) => x - y), n.slice(t / 2).sort((x, y) => x - y)], ouvertes: 0 }; },
+  canalisations: {
+    nom: 'Réparer les canalisations', n: 2, roles: ['Tuyaux de gauche', 'Tuyaux de droite'],
+    consignes: ['Fais pivoter les tuyaux de ta moitié (à gauche) ; ton partenaire tourne l\'autre moitié. Faites couler l\'eau de 💧 à 🛁 !', 'Fais pivoter les tuyaux de ta moitié (à droite) ; ton partenaire tourne l\'autre moitié. Faites couler l\'eau de 💧 à 🛁 !'],
+    init: (now, nv) => grilleTuyaux([3, 4, 5][nv]),
     action(d, role, a) {
-      if (a.op !== 'ouvrir') return;
-      const v = Number(a.v);
-      if (!d.a[role].includes(v) || v <= d.ouvertes) return;
-      if (v !== d.ouvertes + 1) { d.ouvertes = 0; return 'Mauvais ordre : la pression a tout refermé !'; }
-      d.ouvertes = v;
-      return v === (d.total || 4) ? 'reussi' : undefined;
+      if (a.op !== 'tourner') return;
+      const i = Math.floor(Number(a.i));
+      if (!(i >= 0 && i < d.n * d.n)) return;
+      if ((i % d.n < Math.ceil(d.n / 2) ? 0 : 1) !== role) return 'Ce tuyau est dans l\'autre moitié : c\'est à ton partenaire de le tourner.';
+      d.cases[i].rot = (d.cases[i].rot + 1) % 4;
+      return eauTuyaux(d).ok ? 'reussi' : undefined;
     },
-    vue: (d, role) => ({ vannes: d.a[role], ouvertes: d.ouvertes, total: d.total || 4 }),
+    vue: (d, role) => ({ n: d.n, cases: d.cases, plein: eauTuyaux(d).plein, entree: d.entree, sortie: d.sortie, coupe: Math.ceil(d.n / 2) }),
   },
   volets: {
     nom: 'Fermer les lourds volets', n: 2, roles: ['Battant gauche', 'Battant droit'],
@@ -258,4 +306,5 @@ export function tirer(n, { solo = true, groupe = true, chanceSolo = 50 } = {}) {
   const prendreSolo = solo && (!groupe || Math.random() * 100 < chanceSolo);
   return prendreSolo ? { id: def.solo, groupe: false } : { id: def.groupe, groupe: true };
 }
+GROUPES.vannes = GROUPES.canalisations; // anciennes parties en cours
 export const nomTache = t => (t.groupe ? GROUPES[t.id].nom : SOLOS[t.id].nom);

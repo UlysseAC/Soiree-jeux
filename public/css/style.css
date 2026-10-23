@@ -841,6 +841,7 @@ button.pion.choix:disabled { opacity: .4; }
 .tz-tuyau { aspect-ratio: 1; padding: 0; border-radius: 8px; border: 1px solid var(--line); background: var(--panel2); transition: transform .12s; }
 .tz-tuyau svg { width: 100%; height: 100%; fill: none; stroke: #8f8578; stroke-width: 22; stroke-linecap: square; }
 .tz-tuyau.eau svg { stroke: #4fa3e7; }
+.tz-tuyau.autre { opacity: .45; }
 .tz-entree, .tz-sortie { position: absolute; transform: translateY(-50%); font-size: 20px; }
 .tz-entree { left: -26px; } .tz-sortie { right: -26px; }
 .tz-lit { position: relative; border-radius: 14px; background: repeating-linear-gradient(90deg, #efe6d6, #efe6d6 20px, #e6dccb 20px, #e6dccb 40px); touch-action: none; }

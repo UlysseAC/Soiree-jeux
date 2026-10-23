@@ -6,7 +6,7 @@ import * as T from '../server/games/taches.js';
 
 function setup(n = 6) {
   let t = 1_800_000_000_000;
-  const cfg = { ...E.defaultConfig(), panne: false };
+  const cfg = { ...E.defaultConfig(), panne: false, armesJoueurs: false };
   const names = {};
   const pids = Array.from({ length: n }, (_, i) => { names['p' + i] = 'J' + i; return 'p' + i; });
   const ctx = { now: () => t, cfg, name: p => names[p] ?? '?', sfx: () => {} };
@@ -44,7 +44,7 @@ test('tâche solo réussie : l\'indice de la salle, puis une nouvelle tâche ; p
 
 test('tâche à plusieurs : lancer, rejoindre, rôles ; réussite = un indice pour chacun ; quitter la salle annule', () => {
   const { g, ctx } = setup();
-  g.taches[6] = { id: 'vannes', groupe: true, params: {} };
+  g.taches[6] = { id: 'canalisations', groupe: true, params: {} };
   placer(ctx, g, 's6', 'p0', 'p1', 'p2');
   assert.equal(act(ctx, g, 'p0', { type: 'tacheReussie' }).ok, false, 'pas en solo');
   assert.equal(act(ctx, g, 'p0', { type: 'tacheLancer' }).ok, true);
@@ -54,15 +54,18 @@ test('tâche à plusieurs : lancer, rejoindre, rôles ; réussite = un indice po
   const v0 = E.playerView(ctx, g, 'p0').tache, v1 = E.playerView(ctx, g, 'p1').tache;
   assert.equal(v0.etat, 'jeu');
   assert.deepEqual([v0.role, v1.role], [0, 1]);
-  const qui = num => ([...v0.vue.vannes].includes(num) ? 'p0' : 'p1');
-  assert.match(act(ctx, g, qui(2), { type: 'tache', op: 'ouvrir', v: 2 }).msg, /Mauvais ordre/);
-  for (const num of [1, 2, 3]) assert.equal(act(ctx, g, qui(num), { type: 'tache', op: 'ouvrir', v: num }).ok, true);
-  const r = act(ctx, g, qui(4), { type: 'tache', op: 'ouvrir', v: 4 });
+  const d = g.sessions.s6.data, n = d.n, moitie = i => (i % n < Math.ceil(n / 2) ? 0 : 1);
+  assert.match(act(ctx, g, ['p0', 'p1'][1 - moitie(0)], { type: 'tache', op: 'tourner', i: 0 }).msg, /autre moitié/);
+  // chacun tourne les tuyaux de sa moitié jusqu'à la bonne orientation
+  let r = { ok: false };
+  for (let i = 0; i < n * n && !r.indice; i++) {
+    for (let q = 0; q < 3 && d.cases[i].rot !== d.sol[i] && !r.indice; q++) r = act(ctx, g, ['p0', 'p1'][moitie(i)], { type: 'tache', op: 'tourner', i });
+  }
   assert.ok(r.indice);
   assert.equal(g.joueurs.p0.indices + g.joueurs.p1.indices, 2, 'chacun son indice');
   assert.equal(g.sessions.s6, undefined);
   // annulation en changeant de salle
-  g.taches[6] = { id: 'vannes', groupe: true, params: {} };
+  g.taches[6] = { id: 'canalisations', groupe: true, params: {} };
   act(ctx, g, 'p2', { type: 'tacheLancer' });
   placer(ctx, g, 's6', 'p3');
   act(ctx, g, 'p3', { type: 'tacheRejoindre' });

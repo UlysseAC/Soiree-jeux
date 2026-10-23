@@ -44,7 +44,7 @@ Pour obtenir l'indice d'une salle, il faut réussir la tâche de cette salle. Le
   - lampes : 6 / 10 / 14 s à tenir ;
   - soufflé : fenêtre de 1,3 / 0,9 / 0,6 s ;
   - coffre : 2 / 3 / 4 chiffres ;
-  - vannes : 4 / 4 / 6 vannes ;
+  - canalisations (duo) : grille de 3 × 3, 4 × 4 ou 5 × 5 ;
   - volets : 2 / 3 / 4 fenêtres, à 0,7 / 0,5 / 0,35 s près.
 
 ## Les 11 salles et leurs 22 tâches
@@ -59,7 +59,7 @@ La liste des salles se règle dans l'admin, dans cet ordre. Chaque tâche est li
 | 4 | 🕰️ Salon | **Remonter la pendule.** Faire des cercles pour tendre le ressort jusqu'à la zone verte, sans la dépasser : au-delà, le ressort casse et on recommence. | **Lampes à pétrole** (duo). Chacun a son curseur, et la flamme est la somme des deux. Il faut garder la flamme dans la zone, qui bouge, pendant 10 s, en se parlant. |
 | 5 | 🍳 Cuisine | **Fourneau à charbon.** Glisser vers le haut pour pelleter. Le feu refroidit tout seul : il faut le garder 3 s dans la zone rouge. | **Le soufflé** (duo). J1 voit le soufflé monter et crie « maintenant ! ». J2, qui ne voit que la porte du four, le sort au bon moment. |
 | 6 | 🗄️ Bureau | **Machine à écrire.** Recopier un mot sur un clavier ancien avant la fin du temps. | **Coffre-fort** (duo, molette). J1 tourne la molette. J2 voit le « clic » quand le bon chiffre passe et dit stop. Il y a 3 chiffres. |
-| 7 | 🛁 Salle de bain | **Réparer la tuyauterie.** Une grille 4 × 4 de tuyaux : toucher un tuyau le fait pivoter, jusqu'à ce que l'eau coule de l'entrée à la sortie. | **Purger les canalisations** (duo, vannes en chaîne). 4 vannes numérotées sont réparties entre les deux joueurs, et chacun ne voit que les siennes. Il faut les ouvrir dans l'ordre 1, 2, 3, 4 en s'annonçant ; une erreur referme tout. |
+| 7 | 🛁 Salle de bain | **Réparer la tuyauterie.** Une grille 4 × 4 de tuyaux : toucher un tuyau le fait pivoter, jusqu'à ce que l'eau coule de l'entrée à la sortie. | **Réparer les canalisations** (duo). La même grille de tuyaux est partagée : chacun ne peut faire pivoter que les tuyaux de sa moitié (gauche ou droite), mais voit toute la grille et l'eau avancer. Il faut se coordonner pour que l'eau coule de l'entrée à la sortie. |
 | 8 | 🛏️ Chambre | **Faire le lit.** Effacer les 5 plis du drap en glissant le doigt horizontalement. | **Fermer les lourds volets** (duo). Les deux glissent en même temps, à une demi-seconde près, sur 3 fenêtres de suite. |
 | 9 | 📦 Grenier | **Épousseter la malle.** Frotter jusqu'à ce qu'elle soit propre. | **Radio à galène** (duo). J1 règle la fréquence grossière, J2 la fine. Seul J2 voit l'onde et guide J1 à la voix. Il faut tenir l'onde alignée 3 s. |
 | 10 | 📚 Bibliothèque | **Encyclopédies.** Faire glisser les tomes pour les remettre dans l'ordre I à VI. | **Porte secrète** (trio). J1 et J2 maintiennent chacun leur levier. Tant que les deux leviers sont baissés, le code s'affiche sur la tablette de la salle, et J3 le tape. |
