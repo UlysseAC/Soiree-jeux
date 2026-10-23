@@ -560,7 +560,8 @@ function eqSecret(g) {
     poison: `Empoisonne une personne de ta salle : elle mourra dans 0 à ${t.effet} salles qu'elle visitera, sans le savoir.`,
     tir: 'Tue n\'importe qui de ton étage, mais le coup de feu s\'entend : tout le monde saura de quel étage il vient.',
   }[t.type];
-  if (!t.armeRecup) h += `<p style="margin:0">Tu as caché <strong>${esc(t.arme)}</strong> dans : <strong>${esc(t.cache)}</strong>. Va scanner cette salle pour la récupérer.</p>`;
+  if (!t.armeRecup && t.recrue) h += `<p style="margin:0">Ton complice t'a entraîné dans le crime : tu es tueur. Il te faut une arme : ramasse-en une qui traîne dans une salle, elle servira alors comme arme de tueur.</p>`;
+  else if (!t.armeRecup) h += `<p style="margin:0">Tu as caché <strong>${esc(t.arme)}</strong> dans : <strong>${esc(t.cache)}</strong>. Va scanner cette salle pour la récupérer.</p>`;
   else {
     h += `<p class="muted" style="margin:0;font-size:13px">${ICONE} ${esc(t.arme)} : ${REGLE}</p>`;
     if (t.type === 'piege') h += `<p style="margin:0">Cordes : <strong>${t.cordes}</strong>${t.piegeIci ? ' · un piège est déjà tendu ici' : ''}</p>`;
@@ -589,11 +590,35 @@ function eqArme(g) {
     else if (!g.salle) h += '<p style="margin:0">Scanne une salle pour t\'en servir.</p>';
     else if (!A.dispo) h += '<p style="margin:0">Tu ne peux plus t\'en servir dans cette salle : quitte-la pour recharger.</p>';
     else if (A.attente) h += `<p style="margin:0">Prêt dans <span class="mono" data-until="${A.attente}"></span>.</p>`;
+    else if (g.secret?.recrue) h += '<p class="muted" style="margin:0;font-size:13px">En tant que tueur, utilise ton panneau secret (🌀 Souvenirs).</p>';
     else if (!g.presents.length) h += '<p style="margin:0">Personne d\'autre dans la salle.</p>';
     else h += `<div class="pions">${g.presents.filter(p => !p.barre).map(p => `<button class="pion choix" data-act="eqViser" data-cible="${esc(p.pid)}" data-nom="${esc(p.name)}">${ICO[A.type]} ${esc(p.name)}</button>`).join('')}</div>`;
     h += '</div>';
   }
   return h;
+}
+
+// Les complices : le bouton apparaît une fois l'info du Bureau reçue ; on cherche des traces dans deux salles, puis on échange une carte.
+function eqComplice(g) {
+  const c = g.complice;
+  if (!c) return '';
+  let h = '';
+  if (c.chercher) h += `<div class="card accent"><p style="margin:0">🕵️ ${c.chercher === 'jeu' ? 'Des traces de ton complice dans cette salle…' : 'Un registre traîne ici : il parle de ton complice…'}</p><button class="btn primary" data-act="eqChercher">🔎 Chercher</button></div>`;
+  if (!ui.eqComp) return h + `<button class="btn sm" data-act="eqComp" style="align-self:flex-end">🤝 Complice${c.pret ? ' ✓' : ''}</button>`;
+  h += `<div class="card"><div class="row" style="justify-content:space-between"><strong>🤝 Ton complice</strong><button class="btn sm" data-act="eqComp">Cacher</button></div>
+    <p style="margin:0">${c.jeu ? '✓' : '○'} Quel personnage est ton complice ? <span class="muted">(salle de jeu)</span></p>
+    <p style="margin:0">${c.grenier ? '✓' : '○'} Quel joueur l'incarne ? <span class="muted">(grenier)</span></p>`;
+  if (c.pret) h += `<p style="margin:0">Ton complice : <strong>${esc(c.nom)}</strong>, qui joue <strong>${esc(c.perso)}</strong>.</p>`;
+  if (c.mort) h += '<p class="muted" style="margin:0">Ton complice est mort.</p>';
+  else if (c.fait) h += '<p style="margin:0">🤝 Vous avez échangé une carte.</p>';
+  else if (c.pret && !c.ici) h += '<p class="muted" style="margin:0">Retrouve-le dans la même salle pour échanger une carte chacun.</p>';
+  else if (c.ici) {
+    h += c.monChoix ? `<p style="margin:0">Tu donnes : <strong>${esc(c.monChoix.nom)}</strong> ${c.sonChoix ? '' : '· en attente de ton complice…'}</p>`
+      : `<p style="margin:0">Vous êtes ensemble : choisis la carte que tu lui donnes${c.sonChoix ? ' (il a déjà choisi la sienne)' : ''}.</p>`;
+    h += `<div class="pions">${g.main.map(m => `<button class="pion choix" data-act="eqEchanger" data-carte="${esc(m.id)}" aria-pressed="${c.monChoix?.id === m.id}">${esc(m.nom)}</button>`).join('')}</div>`;
+  }
+  if (c.peutRecruter) h += '<button class="btn danger" data-act="eqRecruter">😈 Rendre mon complice tueur</button>';
+  return h + '</div>';
 }
 
 function eqAccuser(g) {
@@ -642,6 +667,7 @@ function enquete(g) {
   if (g.menaceur) h += `<div class="card center">🗡️ Tu menaces ${esc(g.menaceur.a)} : il doit te donner une carte.</div>`;
   if (g.assomme) h += `<div class="card danger center">${g.liens === 'corde' ? '🪢 Tes mains sont liées' : '💫 Tu es assommé'} : tu ne peux pas quitter la salle (<span class="mono" data-until="${g.assomme}"></span>).</div>`;
   h += eqArme(g);
+  h += eqComplice(g);
   if (g.secret) h += eqSecret(g);
   h += eqRepondre(g);
   ui.eqTab ??= 'salle';
@@ -674,6 +700,10 @@ app.addEventListener('click', e => {
     if (!confirm(`Viser ${nomV} ?`)) return;
     act({ type: 'tuer', cible: t.dataset.cible }).then(() => { ui.eqSecret = false; draw(); });
   }
+  if (a === 'eqComp') { ui.eqComp = !ui.eqComp; draw(); }
+  if (a === 'eqChercher') act({ type: 'complice', op: 'chercher' });
+  if (a === 'eqEchanger') act({ type: 'complice', op: 'echanger', carte: t.dataset.carte });
+  if (a === 'eqRecruter') { if (confirm('Rendre ton complice tueur ?')) act({ type: 'complice', op: 'recruter' }); }
   if (a === 'eqRamasser') act({ type: 'ramasser' });
   if (a === 'eqPoserArme') act({ type: 'poserArme' });
   if (a === 'eqDonner') act({ type: 'donner', carte: t.dataset.carte });

@@ -55,6 +55,11 @@ export function defaultConfig() {
     penaliteOubli: 30, // immobilisé ce temps s'il scanne une autre salle sans avoir quitté la sienne (s)
     rejoindreEnCours: true, // un joueur peut rejoindre la partie déjà lancée, avec un personnage qui n'est joué par personne
     liensSalles: true, // l'admin peut copier des liens permanents vers chaque salle (ils marchent sans scanner la tablette)
+    complices: true, // chaque joueur a un complice, à retrouver grâce à des indices (Bureau, Salle de jeu, Grenier)
+    sallesComplices: { bureau: 'Bureau', jeu: 'Salle de jeu', grenier: 'Grenier' }, // noms des salles (comme dans la liste des salles)
+    texteBureauComplice: "Dans les tiroirs du bureau, des lettres et des photos : vous avez tous un complice dans cette maison. Retrouve le tien : cherche dans la salle de jeu et au grenier.",
+    texteJeuComplice: 'Sous le tapis vert, une carte griffonnée : ton complice est {complice}.',
+    texteGrenierComplice: 'Dans une vieille malle, un registre : {complice} est incarné par {joueur}.',
     ficheNumerique: false, // fiche de détective sur le téléphone (sinon, sur papier)
     indicesParSalle: 3, // indices par joueur et par salle (au plus 3 : les 3 indices écrits de la salle)
     indicesFinale: 3, // pendant la phase finale
@@ -194,7 +199,80 @@ export function start(ctx, pids) {
   ordre.forEach((p, i) => {
     g.joueurs[p] = { perso: `p${i}`, main: mains[p], salle: null, indices: 0, pris: {}, accuse: null, nextAsk: 0, last: null, vus: {}, elimines: [], coches: [] };
   });
+  apparier(g, ordre);
   return g;
+}
+
+// ---------- les complices ----------
+// Deux par deux (un trio en cercle si le nombre de joueurs est impair). Chacun doit retrouver le sien grâce à des indices :
+// le Bureau annonce qu'il y a des complices, la Salle de jeu donne le personnage du complice, le Grenier le joueur qui l'incarne ;
+// ensuite, dans la même salle, ils échangent une carte chacun. Un tueur peut y recruter son complice.
+function apparier(g, pids) {
+  const o = shuffle(pids), n = o.length;
+  if (n < 2) return;
+  const reste = n % 2 ? 3 : 0;
+  for (let i = 0; i + 1 < n - reste; i += 2) { g.joueurs[o[i]].complice = o[i + 1]; g.joueurs[o[i + 1]].complice = o[i]; }
+  if (reste) { const t = o.slice(-3); t.forEach((p, i) => { g.joueurs[p].complice = t[(i + 1) % 3]; }); }
+  for (const p of pids) g.joueurs[p].comp = { debloque: false, jeu: false, grenier: false, choix: null, fait: false };
+}
+const nomSalle = x => String(x ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+// La salle (s0, s1…) qui porte ce nom dans la liste des salles, ou null.
+const salleNommee = (g, nomCherche) => deType(g, 'salle').find(s => nomSalle(nom(g, s)) === nomSalle(nomCherche)) ?? null;
+const sallesComp = (ctx, g) => ({ bureau: salleNommee(g, ctx.cfg.sallesComplices?.bureau), jeu: salleNommee(g, ctx.cfg.sallesComplices?.jeu), grenier: salleNommee(g, ctx.cfg.sallesComplices?.grenier) });
+const compPret = J => !!(J.comp && J.comp.jeu && J.comp.grenier);
+// Le complice de p est-il en jeu et prêt à le retrouver ? Chacun doit avoir fait sa propre enquête s'il désigne l'autre.
+function peutSeRetrouver(g, p, q) {
+  const P = g.joueurs[p], Q = g.joueurs[q];
+  if (!P || !Q || P.mort || Q.mort || !P.salle || P.salle !== Q.salle) return false;
+  if (P.complice !== q && Q.complice !== p) return false;
+  return (P.complice !== q || compPret(P)) && (Q.complice !== p || compPret(Q));
+}
+const texteComplice = (ctx, g, p, texte) => {
+  const c = g.joueurs[p].complice;
+  return String(texte ?? '').replace(/\{complice\}/g, c ? nom(g, g.joueurs[c].perso) : '?').replace(/\{joueur\}/g, c ? ctx.name(c) : '?');
+};
+function complice(ctx, g, p, a) {
+  const J = g.joueurs[p], C = J.complice && g.joueurs[J.complice];
+  if (!ctx.cfg.complices || !J.comp || !C) return err('Tu n\'as pas de complice.');
+  const sa = sallesComp(ctx, g);
+  if (a.op === 'chercher') {
+    if (!J.comp.debloque) return err('Tu ne sais pas encore que tu as un complice.');
+    const cle = J.salle === sa.jeu ? 'jeu' : J.salle === sa.grenier ? 'grenier' : null;
+    if (!cle) return err('Ce n\'est pas ici que tu trouveras des traces de ton complice.');
+    if (J.comp[cle]) return err('Tu as déjà trouvé ce qu\'il y avait ici.');
+    J.comp[cle] = true;
+    const texte = texteComplice(ctx, g, p, cle === 'jeu' ? ctx.cfg.texteJeuComplice : ctx.cfg.texteGrenierComplice);
+    (J.notes ??= []).unshift({ t: ctx.now(), salle: J.salle, texte: `🤝 ${texte}` });
+    return { ok: true, msg: `🤝 ${texte}`, indice: texte };
+  }
+  if (a.op === 'echanger') {
+    if (J.comp.fait) return err('Vous avez déjà échangé une carte.');
+    if (!peutSeRetrouver(g, p, J.complice) && !peutSeRetrouver(g, J.complice, p)) return err('Tu dois être dans la même salle que ton complice, après avoir trouvé qui il est.');
+    if (!J.main.includes(a.carte)) return err('Choisis une de tes cartes.');
+    J.comp.choix = a.carte;
+    if (C.comp?.choix && !C.comp.fait && C.salle === J.salle) { // les deux ont choisi : chacun reçoit la carte de l'autre
+      const recus = { [p]: C.comp.choix, [J.complice]: J.comp.choix };
+      for (const [x, carte, de] of [[p, C.comp.choix, J.complice], [J.complice, J.comp.choix, p]]) {
+        const X = g.joueurs[x];
+        (X.vus[carte] ??= []).includes(de) || X.vus[carte].push(de);
+        (X.notes ??= []).unshift({ t: ctx.now(), salle: X.salle, texte: `🤝 Ton complice t'a donné : « ${nom(g, carte)} ».` });
+        X.comp.fait = true; X.comp.choix = null;
+      }
+      return ok(`🤝 Échange fait : ton complice t'a donné « ${nom(g, recus[p])} ».`);
+    }
+    return ok('Carte choisie : l\'échange se fera quand ton complice aura choisi la sienne.');
+  }
+  if (a.op === 'recruter') {
+    if (!J.tueur?.actif) return err('Action inconnue.');
+    if (J.tueur.recrute) return err('Tu as déjà recruté ton complice.');
+    if (C.tueur) return err('Ton complice est déjà tueur.');
+    if (!peutSeRetrouver(g, p, J.complice) && !peutSeRetrouver(g, J.complice, p)) return err('Tu dois être dans la même salle que ton complice, après l\'avoir retrouvé.');
+    J.tueur.recrute = J.complice;
+    C.tueur = { actif: true, recrue: true, cache: null, arme: false, pret: 0, usage: null, victimes: 0, at: ctx.now() };
+    (C.notes ??= []).unshift({ t: ctx.now(), salle: C.salle, texte: '🩸 Ton complice t\'a entraîné dans le crime : tu es désormais tueur. Il te faut une arme : ramasse-en une dans une salle.' });
+    return ok(`😈 ${ctx.name(J.complice)} est maintenant tueur. Il doit trouver une arme.`);
+  }
+  return err('Action inconnue.');
 }
 
 // L'admin lance l'enquête après le texte d'introduction.
@@ -275,7 +353,7 @@ function reussir(ctx, g, s, pids) {
     const J = g.joueurs[p];
     if (!J || J.salle !== s) continue;
     const t = [];
-    if (!aIndice(ctx, g, p, s)) { const r = indice(ctx, g, p, true); if (r.ok) t.push(r.indice); }
+    if (!aIndice(ctx, g, p, s)) { const r = indice(ctx, g, p, true); if (r.ok) { t.push(r.indice); if (r.complice) t.push(`🤝 ${r.complice}`); } }
     if (ctx.cfg.armesJoueurs && !J.arme && Math.random() * 100 < (ctx.cfg.chanceArmeTache ?? 0)) {
       const i = pick(armesNoms(g));
       donnerArme(ctx, g, p, i);
@@ -475,7 +553,15 @@ function indice(ctx, g, p, parTache = false) {
   J.indices++;
   for (const c of r.elimines) if (!J.elimines.includes(c)) J.elimines.push(c);
   (J.notes ??= []).unshift({ t: ctx.now(), salle: s, texte: r.texte });
-  return { ok: true, msg: `💡 ${r.texte}`, indice: r.texte };
+  const res = { ok: true, msg: `💡 ${r.texte}`, indice: r.texte };
+  // le Bureau annonce qu'il y a des complices (en plus de l'indice) : le bouton « Complice » apparaît
+  if (ctx.cfg.complices && J.comp && !J.comp.debloque && J.complice && s === sallesComp(ctx, g).bureau) {
+    J.comp.debloque = true;
+    const texte = texteComplice(ctx, g, p, ctx.cfg.texteBureauComplice);
+    (J.notes ??= []).unshift({ t: ctx.now(), salle: s, texte: `🤝 ${texte}` });
+    res.msg += `\n🤝 ${texte}`; res.complice = texte;
+  }
+  return res;
 }
 
 // ---------- le tueur actif et les corps ----------
@@ -489,10 +575,12 @@ export function typeArme(n) {
   if (/chandelier|matraque|club|anglaise|marteau/.test(x)) return 'assomme';
   return 'tranche';
 }
-function armeTueur(ctx, g) {
-  const i = Number(String(g.solution.arme).slice(1));
+function armeTueur(ctx, g, J = null) {
+  // le tueur d'origine : l'arme du crime ; un complice recruté : l'arme qu'il a ramassée (il n'en a pas tant qu'il n'en a pas trouvé)
+  const i = J?.tueur?.recrue ? J.arme?.i : Number(String(g.solution.arme).slice(1));
+  if (i == null) return null;
   const r = { ...ARMES_REGLAGES[i % ARMES_REGLAGES.length].tueur, ...ctx.cfg.armesReglages?.[i]?.tueur };
-  return { type: typeArme(nom(g, g.solution.arme)), usage: Number(r.usage) || 0, max: Math.max(1, Number(r.max) || 1), recharge: Number(r.recharge) || 0, effet: Number(r.effet) || 0 };
+  return { type: typeArme(nom(g, `a${i}`)), usage: Number(r.usage) || 0, max: Math.max(1, Number(r.max) || 1), recharge: Number(r.recharge) || 0, effet: Number(r.effet) || 0 };
 }
 const etageDe = (ctx, g, s) => String(ctx.cfg.etages?.[Number(String(s).slice(1))] ?? '').trim() || 'Rez-de-chaussée';
 
@@ -500,7 +588,7 @@ const etageDe = (ctx, g, s) => String(ctx.cfg.etages?.[Number(String(s).slice(1)
 function quitteSalle(ctx, g, p) {
   const J = g.joueurs[p], now = ctx.now();
   if (J.tueur?.usage?.n && J.tueur.usage.salle === J.salle) {
-    J.tueur.pret = now + armeTueur(ctx, g).recharge * 1000;
+    J.tueur.pret = now + (armeTueur(ctx, g, J)?.recharge || 0) * 1000;
     J.tueur.usage = null;
   }
   if (J.arme?.usage?.n && J.arme.usage.salle === J.salle) {
@@ -536,7 +624,8 @@ function delaiRefus(T, J, arm, now) {
 }
 function peutServir(ctx, g, J, arm, now) {
   const T = J.tueur;
-  if (!T.arme) return `Va d'abord chercher ${nom(g, g.solution.arme)} dans : ${nom(g, T.cache)}.`;
+  if (T.recrue && !J.arme) return 'Tu n\'as pas d\'arme : ramasse-en une dans une salle (il en apparaît de temps en temps).';
+  if (!T.recrue && !T.arme) return `Va d'abord chercher ${nom(g, g.solution.arme)} dans : ${nom(g, T.cache)}.`;
   return delaiRefus(T, J, arm, now);
 }
 function aServi(J, now, T = J.tueur) {
@@ -554,7 +643,8 @@ const bruit = (ctx, g, etage) => {
 function tuer(ctx, g, p, cible) {
   const J = g.joueurs[p], C = g.joueurs[cible], now = ctx.now();
   if (!J.tueur?.actif) return err('Action inconnue.');
-  const arm = armeTueur(ctx, g);
+  const arm = armeTueur(ctx, g, J);
+  if (!arm) return err('Tu n\'as pas d\'arme : ramasse-en une dans une salle (il en apparaît de temps en temps).');
   if (arm.type === 'piege') return err('Avec une corde, on pose un piège.');
   const refus = peutServir(ctx, g, J, arm, now);
   if (refus) return err(refus);
@@ -585,10 +675,11 @@ function tuer(ctx, g, p, cible) {
 function poserPiege(ctx, g, p) {
   const J = g.joueurs[p], now = ctx.now();
   if (!J.tueur?.actif) return err('Action inconnue.');
-  const arm = armeTueur(ctx, g);
-  if (arm.type !== 'piege') return err('Action inconnue.');
+  const arm = armeTueur(ctx, g, J);
+  if (!arm || arm.type !== 'piege') return err('Action inconnue.');
   const refus = peutServir(ctx, g, J, arm, now);
   if (refus) return err(refus);
+  if (J.tueur.recrue && J.tueur.cordes === undefined) J.tueur.cordes = arm.effet;
   if (!(J.tueur.cordes > 0)) return err('Tu n\'as plus de corde : récupère-la sur un cadavre.');
   g.pieges ??= {};
   if (g.pieges[J.salle]) return err('Un piège est déjà tendu ici.');
@@ -629,6 +720,7 @@ function poserArme(ctx, g, p) {
 function viser(ctx, g, p, cible) {
   const J = g.joueurs[p], C = g.joueurs[cible], now = ctx.now();
   if (!J.arme) return err('Tu n\'as pas d\'arme.');
+  if (J.tueur?.recrue) return err('Utilise ton panneau de tueur (🌀 Souvenirs).');
   const arm = armeJoueur(ctx, g, J.arme.i), n = nom(g, `a${J.arme.i}`);
   const refus = delaiRefus(J.arme, J, arm, now);
   if (refus) return err(refus);
@@ -811,6 +903,7 @@ export function playerAction(ctx, g, p, a) {
   }
 
   if (a.type === 'corps') return trouverCorps(ctx, g, p, a);
+  if (a.type === 'complice') return J.salle ? complice(ctx, g, p, a) : err('Scanne d\'abord le QR code de la salle où tu es.');
   if (a.type === 'donner') return donner(ctx, g, p, a.carte);
   if (J.bloque > now) return err(`Tu es immobilisé encore ${Math.ceil((J.bloque - now) / 1000)} s.`);
   if (!J.salle) return err('Scanne d\'abord le QR code de la salle où tu es.');
@@ -938,12 +1031,28 @@ export function ajouterJoueur(ctx, g, p) {
   // son personnage est une carte comme les autres : il la tient en main (sinon personne ne la détiendrait)
   const main = [`p${i}`, ...shuffle(Object.keys(g.cartes).filter(c => !sol.has(c) && c !== `p${i}`)).slice(0, 2)];
   g.joueurs[p] = { perso: `p${i}`, main, salle: null, indices: 0, pris: {}, accuse: null, nextAsk: 0, last: null, vus: {}, elimines: [], coches: [] };
+  g.joueurs[p].comp = { debloque: false, jeu: false, grenier: false, choix: null, fait: false };
+  const autres = Object.keys(g.joueurs).filter(x => x !== p && !g.joueurs[x].mort);
+  if (autres.length) g.joueurs[p].complice = pick(autres); // l'autre n'a pas forcément ce nouveau joueur pour complice : l'échange se fait dans les deux sens
   if (g.panne && g.phase === 'panne') { g.panne.salles[p] = pick(deType(g, 'salle')); g.panne.codes[p] = String(Math.floor(1000 + Math.random() * 9000)); }
   return { ok: true, detail: nom(g, `p${i}`) };
 }
 
 // ---------- vues ----------
 const carteVue = (g, id) => ({ id, ...g.cartes[id] });
+function complicesVue(ctx, g, p) {
+  const J = g.joueurs[p], C = J.complice && g.joueurs[J.complice];
+  if (!ctx.cfg.complices || !J.comp?.debloque || !C) return null;
+  const sa = sallesComp(ctx, g), pret = compPret(J), ici = peutSeRetrouver(g, p, J.complice) || peutSeRetrouver(g, J.complice, p);
+  return {
+    jeu: J.comp.jeu, grenier: J.comp.grenier, pret, mort: !!C.mort,
+    chercher: !J.comp.jeu && J.salle === sa.jeu ? 'jeu' : !J.comp.grenier && J.salle === sa.grenier ? 'grenier' : null,
+    nom: pret ? ctx.name(J.complice) : null, perso: pret ? nom(g, C.perso) : null,
+    ici: pret && ici, fait: J.comp.fait, monChoix: J.comp.choix ? carteVue(g, J.comp.choix) : null, sonChoix: !!C.comp?.choix,
+    peutRecruter: !!J.tueur?.actif && !J.tueur.recrute && !C.tueur && ici,
+    recrutee: !!J.tueur?.recrute, recrue: !!J.tueur?.recrue,
+  };
+}
 function monArme(ctx, g, p, now) {
   const J = g.joueurs[p], A = J.arme, arm = armeJoueur(ctx, g, A.i), u = A.usage && A.usage.salle === J.salle ? A.usage : null;
   return {
@@ -952,13 +1061,13 @@ function monArme(ctx, g, p, now) {
   };
 }
 function secretTueur(ctx, g, p, now) {
-  const J = g.joueurs[p], T = J.tueur, arm = armeTueur(ctx, g), u = T.usage && T.usage.salle === J.salle ? T.usage : null;
+  const J = g.joueurs[p], T = J.tueur, arm = armeTueur(ctx, g, J) || { type: 'tranche', usage: 0, max: 1, recharge: 0, effet: 0 }, u = T.usage && T.usage.salle === J.salle ? T.usage : null;
   const vivants = Object.keys(g.joueurs).filter(x => x !== p && !g.joueurs[x].mort);
   const ici = vivants.filter(x => J.salle && g.joueurs[x].salle === J.salle);
   const cibles = (arm.type === 'tir' ? vivants.filter(x => g.joueurs[x].salle && J.salle && etageDe(ctx, g, g.joueurs[x].salle) === etageDe(ctx, g, J.salle)) : ici)
     .map(x => ({ pid: x, name: ctx.name(x), indices: g.joueurs[x].indices, assomme: g.joueurs[x].assomme > now, salle: arm.type === 'tir' && g.joueurs[x].salle !== J.salle ? nom(g, g.joueurs[x].salle) : '' }));
   return {
-    arme: nom(g, g.solution.arme), type: arm.type, cache: nom(g, T.cache), armeRecup: T.arme, victimes: T.victimes || 0,
+    arme: T.recrue ? (J.arme ? nom(g, `a${J.arme.i}`) : '') : nom(g, g.solution.arme), type: arm.type, cache: T.recrue ? '' : nom(g, T.cache), armeRecup: T.recrue ? !!J.arme : T.arme, recrue: !!T.recrue, victimes: T.victimes || 0,
     pret: T.pret > now ? T.pret : 0, attente: u && u.last + arm.usage * 1000 > now ? u.last + arm.usage * 1000 : 0, reste: u ? Math.max(0, arm.max - u.n) : arm.max,
     max: arm.max, cordes: T.cordes || 0, effet: arm.effet, piegeIci: !!g.pieges?.[J.salle], etage: J.salle ? etageDe(ctx, g, J.salle) : '', cibles,
   };
@@ -1011,6 +1120,7 @@ export function playerView(ctx, g, p) {
     quitteA: J.quitteA > now ? J.quitteA : 0,
     secondeChance: !!J.secondeChance,
     // panneau secret du tueur actif
+    complice: complicesVue(ctx, g, p),
     assomme: J.assomme > now ? J.assomme : 0, liens: J.assommeType || 'assomme',
     armeIci: J.salle && g.armesSol?.[J.salle] != null ? { nom: nom(g, `a${g.armesSol[J.salle]}`), type: typeJoueur(g, g.armesSol[J.salle]) } : null,
     monArme: J.arme ? monArme(ctx, g, p, now) : null,
@@ -1070,6 +1180,7 @@ export function adminView(ctx, g) {
     liste: Object.entries(g.joueurs).map(([p, J]) => ({
       pid: p, name: ctx.name(p), perso: carteVue(g, J.perso), main: J.main.map(c => nom(g, c)), salle: J.salle ? nom(g, J.salle) : null,
       panne: g.phase === 'panne' ? { salle: nom(g, g.panne.salles[p]), entre: g.panne.entres.includes(p) } : null,
+      complice: J.complice ? ctx.name(J.complice) : null, comp: J.comp ? { debloque: J.comp.debloque, jeu: J.comp.jeu, grenier: J.comp.grenier, fait: J.comp.fait } : null,
       indices: J.indices, accuse: J.accuse ? (J.accuse.tueur ? 'tueur' : J.accuse.juste ? 'juste' : 'fausse') : null, mort: !!J.mort, tueurActif: !!J.tueur, victimes: J.tueur?.victimes || 0,
     })).sort((a, b) => a.name.localeCompare(b.name, 'fr')),
     attente: g.questions.filter(q => q.etat === 'attente').map(q => ({ de: ctx.name(q.de), a: ctx.name(q.a), salle: nom(g, q.salle) })),
