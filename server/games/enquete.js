@@ -19,8 +19,9 @@ export const PERSOS_AVANT = ['Le Majordome', 'La Comtesse', 'Le Docteur', 'Le Co
 export const ARMES_1930 = ['Poignard', 'Chandelier', 'Revolver', 'Corde', 'Clé anglaise', 'Matraque', 'Poison', 'Fusil de chasse', 'Club de Golf', 'Hache'].join('\n');
 // Réglages d'une arme, pour le tueur et pour un joueur : délai entre deux victimes dans la même salle (s), nombre maximum de victimes
 // par passage dans une salle, délai de rechargement une fois la salle quittée (s) et effet (selon l'arme : assommé en s, cordes, salles de poison).
-const reg = (effet, tueur = {}) => ({ tueur: { usage: 20, max: 2, recharge: 180, effet, ...tueur }, joueur: { usage: 30, max: 1, recharge: 240, effet } });
-export const ARMES_REGLAGES = [reg(0), reg(60), reg(0, { usage: 60, max: 1 }), reg(2), reg(60), reg(60), reg(3), reg(0, { usage: 60, max: 1 }), reg(60), reg(0)];
+// Joueur : effet = durée (s) d'assommé ou de mains liées ; nombre = cordes que porte le joueur.
+const reg = (eTueur, eJoueur, tueur = {}) => ({ tueur: { usage: 20, max: 2, recharge: 180, effet: eTueur, ...tueur }, joueur: { usage: 30, max: 1, recharge: 240, effet: eJoueur, nombre: 2 } });
+export const ARMES_REGLAGES = [reg(0, 0), reg(60, 60), reg(0, 0, { usage: 60, max: 1 }), reg(2, 60), reg(60, 60), reg(60, 60), reg(3, 0), reg(0, 0, { usage: 60, max: 1 }), reg(60, 60), reg(0, 0)];
 export const ARMES_AVANT = ['Couteau', 'Corde', 'Chandelier', 'Revolver', 'Poison', 'Clé anglaise', 'Matraque'].join('\n');
 // Ancienne liste par défaut (avant les tâches) : remplacée par celle du manoir si elle n'a pas été modifiée.
 export const SALLES_AVANT = ['Cuisine', 'Salon', 'Salle à manger', 'Bibliothèque', 'Bureau', 'Chambre', 'Salle de bain', 'Entrée', 'Jardin', 'Cave', 'Grenier'].join('\n');
@@ -44,6 +45,10 @@ export function defaultConfig() {
     chanceSolo: 50, // chance (%) que la salle tire sa tâche solo plutôt que celle à plusieurs
     difficulte: 'normal', // facile | normal | difficile
     etages: ['Sous-sol', 'Sous-sol', 'Rez-de-chaussée', 'Rez-de-chaussée', 'Rez-de-chaussée', 'Rez-de-chaussée', 'Rez-de-chaussée', 'Étage', 'Étage', 'Étage', 'Étage'], // étage de chaque salle (armes à feu : même étage)
+    armesJoueurs: true, // des armes traînent dans les salles (et s'obtiennent en réussissant une tâche) : les joueurs s'en servent entre eux
+    chanceArmeTache: 25, // chance (%) de trouver une arme en réussissant une tâche
+    apparitionArme: 150, // une arme apparaît dans une salle toutes les … s
+    delaiMenace: 60, // une personne menacée doit donner une carte dans ce temps (s), sinon une carte est donnée au hasard
     armesReglages: ARMES_REGLAGES, // une entrée par arme (dans l'ordre des armes) : { tueur, joueur } = { usage, max, recharge, effet }
     panne: true, // début de partie : les plombs ont sauté, chacun va réparer dans sa salle (sinon l'enquête démarre tout de suite)
     delaiQuitter: 10, // après « Quitter la salle », le joueur reste dans la salle ce temps (s)
@@ -252,6 +257,11 @@ function reussir(ctx, g, s, pids) {
     if (!J || J.salle !== s) continue;
     const t = [];
     while (!aIndice(ctx, g, p, s)) { const r = indice(ctx, g, p, true); if (!r.ok) break; t.push(r.indice); }
+    if (ctx.cfg.armesJoueurs && !J.arme && Math.random() * 100 < (ctx.cfg.chanceArmeTache ?? 0)) {
+      const i = pick(armesNoms(g));
+      donnerArme(ctx, g, p, i);
+      t.push(`🎁 Tu trouves une arme : ${nom(g, `a${i}`)} !`);
+    }
     textes[p] = t;
   }
   const n = Number(s.slice(1));
@@ -319,6 +329,16 @@ export function tick(ctx, g) {
     if (se.etat !== 'jeu' || !def.tick) continue;
     const avant = JSON.stringify(se.data.code ?? null);
     if (def.tick(se.data, now) === 'reussi') { reussir(ctx, g, s, se.joueurs); changed = true; } else if (JSON.stringify(se.data.code ?? null) !== avant) changed = true;
+  }
+  for (const m of g.menaces || []) if (m.etat === 'attente' && now >= m.fin) { remettreCarte(ctx, g, m, pick(g.joueurs[m.a].main)); changed = true; }
+  if (ctx.cfg.armesJoueurs && g.phase !== 'intro') {
+    g.prochaineArme ||= now + (ctx.cfg.apparitionArme ?? 150) * 1000;
+    if (now >= g.prochaineArme) {
+      g.prochaineArme = now + (ctx.cfg.apparitionArme ?? 150) * 1000;
+      g.armesSol ??= {};
+      const libres = deType(g, 'salle').filter(sl => g.armesSol[sl] == null);
+      if (libres.length && Object.keys(g.armesSol).length < Math.max(2, Math.ceil(g.nbSalles / 3))) { g.armesSol[pick(libres)] = pick(armesNoms(g)); changed = true; }
+    }
   }
   if (g.phase === 'enquete' && g.finaleAt && now >= g.finaleAt) changed = finale(ctx, g) || changed;
   if (now >= g.endsAt) { terminer(ctx, g); changed = true; }
@@ -405,6 +425,7 @@ function indice(ctx, g, p, parTache = false) {
     const brut = tueur ? 'Un souvenir précis te revient : « {carte} » n\'a rien à voir avec le crime.' : modeles.length ? pick(modeles) : "« {carte} » n'a rien à voir avec le crime.";
     r = remplir(g, p, brut, g.phase === 'finale' || tueur ? 2 : 1);
   }
+  if (J.aveugle) { J.aveugle = false; r = { texte: '☠️ Le texte est illisible : tes yeux te brûlent… (le poison a abîmé ta vue)', elimines: [] }; }
   J.pris[s] = deja + 1;
   J.indices++;
   for (const c of r.elimines) if (!J.elimines.includes(c)) J.elimines.push(c);
@@ -437,6 +458,10 @@ function quitteSalle(ctx, g, p) {
     J.tueur.pret = now + armeTueur(ctx, g).recharge * 1000;
     J.tueur.usage = null;
   }
+  if (J.arme?.usage?.n && J.arme.usage.salle === J.salle) {
+    J.arme.pret = now + armeJoueur(ctx, g, J.arme.i).recharge * 1000;
+    J.arme.usage = null;
+  }
   if (J.poison && J.poison.restant <= 0 && J.salle && !J.mort) mettreAMort(ctx, g, J.poison.par, p, { poison: true });
 }
 
@@ -444,6 +469,7 @@ function mettreAMort(ctx, g, tueurId, cible, extra = {}) {
   const C = g.joueurs[cible], now = ctx.now();
   C.mort = { at: now, salle: C.salle, par: tueurId, jeton: randomBytes(4).toString('hex'), trouvePar: [], ...extra };
   C.assomme = 0; C.poison = null;
+  for (const m of g.menaces || []) if (m.etat === 'attente' && (m.a === cible || m.de === cible)) m.etat = 'annulee';
   quitterSession(g, cible);
   for (const q of g.questions) if (q.etat === 'attente' && (q.a === cible || q.de === cible)) q.etat = 'annulee';
   const T = g.joueurs[tueurId];
@@ -453,10 +479,8 @@ function mettreAMort(ctx, g, tueurId, cible, extra = {}) {
   if (!g.finished && tueurs.length && Object.keys(g.joueurs).every(x => g.joueurs[x].tueur || g.joueurs[x].mort)) terminer(ctx, g, tueurs[0]);
 }
 
-// L'arme est-elle utilisable maintenant, dans cette salle ?
-function peutServir(ctx, g, J, arm, now) {
-  const T = J.tueur;
-  if (!T.arme) return `Va d'abord chercher ${nom(g, g.solution.arme)} dans : ${nom(g, T.cache)}.`;
+// Délais d'une arme (tueur ou joueur) : T porte l'état { pret, usage }.
+function delaiRefus(T, J, arm, now) {
   if (now < (T.pret || 0)) return `Ton arme recharge : encore ${Math.ceil((T.pret - now) / 1000)} s.`;
   const u = T.usage;
   if (u && u.salle === J.salle) {
@@ -465,8 +489,12 @@ function peutServir(ctx, g, J, arm, now) {
   }
   return null;
 }
-function aServi(J, now) {
+function peutServir(ctx, g, J, arm, now) {
   const T = J.tueur;
+  if (!T.arme) return `Va d'abord chercher ${nom(g, g.solution.arme)} dans : ${nom(g, T.cache)}.`;
+  return delaiRefus(T, J, arm, now);
+}
+function aServi(J, now, T = J.tueur) {
   if (!T.usage || T.usage.salle !== J.salle) T.usage = { salle: J.salle, n: 0, last: 0 };
   T.usage.n++; T.usage.last = now;
 }
@@ -498,6 +526,7 @@ function tuer(ctx, g, p, cible) {
   }
   if (arm.type === 'assomme' && !(C.assomme > now)) {
     C.assomme = now + (arm.effet || 60) * 1000;
+    C.assommeType = 'assomme';
     C.quitteA = 0;
     aServi(J, now);
     return ok(`${ctx.name(cible)} est assommé et reste dans la salle ${arm.effet || 60} s. Un deuxième coup le tuera.`);
@@ -523,6 +552,82 @@ function poserPiege(ctx, g, p) {
   aServi(J, now);
   return ok('Piège tendu : la prochaine personne qui entrera ici sera prise.');
 }
+// ---------- les armes des joueurs (pénalités entre joueurs) ----------
+// Selon le nom : poignard, hache, revolver, fusil = menace (donne une carte) ; chandelier, matraque, club, clé anglaise = assomme ;
+// corde = mains liées ; poison = le prochain indice est illisible.
+const typeJoueur = (g, i) => ({ tranche: 'menace', tir: 'menace', assomme: 'assomme', piege: 'corde', poison: 'poison' })[typeArme(nom(g, `a${i}`))];
+function armeJoueur(ctx, g, i) {
+  const r = { ...ARMES_REGLAGES[i % ARMES_REGLAGES.length].joueur, ...ctx.cfg.armesReglages?.[i]?.joueur };
+  return { type: typeJoueur(g, i), usage: Number(r.usage) || 0, max: Math.max(1, Number(r.max) || 1), recharge: Number(r.recharge) || 0, effet: Number(r.effet) || 0, nombre: Math.max(1, Number(r.nombre) || 1) };
+}
+function donnerArme(ctx, g, p, i) {
+  g.joueurs[p].arme = { i, reste: armeJoueur(ctx, g, i).type === 'corde' ? armeJoueur(ctx, g, i).nombre : 0, usage: null, pret: 0 };
+}
+const armesNoms = g => deType(g, 'arme').map(id => Number(id.slice(1)));
+function ramasser(ctx, g, p) {
+  const J = g.joueurs[p], i = g.armesSol?.[J.salle];
+  if (i == null) return err('Il n\'y a rien à ramasser ici.');
+  if (J.arme) return err('Tu as déjà une arme : pose-la d\'abord.');
+  delete g.armesSol[J.salle];
+  donnerArme(ctx, g, p, i);
+  return ok(`Tu ramasses : ${nom(g, `a${i}`)}.`);
+}
+function poserArme(ctx, g, p) {
+  const J = g.joueurs[p];
+  if (!J.arme) return err('Tu n\'as pas d\'arme.');
+  g.armesSol ??= {};
+  if (g.armesSol[J.salle] != null) return err('Il y a déjà une arme ici.');
+  g.armesSol[J.salle] = J.arme.i;
+  J.arme = null;
+  return ok('Tu poses ton arme.');
+}
+function viser(ctx, g, p, cible) {
+  const J = g.joueurs[p], C = g.joueurs[cible], now = ctx.now();
+  if (!J.arme) return err('Tu n\'as pas d\'arme.');
+  const arm = armeJoueur(ctx, g, J.arme.i), n = nom(g, `a${J.arme.i}`);
+  const refus = delaiRefus(J.arme, J, arm, now);
+  if (refus) return err(refus);
+  if (!C || cible === p || C.mort || C.salle !== J.salle) return err('Choisis quelqu\'un de ta salle.');
+  const qui = ctx.name(cible);
+  if (arm.type === 'assomme' || arm.type === 'corde') {
+    if (C.assomme > now) return err(`${qui} est déjà immobilisé.`);
+    if (arm.type === 'corde' && !(J.arme.reste > 0)) return err('Tu n\'as plus de corde.');
+    C.assomme = now + (arm.effet || 60) * 1000;
+    C.assommeType = arm.type === 'corde' ? 'corde' : 'assomme';
+    C.quitteA = 0;
+    if (arm.type === 'corde') J.arme.reste--;
+    feed(g, ctx, arm.type === 'corde' ? `🪢 ${qui} a les mains liées.` : `💫 ${qui} a été assommé.`);
+    aServi(J, now, J.arme);
+    if (arm.type === 'corde' && !J.arme.reste) J.arme = null;
+    return ok(arm.type === 'corde' ? `Tu as lié les mains de ${qui} (${arm.effet || 60} s).` : `${qui} est assommé (${arm.effet || 60} s).`);
+  }
+  if (arm.type === 'poison') {
+    if (C.aveugle) return err(`${qui} est déjà empoisonné.`);
+    C.aveugle = true; // il ne le sait pas : son prochain indice sera illisible
+    aServi(J, now, J.arme);
+    return ok(`${qui} est empoisonné : le prochain indice qu'il lira sera illisible.`);
+  }
+  g.menaces ??= [];
+  if (g.menaces.some(m => m.etat === 'attente' && m.a === cible)) return err(`${qui} est déjà menacé.`);
+  g.menaces.push({ id: `m${g.menaces.length + 1}`, de: p, a: cible, at: now, fin: now + (ctx.cfg.delaiMenace ?? 60) * 1000, etat: 'attente' });
+  C.quitteA = 0;
+  aServi(J, now, J.arme);
+  return ok(`Tu menaces ${qui} avec ${n} : il doit te donner une carte.`);
+}
+function donner(ctx, g, p, carte) {
+  const J = g.joueurs[p], m = (g.menaces || []).find(x => x.etat === 'attente' && x.a === p);
+  if (!m) return err('Personne ne te menace.');
+  if (!J.main.includes(carte)) return err('Choisis une de tes cartes.');
+  remettreCarte(ctx, g, m, carte);
+  return ok('Tu as donné ta carte.');
+}
+function remettreCarte(ctx, g, m, carte) {
+  const A = g.joueurs[m.de], C = g.joueurs[m.a];
+  m.etat = 'faite'; m.carte = carte;
+  (A.vus[carte] ??= []).includes(m.a) || A.vus[carte].push(m.a);
+  (A.notes ??= []).unshift({ t: ctx.now(), salle: A.salle, texte: `${ctx.name(m.a)} t'a donné : « ${nom(g, carte)} ».` });
+}
+
 // Scanner le QR code d'une victime : ses 3 cartes ; le 1er scan annonce le corps, le 2e innocent l'identifie.
 function trouverCorps(ctx, g, p, a) {
   const C = g.joueurs[a.victime], J = g.joueurs[p];
@@ -581,7 +686,8 @@ export function playerAction(ctx, g, p, a) {
     }
     if (s == null) return err('Code de salle incorrect ou expiré : scanne à nouveau la tablette.');
     const change = J.salle !== `s${s}`;
-    if (change && J.assomme > now) return err(`Tu es assommé : tu ne peux pas quitter la salle avant ${Math.ceil((J.assomme - now) / 1000)} s.`);
+    if (change && (g.menaces || []).some(m => m.etat === 'attente' && m.a === p)) return err('Tu es menacé : donne une carte avant de partir.');
+    if (change && J.assomme > now) return err(`Tu es immobilisé (assommé ou mains liées) : tu ne peux pas quitter la salle avant ${Math.ceil((J.assomme - now) / 1000)} s.`);
     if (J.quitteA && J.salle !== `s${s}`) return err(`Tu quittes ta salle dans ${Math.ceil((J.quitteA - now) / 1000)} s : attends la fin du chrono.`);
     let oubli = '';
     if (J.salle && J.salle !== `s${s}`) { // il fallait d'abord appuyer sur « Quitter la salle »
@@ -612,7 +718,8 @@ export function playerAction(ctx, g, p, a) {
   if (a.type === 'quitter') { // « Quitter la salle » : obligatoire avant d'aller ailleurs
     if (!J.salle) return err('Tu n\'es dans aucune salle.');
     const delai = ctx.cfg.delaiQuitter ?? 10;
-    if (J.assomme > now) return err(`Tu es assommé : tu ne peux pas quitter la salle avant ${Math.ceil((J.assomme - now) / 1000)} s.`);
+    if ((g.menaces || []).some(m => m.etat === 'attente' && m.a === p)) return err('Tu es menacé : donne une carte avant de partir.');
+    if (J.assomme > now) return err(`Tu es immobilisé (assommé ou mains liées) : tu ne peux pas quitter la salle avant ${Math.ceil((J.assomme - now) / 1000)} s.`);
     if (J.quitteA) return ok(`Tu pars dans ${Math.ceil((J.quitteA - now) / 1000)} s…`);
     if (delai <= 0) { sortir(ctx, g, p); return ok('Tu as quitté la salle. Scanne la tablette de ta prochaine salle.'); }
     J.quitteA = now + delai * 1000; // il reste dans la salle (interrogeable, visible) jusqu'à la fin du chrono
@@ -653,10 +760,14 @@ export function playerAction(ctx, g, p, a) {
   }
 
   if (a.type === 'corps') return trouverCorps(ctx, g, p, a);
+  if (a.type === 'donner') return donner(ctx, g, p, a.carte);
   if (J.bloque > now) return err(`Tu es immobilisé encore ${Math.ceil((J.bloque - now) / 1000)} s.`);
   if (!J.salle) return err('Scanne d\'abord le QR code de la salle où tu es.');
   if (a.type === 'tuer') return tuer(ctx, g, p, a.cible);
   if (a.type === 'piege') return poserPiege(ctx, g, p);
+  if (a.type === 'ramasser') return ramasser(ctx, g, p);
+  if (a.type === 'poserArme') return poserArme(ctx, g, p);
+  if (a.type === 'viser') return viser(ctx, g, p, a.cible);
 
   if (a.type === 'indice') return indice(ctx, g, p);
 
@@ -771,6 +882,13 @@ export function ajouterJoueur(ctx, g, p) {
 
 // ---------- vues ----------
 const carteVue = (g, id) => ({ id, ...g.cartes[id] });
+function monArme(ctx, g, p, now) {
+  const J = g.joueurs[p], A = J.arme, arm = armeJoueur(ctx, g, A.i), u = A.usage && A.usage.salle === J.salle ? A.usage : null;
+  return {
+    nom: nom(g, `a${A.i}`), type: arm.type, effet: arm.effet, reste: A.reste, max: arm.max, dispo: u ? Math.max(0, arm.max - u.n) : arm.max,
+    pret: A.pret > now ? A.pret : 0, attente: u && u.last + arm.usage * 1000 > now ? u.last + arm.usage * 1000 : 0,
+  };
+}
 function secretTueur(ctx, g, p, now) {
   const J = g.joueurs[p], T = J.tueur, arm = armeTueur(ctx, g), u = T.usage && T.usage.salle === J.salle ? T.usage : null;
   const vivants = Object.keys(g.joueurs).filter(x => x !== p && !g.joueurs[x].mort);
@@ -827,7 +945,11 @@ export function playerView(ctx, g, p) {
     quitteA: J.quitteA > now ? J.quitteA : 0,
     secondeChance: !!J.secondeChance,
     // panneau secret du tueur actif
-    assomme: J.assomme > now ? J.assomme : 0,
+    assomme: J.assomme > now ? J.assomme : 0, liens: J.assommeType || 'assomme',
+    armeIci: J.salle && g.armesSol?.[J.salle] != null ? { nom: nom(g, `a${g.armesSol[J.salle]}`), type: typeJoueur(g, g.armesSol[J.salle]) } : null,
+    monArme: J.arme ? monArme(ctx, g, p, now) : null,
+    menace: (() => { const m = (g.menaces || []).find(x => x.etat === 'attente' && x.a === p); return m ? { de: ctx.name(m.de), fin: m.fin, main: J.main.map(c => carteVue(g, c)) } : null; })(),
+    menaceur: (() => { const m = (g.menaces || []).find(x => x.etat === 'attente' && x.de === p); return m ? { a: ctx.name(m.a), fin: m.fin } : null; })(),
     bruit: g.bruits?.[0] && now - g.bruits[0].t < 90e3 ? g.bruits[0] : null,
     secret: J.tueur ? secretTueur(ctx, g, p, now) : null,
     nextAsk: J.nextAsk > now ? J.nextAsk : 0,

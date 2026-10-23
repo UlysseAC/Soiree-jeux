@@ -73,6 +73,11 @@ export function restore(saved) {
   if (eq && (eq.salles === enquete.SALLES_AVANT || eq.salles === enquete.SALLES_V1)) eq.salles = enquete.SALLES_1930;
   if (eq && eq.personnages === enquete.PERSOS_AVANT) eq.personnages = enquete.PERSOS_1930;
   if (eq && eq.armes === enquete.ARMES_AVANT) eq.armes = enquete.ARMES_1930;
+  // L'Enquête : réglages des armes d'un joueur, enregistrés avant que la corde et le poison aient leur propre effet.
+  if (eq?.armes === enquete.ARMES_1930 && eq.armesReglages) {
+    if (eq.armesReglages[3]?.joueur?.effet === 2) eq.armesReglages[3].joueur.effet = 60;
+    if (eq.armesReglages[6]?.joueur?.effet === 3) eq.armesReglages[6].joueur.effet = 0;
+  }
   // L'Enquête : l'ancien format d'indices (une ligne = un indice, par salle) devient les 3 emplacements de chaque salle.
   if (eq?.indices?.some(t => String(t).trim()) && eq.indicesSalles?.every(x => x.textes.every(t => !t))) {
     eq.indices.forEach((t, i) => { const l = String(t).split(/\r?\n/).map(x => x.trim()).filter(Boolean); if (eq.indicesSalles[i]) l.slice(0, 3).forEach((x, k) => { eq.indicesSalles[i].textes[k] = x; }); });

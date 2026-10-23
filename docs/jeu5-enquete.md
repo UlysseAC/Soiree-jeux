@@ -99,6 +99,21 @@ Le gagnant est premier. Les autres joueurs sont classés selon le nombre d'indic
   - **Poison** : il faut être dans la même salle. La victime ne sait rien et meurt dans 0 à N des prochaines salles qu'elle visite (N réglable, 3 par défaut).
   - **Revolver, fusil de chasse** : tue n'importe qui du même étage. Le coup de feu retentit : l'écran et tous les téléphones affichent l'étage d'où il vient. Les étages se règlent salle par salle.
 - **Délais de chaque arme** (admin, Réglages, L'Enquête, cadre « Armes »), pour le tueur : délai entre deux victimes dans la même salle, nombre maximum de victimes par passage dans une salle, rechargement une fois la salle quittée, et l'effet (durée d'assommé, cordes, salles de poison). Les mêmes réglages existent pour un joueur : ils serviront aux armes de pénalité, qui ne sont pas encore en jeu.
+
+## Les armes des joueurs
+
+Les joueurs peuvent se servir d'armes les uns contre les autres. Un joueur porte **une arme à la fois**.
+
+- **Où les trouver.**
+  - Une arme apparaît dans une salle au hasard toutes les 2 min 30 (réglable), au plus une par salle. Le premier qui appuie sur « Ramasser » la prend.
+  - Réussir une tâche donne aussi une chance (25 %, réglable) de trouver une arme.
+  - On peut reposer son arme dans une salle qui n'en contient pas.
+- **Effets** (sur une personne de la même salle) :
+  - **Poignard, hache, revolver, fusil de chasse** : une menace. La personne doit donner une carte de sa main, sans rien recevoir en retour. Elle ne peut pas quitter la salle avant de l'avoir fait. Si elle ne le fait pas dans le temps réglé (1 min), une carte au hasard est donnée.
+  - **Chandelier, matraque, club de golf, clé anglaise** : la personne est assommée et ne peut plus quitter la salle pendant une durée réglable.
+  - **Corde** : mains liées, même effet, pendant une durée réglable. Le joueur porte un nombre de cordes réglable ; sans corde, l'arme disparaît.
+  - **Poison** : la personne ne sait rien ; l'indice qu'elle lira ensuite sera illisible (il compte quand même comme pris).
+- **Délais.** Chaque arme a ses délais côté joueur (entre deux victimes dans la même salle, victimes maximum par salle, rechargement après avoir quitté la salle). Réglages dans Réglages, L'Enquête, cadre « Armes ».
   - S'il ne reste plus aucun innocent en vie, le tueur l'emporte.
 - **Victoire des autres.** Les autres gagnent toujours en accusant juste.
 

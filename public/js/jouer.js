@@ -576,6 +576,25 @@ function eqSecret(g) {
   return h + '</div>';
 }
 
+// Les armes que les joueurs ramassent : ce qui traîne dans la salle, et celle qu'on porte.
+function eqArme(g) {
+  let h = '';
+  const A = g.monArme, ICO = { menace: '🗡️', assomme: '🔨', corde: '🪢', poison: '☠️' };
+  if (g.armeIci && !A) h += `<div class="card"><p style="margin:0">${ICO[g.armeIci.type]} Une arme traîne ici : <strong>${esc(g.armeIci.nom)}</strong></p><button class="btn primary" data-act="eqRamasser">✋ Ramasser</button></div>`;
+  if (A) {
+    const REGLE = { menace: 'Menace une personne de ta salle : elle doit te donner une carte, sans rien en retour.', assomme: `Assomme une personne de ta salle : elle ne peut plus quitter la salle pendant ${A.effet || 60} s.`, corde: `Lie les mains d'une personne de ta salle (${A.effet || 60} s, elle ne peut plus partir). Cordes : ${A.reste}.`, poison: 'Empoisonne une personne de ta salle : son prochain indice sera illisible, sans qu\'elle le sache.' }[A.type];
+    h += `<div class="card"><div class="row" style="justify-content:space-between"><strong>${ICO[A.type]} ${esc(A.nom)}</strong><button class="btn sm" data-act="eqPoserArme">Poser</button></div><p class="muted" style="margin:0;font-size:13px">${REGLE}</p>`;
+    if (A.pret) h += `<p style="margin:0">Recharge : prêt dans <span class="mono" data-until="${A.pret}"></span>.</p>`;
+    else if (!g.salle) h += '<p style="margin:0">Scanne une salle pour t\'en servir.</p>';
+    else if (!A.dispo) h += '<p style="margin:0">Tu ne peux plus t\'en servir dans cette salle : quitte-la pour recharger.</p>';
+    else if (A.attente) h += `<p style="margin:0">Prêt dans <span class="mono" data-until="${A.attente}"></span>.</p>`;
+    else if (!g.presents.length) h += '<p style="margin:0">Personne d\'autre dans la salle.</p>';
+    else h += `<div class="pions">${g.presents.map(p => `<button class="pion choix" data-act="eqViser" data-cible="${esc(p.pid)}" data-nom="${esc(p.name)}">${ICO[A.type]} ${esc(p.name)}</button>`).join('')}</div>`;
+    h += '</div>';
+  }
+  return h;
+}
+
 function eqAccuser(g) {
   if (g.accuse?.juste) return '<div class="card center"><p style="margin:0">Tu as déjà fait ton accusation.</p></div>';
   if (g.accuse) return `<div class="card danger center"><p style="font-size:20px;margin:0">❌ Ton accusation était fausse.</p><p class="muted" style="margin:0">Tu ne peux plus accuser, mais continue de répondre aux questions.</p></div>`;
@@ -618,7 +637,10 @@ function enquete(g) {
   }
   if (g.bloque) h += `<div class="card danger center"><p style="margin:0;font-size:18px">⛔ Immobilisé encore <span class="mono" data-until="${g.bloque}"></span></p><p class="muted" style="margin:0">Tu as oublié d'appuyer sur « Quitter la salle ».</p></div>`;
   if (g.bruit) h += `<div class="card danger center"><strong>🔫 Un coup de feu !</strong> Il vient de l'étage « ${esc(g.bruit.etage)} ».</div>`;
-  if (g.assomme) h += `<div class="card danger center">💫 Tu es assommé : tu ne peux pas quitter la salle (<span class="mono" data-until="${g.assomme}"></span>).</div>`;
+  if (g.menace) h += `<div class="card danger"><strong>🗡️ ${esc(g.menace.de)} te menace !</strong><p style="margin:0">Donne-lui une carte, sans rien en retour (sinon une carte sera donnée au hasard dans <span class="mono" data-until="${g.menace.fin}"></span>).</p><div class="pions">${g.menace.main.map(c => `<button class="pion choix" data-act="eqDonner" data-carte="${esc(c.id)}">${esc(c.nom)}</button>`).join('')}</div></div>`;
+  if (g.menaceur) h += `<div class="card center">🗡️ Tu menaces ${esc(g.menaceur.a)} : il doit te donner une carte.</div>`;
+  if (g.assomme) h += `<div class="card danger center">${g.liens === 'corde' ? '🪢 Tes mains sont liées' : '💫 Tu es assommé'} : tu ne peux pas quitter la salle (<span class="mono" data-until="${g.assomme}"></span>).</div>`;
+  h += eqArme(g);
   if (g.secret) h += eqSecret(g);
   h += eqRepondre(g);
   ui.eqTab ??= 'salle';
@@ -651,6 +673,10 @@ app.addEventListener('click', e => {
     if (!confirm(`Viser ${nomV} ?`)) return;
     act({ type: 'tuer', cible: t.dataset.cible }).then(() => { ui.eqSecret = false; draw(); });
   }
+  if (a === 'eqRamasser') act({ type: 'ramasser' });
+  if (a === 'eqPoserArme') act({ type: 'poserArme' });
+  if (a === 'eqDonner') act({ type: 'donner', carte: t.dataset.carte });
+  if (a === 'eqViser') { if (confirm(`Utiliser ton arme sur ${t.dataset.nom} ?`)) act({ type: 'viser', cible: t.dataset.cible }); }
   if (a === 'eqPiege') act({ type: 'piege' }).then(() => { ui.eqSecret = false; draw(); });
   if (a === 'eqIndice') act({ type: 'indice' });
   if (a === 'eqTacheGo') { ui.tacheLancee = V.game.tache?.cle; draw(); }

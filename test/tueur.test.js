@@ -286,3 +286,62 @@ test('revolver : tue n\'importe qui du même étage, le coup de feu annonce l\'�
   assert.match(E.playerView(ctx, g, autre).bruit.etage, /Rez-de-chaussée/);
   assert.match(E.playerView(ctx, g, autre).notes[0].texte, /coup de feu/);
 });
+
+// ---------- les armes des joueurs ----------
+const arme = (g, nomArme) => Number(Object.keys(g.cartes).find(c => g.cartes[c].nom === nomArme).slice(1));
+const equiper = (ctx, g, p, nomArme) => { const i = arme(g, nomArme); g.joueurs[p].arme = { i, reste: nomArme === 'Corde' ? 2 : 0, usage: null, pret: 0 }; };
+
+test('armes de joueur : apparition dans les salles, ramasser, poser', () => {
+  const { g, ctx, innocents, avance } = setup();
+  ctx.cfg.apparitionArme = 100;
+  avance(1); avance(101e3);
+  const [salle, i] = Object.entries(g.armesSol)[0];
+  placer(ctx, g, salle, innocents[0], innocents[1]);
+  assert.ok(E.playerView(ctx, g, innocents[0]).armeIci);
+  assert.equal(act(ctx, g, innocents[0], { type: 'ramasser' }).ok, true);
+  assert.equal(act(ctx, g, innocents[1], { type: 'ramasser' }).ok, false, 'une seule personne la prend');
+  assert.equal(E.playerView(ctx, g, innocents[0]).monArme.nom, g.cartes[`a${i}`].nom);
+  assert.equal(act(ctx, g, innocents[0], { type: 'poserArme' }).ok, true);
+  assert.equal(g.armesSol[salle], Number(i));
+});
+
+test('armes de joueur : menace = donner une carte (ou carte au hasard au bout du temps), sans rien en retour', () => {
+  const { g, ctx, innocents, avance } = setup();
+  const [a, b] = innocents;
+  placer(ctx, g, 's1', a, b);
+  equiper(ctx, g, a, 'Hache');
+  assert.equal(act(ctx, g, a, { type: 'viser', cible: b }).ok, true);
+  assert.ok(E.playerView(ctx, g, b).menace);
+  assert.match(act(ctx, g, b, { type: 'quitter' }).msg, /menacé/);
+  const carte = g.joueurs[b].main[0];
+  assert.equal(act(ctx, g, b, { type: 'donner', carte: g.joueurs[a].main.find(c => !g.joueurs[b].main.includes(c)) ?? 'zz' }).ok, false, 'une de ses cartes');
+  assert.equal(act(ctx, g, b, { type: 'donner', carte }).ok, true);
+  assert.ok(g.joueurs[a].vus[carte].includes(b));
+  assert.equal(Object.keys(g.joueurs[b].vus).length, 0, 'rien en retour');
+  avance(30e3); g.joueurs[a].arme.usage = null; g.joueurs[a].arme.pret = 0;
+  act(ctx, g, a, { type: 'viser', cible: b });
+  avance(61e3);
+  assert.equal(g.menaces.at(-1).etat, 'faite', 'carte donnée au hasard');
+});
+
+test('armes de joueur : chandelier assomme, corde lie les mains (cordes limitées), poison brouille le prochain indice', () => {
+  const { g, ctx, innocents, avance } = setup();
+  ctx.cfg.sallesPropres = 0; g.propres = [];
+  const [a, b, c] = innocents;
+  placer(ctx, g, 's1', a, b, c);
+  equiper(ctx, g, a, 'Chandelier');
+  assert.equal(act(ctx, g, a, { type: 'viser', cible: b }).ok, true);
+  assert.match(act(ctx, g, b, { type: 'quitter' }).msg, /immobilisé/);
+  avance(61e3);
+  assert.equal(act(ctx, g, b, { type: 'quitter' }).ok, true);
+  equiper(ctx, g, a, 'Corde');
+  assert.equal(act(ctx, g, a, { type: 'viser', cible: c }).ok, true);
+  assert.equal(E.playerView(ctx, g, c).liens, 'corde');
+  assert.equal(g.joueurs[a].arme.reste, 1);
+  equiper(ctx, g, a, 'Poison');
+  assert.equal(act(ctx, g, a, { type: 'viser', cible: c }).ok, true);
+  avance(61e3);
+  const r = act(ctx, g, c, { type: 'indice' });
+  assert.match(r.msg, /illisible/);
+  assert.equal(g.joueurs[c].aveugle, false);
+});
