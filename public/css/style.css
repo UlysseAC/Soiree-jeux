@@ -898,3 +898,5 @@ input.tz-large { width: 100%; height: 40px; accent-color: var(--accent); }
 .tz-levier.bas { background: #2e5a37; border-color: var(--ok); }
 .tz-code { display: flex; gap: 8px; }
 .tz-code input { font: 700 26px var(--mono); letter-spacing: .3em; text-align: center; }
+
+.tz-qr-corps { width: min(70vw, 280px); height: auto; background: #fff; border-radius: 12px; padding: 8px; align-self: center; }

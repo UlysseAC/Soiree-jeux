@@ -345,7 +345,7 @@ function partieEnquete(g) {
   h += `<div class="box"><h2>Enquêteurs (${g.liste.length})</h2><div class="scroll"><table><thead><tr><th>Joueur</th><th>Personnage</th><th>Cartes</th><th>Salle</th><th>Indices</th><th>Accusation</th></tr></thead><tbody>${g.liste.map(p => `<tr>
       <td>${nm(p.name)}</td><td>${!vu ? '<span class="muted">•••</span>' : g.phase === 'intro' && !g.finished ? `<select class="in" data-eqperso="${p.pid}" style="width:auto">${g.persos.map(x => `<option value="${x.id}" ${x.id === p.perso.id ? 'selected' : ''}>${esc(x.nom)}</option>`).join('')}</select>` : esc(p.perso.nom)}</td><td class="muted">${vu ? p.main.map(esc).join(', ') : '•••'}</td>
       <td><select class="in" data-eqplacer="${p.pid}" style="width:auto">${p.salle ? '' : '<option value="">—</option>'}${g.salles.map(s => `<option value="${s.id}" ${s.nom === p.salle ? 'selected' : ''}>${esc(s.nom)}</option>`).join('')}</select></td>
-      <td class="mono">${p.indices}</td><td>${p.accuse === 'juste' ? '<span class="pill ok">juste</span>' : p.accuse === 'fausse' ? '<span class="pill danger">fausse</span>' : ''}</td></tr>`).join('')}</tbody></table></div>
+      <td class="mono">${p.indices}</td><td>${p.mort ? '<span class="pill danger">💀 assassiné</span> ' : ''}${p.accuse === 'fausse' ? '<span class="pill danger">fausse</span>' : p.accuse === 'juste' ? '<span class="pill ok">juste</span>' : p.accuse === 'tueur' && vu ? `<span class="pill danger">🔪 tueur actif · ${p.victimes} victime(s)</span>` : p.accuse === 'tueur' ? '<span class="pill">a accusé</span>' : ''}</td></tr>`).join('')}</tbody></table></div>
     <p class="muted" style="margin:0;font-size:14px">Un QR code ne passe pas ? Choisis la salle du joueur ici.</p></div>`;
   h += `<div class="box"><h2>En direct</h2><div class="feed">${g.feed.map(f => `<div><time>${hhmm(f.t)}</time><span>${esc(f.text)}</span></div>`).join('')}</div></div>`;
   return h;
@@ -404,7 +404,8 @@ function reglagesEnquete(c) {
     ${eqReglagesTaches(c, salles)}
     <div class="box"><h2>Temps et règles</h2><div class="grid-auto">
       ${cfgInput('ficheNumerique', c.ficheNumerique, 'bool', { label: 'Fiche de détective sur le téléphone (sinon papier)' })}
-      ${d('dureeMax', 'Durée max de l\'enquête')}${d('finaleApres', 'Phase finale au bout de (0:00 = à la main)')}${d('delaiQuestion', 'Délai entre deux questions')}${d('delaiReponse', 'Temps pour montrer une carte')}
+      ${d('dureeMax', 'Durée max de l\'enquête')}
+      ${d('rechargeArme', 'Tueur : temps entre deux meurtres')}${d('penaliteOubli', 'Immobilisé si on oublie « Quitter la salle »')}${d('finaleApres', 'Phase finale au bout de (0:00 = à la main)')}${d('delaiQuestion', 'Délai entre deux questions')}${d('delaiReponse', 'Temps pour montrer une carte')}
       ${n('rotationQr', 'QR code changé toutes les … s (0 = fixe)')}${n('indicesParSalle', 'Indices par salle et par joueur')}${n('indicesFinale', 'Indices par salle en phase finale')}
     </div></div>
     <div class="box"><h2>Indices des tablettes</h2>

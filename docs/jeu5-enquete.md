@@ -67,3 +67,32 @@ Les indices s'écrivent dans **Réglages → L'Enquête → Indices des tablette
 ## Classement de la soirée
 
 Le gagnant est premier. Les autres joueurs sont classés selon le nombre d'indices obtenus. Les points vont de 90 pour le 1er à 15 pour le dernier, et se règlent dans l'onglet Classement.
+
+## Le tueur
+
+- **Avant de savoir.** Le joueur dont le personnage est dans la solution est le tueur, sans le savoir. Ses souvenirs sont plus précis : chacun de ses indices automatiques innocente 2 cartes, et jamais d'indice flou.
+- **S'accuser.**
+  - S'il s'accuse lui-même et que l'accusation est entièrement juste, la partie **ne s'arrête pas**. Il devient **tueur actif** en secret, et rien ne s'affiche à l'écran.
+  - Son téléphone lui révèle la salle où il a caché l'arme de la solution.
+  - Si seul son personnage est juste, il a **une seconde chance**, et son téléphone le lui explique.
+- **Récupérer l'arme.** Il scanne la salle de la cachette, ce qui lui rend son arme discrètement.
+- **Le panneau secret.** Le bouton « 🌀 Souvenirs », fermé par défaut, montre :
+  - sa cachette ;
+  - si son arme est prête ;
+  - les joueurs de sa salle, avec leur nombre d'indices.
+- **Tuer.**
+  - Il choisit une victime **dans sa salle**. C'est une règle provisoire, qui sera adaptée à chaque arme.
+  - Il doit ensuite attendre le temps de recharge (3 min, réglable).
+  - S'il ne reste plus aucun innocent en vie, le tueur l'emporte.
+- **Victoire des autres.** Les autres gagnent toujours en accusant juste.
+
+## Les corps
+
+- **La victime** est éliminée. Elle reste où elle est, et son téléphone affiche un QR code.
+- **Fouiller le corps.** Chaque joueur peut scanner ce QR code une fois, ce qui lui montre les 3 cartes de la victime. Elles sont aussi gardées dans son onglet Indices.
+- **Le premier scan** affiche à l'écran : « Un corps a été trouvé dans : Cuisine ».
+- **Au deuxième scan par un innocent**, l'écran révèle la victime et son personnage. Le scan du tueur, qui fait semblant, ne compte pas.
+
+## Quitter la salle
+
+Avant d'aller ailleurs, chaque joueur doit appuyer sur **« Quitter la salle »**. S'il scanne une autre salle sans l'avoir fait, il est **immobilisé 30 s** (réglable) : il ne peut ni interroger, ni faire de tâche, ni demander d'indice.

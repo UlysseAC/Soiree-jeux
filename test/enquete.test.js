@@ -15,7 +15,7 @@ function setup(n = 12, tweak = c => c) {
 }
 // code de la salle du moment, comme sur la tablette
 const code = (ctx, g, n) => E.salleView(ctx, g, n).code;
-const entrer = (ctx, g, p, n) => E.playerAction(ctx, g, p, { type: 'entrer', salle: n, code: code(ctx, g, n) });
+const entrer = (ctx, g, p, n) => { E.playerAction(ctx, g, p, { type: 'quitter' }); return E.playerAction(ctx, g, p, { type: 'entrer', salle: n, code: code(ctx, g, n) }); };
 
 test('cartes : 11 salles, autant de personnages que de joueurs, 7 armes ; solution hors des mains ; 3 cartes chacun, 2 joueurs au plus par carte', () => {
   for (const n of [12, 14]) {

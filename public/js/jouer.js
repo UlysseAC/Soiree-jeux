@@ -443,7 +443,15 @@ const eqOptions = (liste, val, vide) => `<option value="">${vide}</option>${list
 // QR code d'une tablette scanné : /jouer?salle=3&c=4821 → le téléphone entre dans la salle (une seule fois).
 const EQ_SCAN = (() => { const q = new URLSearchParams(location.search); return q.has('c') ? { salle: q.get('salle'), code: q.get('c') } : null; })();
 let eqScan = EQ_SCAN;
+let eqCorps = (() => { const q = new URLSearchParams(location.search); return q.has('corps') ? { victime: q.get('corps'), c: q.get('k') } : null; })();
 function eqEntrer() {
+  if (eqCorps && V?.gameId === 'enquete' && V.game && !V.game.spectator && V.game.phase !== 'intro') {
+    const c = eqCorps;
+    eqCorps = null;
+    history.replaceState(null, '', location.pathname + (TEL_TEST ? '?test' : ''));
+    act({ type: 'corps', ...c }).then(() => { ui.eqTab = 'indices'; draw(); });
+    return;
+  }
   if (!eqScan || V?.gameId !== 'enquete' || !V.game || V.game.spectator) return;
   const s = eqScan;
   eqScan = null;
@@ -463,13 +471,13 @@ function eqRepondre(g) {
 
 function eqSalle(g) {
   let h = '';
-  if (!g.salle || ui.eqCode) {
+  if (!g.salle) {
     h += `<div class="card center"><p style="font-size:18px;margin:0">📷 Scanne le QR code de la tablette de la salle où tu es.</p>
       <p class="muted" style="margin:0">Ou tape le code à 4 chiffres affiché dessous :</p></div>${pad('salle', 'Entrer')}`;
-    if (g.salle) h += `<button class="btn" data-act="eqCodeNon">Rester dans : ${esc(g.salle.nom)}</button>`;
     return h;
   }
-  h += `<div class="card"><div class="row" style="justify-content:space-between"><span style="font-size:20px">📍 <strong>${esc(g.salle.nom)}</strong></span><button class="btn sm" data-act="eqCode">Changer de salle</button></div>
+  h += `<div class="card"><div class="row" style="justify-content:space-between"><span style="font-size:20px">📍 <strong>${esc(g.salle.nom)}</strong></span><button class="btn sm" data-act="eqQuitter">🚪 Quitter la salle</button></div>
+    <p class="muted" style="margin:0;font-size:13px">Avant d'aller ailleurs, appuie sur « Quitter la salle » (sinon tu seras immobilisé).</p>
     <div class="label">Avec toi</div><div class="pions">${g.presents.map(p => `<span class="pion">${esc(p.name)}</span>`).join('') || '<span class="muted">Personne</span>'}</div></div>`;
   // indice de la salle : par sa tâche (si l'admin a activé les tâches), sinon en le demandant à la tablette
   if (g.tache) h += eqTache(g.tache);
@@ -538,10 +546,27 @@ function eqFiche(g) {
     + groupe('Personnages', g.persos) + groupe('Armes', g.armes) + groupe('Salles', g.salles);
 }
 
+// Le tueur actif : un panneau discret (fermé par défaut) avec sa cachette, son arme, et les victimes possibles de sa salle.
+function eqSecret(g) {
+  const t = g.secret;
+  if (!ui.eqSecret) return '<button class="btn sm" data-act="eqSecret" style="align-self:flex-end">🌀 Souvenirs</button>';
+  let h = `<div class="card danger"><div class="row" style="justify-content:space-between"><strong>🩸 C'était toi.</strong><button class="btn sm" data-act="eqSecret">Cacher</button></div>
+    <p class="muted" style="margin:0;font-size:13px">Continue de faire semblant d'enquêter. Personne ne doit voir cet écran.</p>`;
+  if (!t.armeRecup) h += `<p style="margin:0">Tu as caché <strong>${esc(t.arme)}</strong> dans : <strong>${esc(t.cache)}</strong>. Va scanner cette salle pour la récupérer.</p>`;
+  else if (t.recharge) h += `<p style="margin:0">${esc(t.arme)} : prêt dans <span class="mono" data-until="${t.recharge}"></span>.</p>`;
+  else if (!g.salle) h += `<p style="margin:0">${esc(t.arme)} est prêt. Scanne une salle pour trouver une victime.</p>`;
+  else if (!g.presents.length) h += `<p style="margin:0">${esc(t.arme)} est prêt, mais tu es seul dans la salle.</p>`;
+  else h += `<p style="margin:0">${esc(t.arme)} est prêt. Victime dans cette salle :</p><div class="pions">${[...g.presents].sort((a, b) => (b.indices || 0) - (a.indices || 0)).map(p => `<button class="pion choix" data-act="eqTuer" data-cible="${esc(p.pid)}" data-nom="${esc(p.name)}">🔪 ${esc(p.name)} <small class="pion-perso">${p.indices || 0} 💡</small></button>`).join('')}</div>`;
+  if (t.victimes) h += `<p class="muted" style="margin:0">Victimes : ${t.victimes}</p>`;
+  return h + '</div>';
+}
+
 function eqAccuser(g) {
+  if (g.accuse?.juste) return '<div class="card center"><p style="margin:0">Tu as déjà fait ton accusation.</p></div>';
   if (g.accuse) return `<div class="card danger center"><p style="font-size:20px;margin:0">❌ Ton accusation était fausse.</p><p class="muted" style="margin:0">Tu ne peux plus accuser, mais continue de répondre aux questions.</p></div>`;
   const a = ui.eqAcc || {};
   return `<div class="card"><p style="margin:0">Tu penses avoir trouvé ? <strong>Une seule accusation</strong> par joueur : si elle est juste, tu gagnes l'enquête ; sinon, tu ne pourras plus accuser.</p>
+    ${g.secondeChance ? '<p class="muted" style="margin:0">Ton premier essai t\'a laissé un souvenir flou : tu as eu ta seconde chance.</p>' : ''}
     <select class="in" id="eq-acc-perso">${eqOptions(g.persos, a.perso, 'Qui ?')}</select>
     <select class="in" id="eq-acc-arme">${eqOptions(g.armes, a.arme, 'Avec quoi ?')}</select>
     <select class="in" id="eq-acc-salle">${eqOptions(g.salles, a.salle, 'Où ?')}</select>
@@ -562,6 +587,15 @@ function enquete(g) {
   }
   if (g.phase === 'intro') return h + `<div class="card center"><p style="font-size:20px;margin:0">Tu es <strong>${esc(g.moi.nom)}</strong>.</p><p class="muted" style="margin:0">Regarde l'écran : l'enquête va commencer.</p></div>` + main;
   h += `<div class="row" style="justify-content:space-between"><span class="muted">⏳ <span class="mono" data-until="${g.endsAt}"></span></span>${g.phase === 'finale' ? '<span class="pill accent">⚡ Phase finale : indices doublés</span>' : ''}</div>`;
+  if (g.mort) {
+    const lien = `${location.origin}${SJ.base}/jouer?corps=${encodeURIComponent(g.mort.victime)}&k=${encodeURIComponent(g.mort.jeton)}`;
+    return h + `<div class="card danger center"><div class="huge">💀</div><p style="font-size:22px;margin:0">Tu as été assassiné dans : ${esc(g.mort.salle)}.</p>
+      <p style="margin:0">Reste où tu es, sans rien dire. Quand on te trouve, montre ce QR code : les enquêteurs le scannent pour fouiller tes poches (tes cartes).</p>
+      <img class="tz-qr-corps" src="/qr.svg?d=${encodeURIComponent(lien)}" alt="QR code du corps" width="280" height="280">
+      <p class="muted" style="margin:0">Corps fouillé ${g.mort.trouve} fois.</p></div>`;
+  }
+  if (g.bloque) h += `<div class="card danger center"><p style="margin:0;font-size:18px">⛔ Immobilisé encore <span class="mono" data-until="${g.bloque}"></span></p><p class="muted" style="margin:0">Tu as oublié d'appuyer sur « Quitter la salle ».</p></div>`;
+  if (g.secret) h += eqSecret(g);
   h += eqRepondre(g);
   ui.eqTab ??= 'salle';
   const tabs = [['salle', g.salle ? '📍 Salle' : '📷 Salle'], ['indices', `💡 Indices (${g.notes.length})`], ...(g.fiche ? [['fiche', '📋 Fiche']] : []), ['accuser', '⚖️ Accuser']];
@@ -586,8 +620,13 @@ app.addEventListener('click', e => {
   if (t.dataset.eqcocher) return act({ type: 'cocher', carte: t.dataset.eqcocher });
   if (t.dataset.eqmontrer) return act({ type: 'montrer', q: t.dataset.eqmontrer, carte: t.dataset.carte });
   const a = t.dataset.act;
-  if (a === 'eqCode') { ui.eqCode = true; draw(); }
-  if (a === 'eqCodeNon') { ui.eqCode = false; draw(); }
+  if (a === 'eqQuitter') act({ type: 'quitter' });
+  if (a === 'eqSecret') { ui.eqSecret = !ui.eqSecret; draw(); }
+  if (a === 'eqTuer') {
+    const nomV = t.dataset.nom;
+    if (!confirm(`Assassiner ${nomV} ?`)) return;
+    act({ type: 'tuer', cible: t.dataset.cible }).then(() => { ui.eqSecret = false; draw(); });
+  }
   if (a === 'eqIndice') act({ type: 'indice' });
   if (a === 'eqTacheGo') { ui.tacheLancee = V.game.tache?.cle; draw(); }
   if (a === 'eqTacheLancer') act({ type: 'tacheLancer' });
