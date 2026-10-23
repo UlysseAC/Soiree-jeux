@@ -98,17 +98,30 @@ test('plus aucun innocent en vie : le tueur l\'emporte', () => {
   assert.equal(g.winner, tueur);
 });
 
-test('« Quitter la salle » obligatoire : scanner une autre salle sans quitter = immobilisé', () => {
+test('« Quitter la salle » : chrono pendant lequel on reste dans la salle ; oublier = immobilisé', () => {
   const { g, ctx, innocents, avance } = setup();
-  const p = innocents[0];
+  const p = innocents[0], q = innocents[1];
   act(ctx, g, p, { type: 'entrer', salle: 1, code: code(ctx, g, 1) });
+  act(ctx, g, q, { type: 'entrer', salle: 1, code: code(ctx, g, 1) });
+  assert.equal(ctx.cfg.delaiQuitter, 10);
   assert.equal(act(ctx, g, p, { type: 'quitter' }).ok, true);
+  assert.equal(g.joueurs[p].salle, 's1', 'il reste dans la salle pendant le chrono');
+  assert.ok(E.salleView(ctx, g, 1).joueurs.some(j => j.name === ctx.name(p)));
+  assert.ok(E.playerView(ctx, g, p).quitteA > 0);
+  assert.match(act(ctx, g, p, { type: 'entrer', salle: 2, code: code(ctx, g, 2) }).msg, /attends la fin du chrono/);
+  avance(9000);
+  assert.equal(g.joueurs[p].salle, 's1');
+  avance(1500);
   assert.equal(g.joueurs[p].salle, null);
+  assert.ok(!E.salleView(ctx, g, 1).joueurs.some(j => j.name === ctx.name(p)));
+  // délai réglable (0 = tout de suite)
+  ctx.cfg.delaiQuitter = 0;
+  act(ctx, g, q, { type: 'quitter' });
+  assert.equal(g.joueurs[q].salle, null);
+  // scanner une autre salle sans avoir appuyé sur « Quitter » : immobilisé
   act(ctx, g, p, { type: 'entrer', salle: 2, code: code(ctx, g, 2) });
   const r = act(ctx, g, p, { type: 'entrer', salle: 3, code: code(ctx, g, 3) });
-  assert.equal(r.ok, false);
   assert.match(r.msg, /oublié de quitter/);
-  assert.equal(g.joueurs[p].salle, 's3');
   assert.match(act(ctx, g, p, { type: 'indice' }).msg, /immobilisé/);
   avance(ctx.cfg.penaliteOubli * 1000);
   assert.equal(act(ctx, g, p, { type: 'indice' }).ok, true);

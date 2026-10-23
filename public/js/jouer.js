@@ -476,7 +476,7 @@ function eqSalle(g) {
       <p class="muted" style="margin:0">Ou tape le code à 4 chiffres affiché dessous :</p></div>${pad('salle', 'Entrer')}`;
     return h;
   }
-  h += `<div class="card"><div class="row" style="justify-content:space-between"><span style="font-size:20px">📍 <strong>${esc(g.salle.nom)}</strong></span><button class="btn sm" data-act="eqQuitter">🚪 Quitter la salle</button></div>
+  h += `<div class="card"><div class="row" style="justify-content:space-between"><span style="font-size:20px">📍 <strong>${esc(g.salle.nom)}</strong></span>${g.quitteA ? `<span class="pill">🚪 Départ dans <span class="mono" data-until="${g.quitteA}"></span></span>` : '<button class="btn sm" data-act="eqQuitter">🚪 Quitter la salle</button>'}</div>
     <p class="muted" style="margin:0;font-size:13px">Avant d'aller ailleurs, appuie sur « Quitter la salle » (sinon tu seras immobilisé).</p>
     <div class="label">Avec toi</div><div class="pions">${g.presents.map(p => `<span class="pion">${esc(p.name)}</span>`).join('') || '<span class="muted">Personne</span>'}</div></div>`;
   // indice de la salle : par sa tâche (si l'admin a activé les tâches), sinon en le demandant à la tablette

@@ -95,4 +95,4 @@ Le gagnant est premier. Les autres joueurs sont classés selon le nombre d'indic
 
 ## Quitter la salle
 
-Avant d'aller ailleurs, chaque joueur doit appuyer sur **« Quitter la salle »**. S'il scanne une autre salle sans l'avoir fait, il est **immobilisé 30 s** (réglable) : il ne peut ni interroger, ni faire de tâche, ni demander d'indice.
+Avant d'aller ailleurs, chaque joueur doit appuyer sur **« Quitter la salle »**. Un chrono de 10 s (réglable) démarre : pendant ce temps, le joueur reste dans la salle (visible, interrogeable). S'il scanne une autre salle sans l'avoir fait, il est **immobilisé 30 s** (réglable) : il ne peut ni interroger, ni faire de tâche, ni demander d'indice.

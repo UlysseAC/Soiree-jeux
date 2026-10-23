@@ -35,6 +35,7 @@ export function defaultConfig() {
     chanceSolo: 50, // chance (%) que la salle tire sa tâche solo plutôt que celle à plusieurs
     difficulte: 'normal', // facile | normal | difficile
     rechargeArme: 180, // le tueur actif doit attendre ce temps entre deux meurtres (s)
+    delaiQuitter: 10, // après « Quitter la salle », le joueur reste dans la salle ce temps (s)
     penaliteOubli: 30, // immobilisé ce temps s'il scanne une autre salle sans avoir quitté la sienne (s)
     ficheNumerique: false, // fiche de détective sur le téléphone (sinon, sur papier)
     indicesParSalle: 1, // indices par joueur et par salle
@@ -241,10 +242,19 @@ function resoudre(ctx, g, q, carte) {
 }
 const enCommun = (g, q) => g.joueurs[q.a].main.filter(c => [q.salle, q.perso, q.arme].includes(c));
 
+// Fin du chrono « Quitter la salle » : le joueur sort pour de bon.
+function sortir(g, p) {
+  const J = g.joueurs[p];
+  quitterSession(g, p);
+  J.salle = null;
+  J.quitteA = 0;
+}
+
 export function tick(ctx, g) {
   if (g.finished || g.phase === 'intro') return false;
   const now = ctx.now();
   let changed = false;
+  for (const [p, J] of Object.entries(g.joueurs)) if (J.quitteA && now >= J.quitteA) { sortir(g, p); changed = true; }
   for (const q of g.questions) {
     if (q.etat === 'attente' && now >= q.at + ctx.cfg.delaiReponse * 1000) { resoudre(ctx, g, q, pick(enCommun(g, q))); changed = true; }
   }
@@ -371,12 +381,14 @@ export function playerAction(ctx, g, p, a) {
       for (const c of fenetres) { const i = c.indexOf(code); if (i >= 0) { s = i; break; } }
     }
     if (s == null) return err('Code de salle incorrect ou expiré : scanne à nouveau la tablette.');
+    if (J.quitteA && J.salle !== `s${s}`) return err(`Tu quittes ta salle dans ${Math.ceil((J.quitteA - now) / 1000)} s : attends la fin du chrono.`);
     let oubli = '';
     if (J.salle && J.salle !== `s${s}`) { // il fallait d'abord appuyer sur « Quitter la salle »
       oubli = nom(g, J.salle);
       J.bloque = now + (ctx.cfg.penaliteOubli ?? 30) * 1000;
     }
     if (J.salle !== `s${s}`) quitterSession(g, p);
+    J.quitteA = 0;
     J.salle = `s${s}`;
     if (J.tueur && !J.tueur.arme && J.salle === J.tueur.cache) J.tueur.arme = true; // le tueur retrouve son arme (rien ne s'affiche ailleurs)
     return oubli ? err(`Tu as oublié de quitter ${oubli} ! Immobilisé ${ctx.cfg.penaliteOubli ?? 30} s.`) : ok(`Tu es dans : ${nom(g, J.salle)}`);
@@ -384,10 +396,11 @@ export function playerAction(ctx, g, p, a) {
 
   if (a.type === 'quitter') { // « Quitter la salle » : obligatoire avant d'aller ailleurs
     if (!J.salle) return err('Tu n\'es dans aucune salle.');
-    const avant = nom(g, J.salle);
-    quitterSession(g, p);
-    J.salle = null;
-    return ok(`Tu as quitté : ${avant}. Scanne la tablette de ta prochaine salle.`);
+    const delai = ctx.cfg.delaiQuitter ?? 10;
+    if (J.quitteA) return ok(`Tu pars dans ${Math.ceil((J.quitteA - now) / 1000)} s…`);
+    if (delai <= 0) { sortir(g, p); return ok('Tu as quitté la salle. Scanne la tablette de ta prochaine salle.'); }
+    J.quitteA = now + delai * 1000; // il reste dans la salle (interrogeable, visible) jusqu'à la fin du chrono
+    return ok(`Tu quittes la salle dans ${delai} s…`);
   }
 
   if (a.type === 'montrer') { // je réponds à une question : la carte que je montre
@@ -514,6 +527,7 @@ export function adminAction(ctx, g, a) {
     const J = g.joueurs[a.pid];
     if (!J || g.cartes[a.salle]?.type !== 'salle') return err('Joueur ou salle inconnu.');
     if (J.salle !== a.salle) quitterSession(g, a.pid);
+    J.quitteA = 0;
     J.salle = a.salle;
     return ok(`${ctx.name(a.pid)} est dans : ${nom(g, a.salle)}`);
   }
@@ -574,6 +588,7 @@ export function playerView(ctx, g, p) {
     presents: J.salle ? presents(g, J.salle).filter(x => x !== p).map(x => ({ pid: x, name: ctx.name(x), dernier: J.last === x, ...(J.tueur ? { indices: g.joueurs[x].indices } : {}) })) : [],
     mort: J.mort ? { salle: nom(g, J.mort.salle), victime: p, jeton: J.mort.jeton, trouve: J.mort.trouvePar.length } : null,
     bloque: J.bloque > now ? J.bloque : 0,
+    quitteA: J.quitteA > now ? J.quitteA : 0,
     secondeChance: !!J.secondeChance,
     // panneau secret du tueur actif
     secret: J.tueur ? { arme: nom(g, g.solution.arme), cache: nom(g, J.tueur.cache), armeRecup: J.tueur.arme, recharge: J.tueur.recharge > now ? J.tueur.recharge : 0, victimes: J.tueur.victimes || 0 } : null,

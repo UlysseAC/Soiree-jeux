@@ -405,7 +405,7 @@ function reglagesEnquete(c) {
     <div class="box"><h2>Temps et règles</h2><div class="grid-auto">
       ${cfgInput('ficheNumerique', c.ficheNumerique, 'bool', { label: 'Fiche de détective sur le téléphone (sinon papier)' })}
       ${d('dureeMax', 'Durée max de l\'enquête')}
-      ${d('rechargeArme', 'Tueur : temps entre deux meurtres')}${d('penaliteOubli', 'Immobilisé si on oublie « Quitter la salle »')}${d('finaleApres', 'Phase finale au bout de (0:00 = à la main)')}${d('delaiQuestion', 'Délai entre deux questions')}${d('delaiReponse', 'Temps pour montrer une carte')}
+      ${d('delaiQuitter', 'Chrono « Quitter la salle » (reste dans la salle)')}${d('rechargeArme', 'Tueur : temps entre deux meurtres')}${d('penaliteOubli', 'Immobilisé si on oublie « Quitter la salle »')}${d('finaleApres', 'Phase finale au bout de (0:00 = à la main)')}${d('delaiQuestion', 'Délai entre deux questions')}${d('delaiReponse', 'Temps pour montrer une carte')}
       ${n('rotationQr', 'QR code changé toutes les … s (0 = fixe)')}${n('indicesParSalle', 'Indices par salle et par joueur')}${n('indicesFinale', 'Indices par salle en phase finale')}
     </div></div>
     <div class="box"><h2>Indices des tablettes</h2>
