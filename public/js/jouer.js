@@ -478,20 +478,20 @@ function eqSalle(g) {
   }
   h += `<div class="card"><div class="row" style="justify-content:space-between"><span style="font-size:20px">📍 <strong>${esc(g.salle.nom)}</strong></span>${g.quitteA ? `<span class="pill">🚪 Départ dans <span class="mono" data-until="${g.quitteA}"></span></span>` : '<button class="btn sm" data-act="eqQuitter">🚪 Quitter la salle</button>'}</div>
     <p class="muted" style="margin:0;font-size:13px">Avant d'aller ailleurs, appuie sur « Quitter la salle » (sinon tu seras immobilisé).</p>
-    <div class="label">Avec toi</div><div class="pions">${g.presents.map(p => `<span class="pion">${esc(p.name)}</span>`).join('') || '<span class="muted">Personne</span>'}</div></div>`;
+    <div class="label">Avec toi</div><div class="pions">${g.presents.map(p => `<span class="pion ${p.barre ? 'barre' : ''}">${esc(p.name)}</span>`).join('') || '<span class="muted">Personne</span>'}</div></div>`;
   // indice de la salle : par sa tâche (si l'admin a activé les tâches), sinon en le demandant à la tablette
   if (g.tache) h += eqTache(g.tache);
   else h += g.indicesRestants
     ? `<button class="btn big" data-act="eqIndice">💡 Demander un indice à la salle${g.indicesRestants > 1 ? ` (${g.indicesRestants})` : ''}</button>`
     : '<p class="muted center" style="margin:0">💡 Indice de cette salle déjà pris.</p>';
   // question
-  const libres = g.presents.filter(p => !p.dernier);
+  const libres = g.presents.filter(p => !p.dernier && !p.barre);
   if (!libres.some(p => p.pid === ui.eqCible)) ui.eqCible = null;
   let bloque = '';
   if (g.attente) bloque = 'Attends la réponse à ta question…';
   else if (g.nextAsk) bloque = `Prochaine question dans <span class="mono" data-until="${g.nextAsk}"></span>`;
   h += `<div class="card"><strong>🗣 Interroger quelqu'un</strong>
-    ${g.presents.length ? `<p class="muted" style="margin:0;font-size:14px">1. Clique sur la personne à interroger · 2. Choisis un personnage et une arme</p><div class="pions">${g.presents.map(p => `<button class="pion choix" data-eqcible="${p.pid}" aria-pressed="${ui.eqCible === p.pid}" ${p.dernier ? 'disabled title="Tu viens de l\'interroger"' : ''}>${ui.eqCible === p.pid ? '✓ ' : ''}${esc(p.name)}</button>`).join('')}</div>
+    ${g.presents.length ? `<p class="muted" style="margin:0;font-size:14px">1. Clique sur la personne à interroger · 2. Choisis un personnage et une arme</p><div class="pions">${g.presents.map(p => `<button class="pion choix" data-eqcible="${p.pid}" aria-pressed="${ui.eqCible === p.pid}" ${p.barre ? 'disabled title="Mort"' : p.dernier ? 'disabled title="Tu viens de l\'interroger"' : ''}>${ui.eqCible === p.pid ? '✓ ' : ''}<span class="${p.barre ? 'barre' : ''}">${esc(p.name)}</span></button>`).join('')}</div>
     <select class="in" id="eq-perso">${eqOptions(g.persos, ui.eqPerso, 'Personnage…')}</select>
     <select class="in" id="eq-arme">${eqOptions(g.armes, ui.eqArme, 'Arme…')}</select>
     <p class="muted" style="margin:0;font-size:14px">Lieu : ${esc(g.salle.nom)} (la salle où tu es)</p>
@@ -531,7 +531,7 @@ function eqJournal(g) {
   h += `<div class="label">Mes indices (${g.notes.length})</div>${g.notes.length ? `<div class="list">${g.notes.map(n => `<div class="li" style="flex-direction:column;align-items:flex-start;gap:2px"><span>💡 ${esc(n.texte)}</span><span class="muted" style="font-size:13px">${esc(n.salle)} · ${hm(n.t)}</span></div>`).join('')}</div>` : '<p class="muted" style="margin:0">Aucun indice pour l\'instant : demande-en un à la tablette d\'une salle.</p>'}`;
   if (g.mesQuestions.length) {
     h += `<div class="label">Mes questions (${g.mesQuestions.length})</div><div class="list">${g.mesQuestions.map(q => `<div class="li"><span>${esc(q.a)} · ${esc(q.perso)}, ${esc(q.arme)}, ${esc(q.salle)}</span>
-      <span>${q.etat === 'attente' ? '<span class="muted">…</span>' : q.carte ? eqCarte(q.carte) : q.etat === 'annulee' ? '<span class="muted">—</span>' : '<span class="muted">aucune carte</span>'}</span></div>`).join('')}</div>`;
+      <span>${q.etat === 'attente' ? '<span class="muted">…</span>' : q.carte ? eqCarte(q.carte) : q.etat === 'annulee' ? '<span class="muted">—</span>' : `<span class="muted">${q.rien ? 'rien de nouveau' : 'aucune carte'}</span>`}</span></div>`).join('')}</div>`;
   }
   return h;
 }
@@ -582,14 +582,15 @@ function eqArme(g) {
   const A = g.monArme, ICO = { menace: '🗡️', assomme: '🔨', corde: '🪢', poison: '☠️' };
   if (g.armeIci && !A) h += `<div class="card"><p style="margin:0">${ICO[g.armeIci.type]} Une arme traîne ici : <strong>${esc(g.armeIci.nom)}</strong></p><button class="btn primary" data-act="eqRamasser">✋ Ramasser</button></div>`;
   if (A) {
-    const REGLE = { menace: 'Menace une personne de ta salle : elle doit te donner une carte, sans rien en retour.', assomme: `Assomme une personne de ta salle : elle ne peut plus quitter la salle pendant ${A.effet || 60} s.`, corde: `Lie les mains d'une personne de ta salle (${A.effet || 60} s, elle ne peut plus partir). Cordes : ${A.reste}.`, poison: 'Empoisonne une personne de ta salle : son prochain indice sera illisible, sans qu\'elle le sache.' }[A.type];
-    h += `<div class="card"><div class="row" style="justify-content:space-between"><strong>${ICO[A.type]} ${esc(A.nom)}</strong><button class="btn sm" data-act="eqPoserArme">Poser</button></div><p class="muted" style="margin:0;font-size:13px">${REGLE}</p>`;
+    const restes = `<p style="margin:0">Utilisations restantes avant qu'elle se casse : <strong>${A.reste}</strong></p>`;
+    const REGLE = { menace: 'Menace une personne de ta salle : elle doit te donner une carte, sans rien en retour.', assomme: `Assomme une personne de ta salle : elle ne peut plus quitter la salle pendant ${A.effet || 60} s.`, corde: `Lie les mains d'une personne de ta salle (${A.effet || 60} s, elle ne peut plus partir).`, poison: 'Empoisonne une personne de ta salle : son prochain indice sera illisible, sans qu\'elle le sache.' }[A.type];
+    h += `<div class="card"><div class="row" style="justify-content:space-between"><strong>${ICO[A.type]} ${esc(A.nom)}</strong><button class="btn sm" data-act="eqPoserArme">Poser</button></div><p class="muted" style="margin:0;font-size:13px">${REGLE}</p>${restes}`;
     if (A.pret) h += `<p style="margin:0">Recharge : prêt dans <span class="mono" data-until="${A.pret}"></span>.</p>`;
     else if (!g.salle) h += '<p style="margin:0">Scanne une salle pour t\'en servir.</p>';
     else if (!A.dispo) h += '<p style="margin:0">Tu ne peux plus t\'en servir dans cette salle : quitte-la pour recharger.</p>';
     else if (A.attente) h += `<p style="margin:0">Prêt dans <span class="mono" data-until="${A.attente}"></span>.</p>`;
     else if (!g.presents.length) h += '<p style="margin:0">Personne d\'autre dans la salle.</p>';
-    else h += `<div class="pions">${g.presents.map(p => `<button class="pion choix" data-act="eqViser" data-cible="${esc(p.pid)}" data-nom="${esc(p.name)}">${ICO[A.type]} ${esc(p.name)}</button>`).join('')}</div>`;
+    else h += `<div class="pions">${g.presents.filter(p => !p.barre).map(p => `<button class="pion choix" data-act="eqViser" data-cible="${esc(p.pid)}" data-nom="${esc(p.name)}">${ICO[A.type]} ${esc(p.name)}</button>`).join('')}</div>`;
     h += '</div>';
   }
   return h;

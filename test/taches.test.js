@@ -188,7 +188,12 @@ test('réglages : tâches salle par salle, chance du solo, salle sans tâche = i
   const { g, ctx } = setup();
   placer(ctx, g, 's0', 'p0');
   ctx.cfg.chanceSolo = 100;
-  for (let k = 0; k < 20; k++) { E.adminAction(ctx, g, { type: 'nouvelleTache', salle: 's0' }); assert.equal(g.taches[0].id, 'pneus'); }
+  for (let k = 0; k < 20; k++) { g.taches[0] = { id: 'roue', groupe: true, params: {} }; E.adminAction(ctx, g, { type: 'nouvelleTache', salle: 's0' }); assert.equal(g.taches[0].id, 'pneus'); }
+  // jamais deux fois de suite la même tâche dans une salle : on alterne
+  ctx.cfg.chanceSolo = 50;
+  let avant = g.taches[0];
+  for (let k = 0; k < 20; k++) { E.adminAction(ctx, g, { type: 'nouvelleTache', salle: 's0' }); assert.notEqual(g.taches[0].id, avant.id); avant = g.taches[0]; }
+  ctx.cfg.chanceSolo = 100;
   ctx.cfg.tachesSolo[0] = false; // plus de solo dans le garage : la salle retire sa tâche à plusieurs
   assert.equal(E.playerView(ctx, g, 'p0').tache.id, 'roue');
   ctx.cfg.tachesGroupe[0] = false; // plus aucune tâche : l'indice est gratuit
@@ -208,7 +213,7 @@ test('difficulté : facile / difficile changent les tâches (goujons, manches, c
     placer(ctx, g, 's5', 'p2', 'p3');
     act(ctx, g, 'p2', { type: 'tacheLancer' }); act(ctx, g, 'p3', { type: 'tacheRejoindre' });
     assert.equal(g.sessions.s5.data.code.length, chiffres);
-    ctx.cfg.chanceSolo = 100;
+    g.taches[8] = { id: 'radio', groupe: true, params: {} }; // après une tâche à plusieurs, la salle tire la solo
     E.adminAction(ctx, g, { type: 'nouvelleTache', salle: 's8' });
     assert.equal(g.taches[8].params.niveau, niveau, 'le téléphone reçoit le niveau pour les tâches solo');
   }

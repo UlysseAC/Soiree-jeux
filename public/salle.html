@@ -43,7 +43,7 @@ function draw() {
   const s = V.salle;
   if (!s) return SJ.render(app, `<div class="tab-attente"><h1 class="tab-nom">L'Enquête</h1><p class="muted">Salle n° ${n + 1} — en attente de la partie…</p></div>`);
   if (s.inconnue) return SJ.render(app, `<div class="tab-attente"><h1 class="tab-nom">Salle n° ${n + 1} ?</h1><p class="muted">Cette salle n'existe pas dans les réglages.</p></div>`);
-  const qui = s.joueurs.length ? s.joueurs.map(j => `<span class="pion">${esc(j.name)}</span>`).join('') : '<span class="muted">Personne pour l\'instant</span>';
+  const qui = s.joueurs.length ? s.joueurs.map(j => `<span class="pion ${j.barre ? 'barre' : ''}">${esc(j.name)}</span>`).join('') : '<span class="muted">Personne pour l\'instant</span>';
   let centre;
   if (s.panne) centre = s.panne.repare ? '<p class="tab-msg">✓ Salle réparée !<br>Attendez les autres salles…</p>'
     : `<p class="tab-msg">⚡ Panne de courant : entrez votre code sur votre téléphone</p><div class="tab-codes">${s.panne.codes.map(c => `<div class="tab-secret">${esc(c)}</div>`).join('')}</div>`;

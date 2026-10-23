@@ -64,9 +64,9 @@ test('tueur actif : arme récupérée en scannant la salle de la cachette, meurt
   assert.match(act(ctx, g, tueur, { type: 'tuer', cible: innocents[1] }).msg, /pas prête/);
   avance(20e3);
   assert.equal(act(ctx, g, tueur, { type: 'tuer', cible: innocents[1] }).ok, true);
-  // la victime ne joue plus et n'apparaît plus dans la salle
+  // la victime ne joue plus ; son nom reste dans la salle
   assert.match(act(ctx, g, innocents[0], { type: 'indice' }).msg, /assassiné/);
-  assert.ok(!E.salleView(ctx, g, n).joueurs.some(j => j.name === ctx.name(innocents[0])));
+  assert.ok(E.salleView(ctx, g, n).joueurs.some(j => j.name === ctx.name(innocents[0])), 'son nom reste affiché dans la salle');
 });
 
 test('corps : 1er scan = « corps trouvé » à l\'écran, 2e innocent = victime identifiée ; chacun récupère ses cartes', () => {
@@ -305,23 +305,37 @@ test('armes de joueur : apparition dans les salles, ramasser, poser', () => {
   assert.equal(g.armesSol[salle], Number(i));
 });
 
-test('armes de joueur : menace = donner une carte (ou carte au hasard au bout du temps), sans rien en retour', () => {
+test('armes de joueur : menace = donner une carte jamais donnée, sans rien en retour ; l\'arme finit par se casser', () => {
   const { g, ctx, innocents, avance } = setup();
   const [a, b] = innocents;
   placer(ctx, g, 's1', a, b);
   equiper(ctx, g, a, 'Hache');
+  g.joueurs[a].arme.reste = 3;
+  const reprise = () => { avance(300e3); g.joueurs[a].arme.usage = null; g.joueurs[a].arme.pret = 0; };
   assert.equal(act(ctx, g, a, { type: 'viser', cible: b }).ok, true);
   assert.ok(E.playerView(ctx, g, b).menace);
   assert.match(act(ctx, g, b, { type: 'quitter' }).msg, /menacé/);
-  const carte = g.joueurs[b].main[0];
-  assert.equal(act(ctx, g, b, { type: 'donner', carte: g.joueurs[a].main.find(c => !g.joueurs[b].main.includes(c)) ?? 'zz' }).ok, false, 'une de ses cartes');
-  assert.equal(act(ctx, g, b, { type: 'donner', carte }).ok, true);
-  assert.ok(g.joueurs[a].vus[carte].includes(b));
+  const [c1, c2, c3] = g.joueurs[b].main;
+  assert.equal(act(ctx, g, b, { type: 'donner', carte: 'zz' }).ok, false);
+  assert.equal(act(ctx, g, b, { type: 'donner', carte: c1 }).ok, true);
+  assert.ok(g.joueurs[a].vus[c1].includes(b));
   assert.equal(Object.keys(g.joueurs[b].vus).length, 0, 'rien en retour');
-  avance(30e3); g.joueurs[a].arme.usage = null; g.joueurs[a].arme.pret = 0;
-  act(ctx, g, a, { type: 'viser', cible: b });
+  // 2e menace : la carte déjà donnée n\'est plus proposée
+  reprise();
+  assert.equal(act(ctx, g, a, { type: 'viser', cible: b }).ok, true);
+  assert.deepEqual(E.playerView(ctx, g, b).menace.main.map(c => c.id).sort(), [c2, c3].sort());
+  assert.equal(act(ctx, g, b, { type: 'donner', carte: c1 }).ok, false, 'déjà donnée');
+  // temps écoulé : une carte non encore donnée est choisie au hasard
   avance(61e3);
-  assert.equal(g.menaces.at(-1).etat, 'faite', 'carte donnée au hasard');
+  assert.equal(g.menaces.at(-1).etat, 'faite');
+  assert.notEqual(g.menaces.at(-1).carte, c1);
+  // 3e menace, puis plus aucune carte à donner
+  reprise();
+  assert.match(act(ctx, g, a, { type: 'viser', cible: b }).msg, /restante|se casse/);
+  act(ctx, g, b, { type: 'donner', carte: E.playerView(ctx, g, b).menace.main[0].id });
+  assert.equal(g.joueurs[a].arme, null, 'arme cassée au bout de 3 utilisations');
+  equiper(ctx, g, a, 'Hache');
+  assert.match(act(ctx, g, a, { type: 'viser', cible: b }).msg, /déjà donné toutes ses cartes/);
 });
 
 test('armes de joueur : chandelier assomme, corde lie les mains (cordes limitées), poison brouille le prochain indice', () => {
@@ -344,4 +358,63 @@ test('armes de joueur : chandelier assomme, corde lie les mains (cordes limitée
   const r = act(ctx, g, c, { type: 'indice' });
   assert.match(r.msg, /illisible/);
   assert.equal(g.joueurs[c].aveugle, false);
+});
+
+// ---------- questions : jamais deux fois la même carte ; les morts restent affichés ----------
+test('question : on ne montre jamais deux fois la même carte à la même personne ; plus rien de nouveau = réponse « rien de nouveau »', () => {
+  const { g, ctx, innocents, avance } = setup();
+  const [a, b] = innocents;
+  placer(ctx, g, 's1', a, b);
+  const [c1] = g.joueurs[b].main, type = g.cartes[c1].type;
+  const autre = t => Object.keys(g.cartes).find(id => g.cartes[id].type === t && !g.joueurs[b].main.includes(id));
+  const q = { perso: type === 'perso' ? c1 : autre('perso'), arme: type === 'arme' ? c1 : autre('arme') };
+  // b a déjà montré c1 à a
+  (g.joueurs[a].vus[c1] ??= []).push(b);
+  g.joueurs[a].nextAsk = 0;
+  const r = act(ctx, g, a, { type: 'interroger', cible: b, ...q });
+  assert.equal(r.ok, true);
+  const dejaVu = type === 'salle' ? false : true;
+  if (type !== 'salle' && g.joueurs[b].main.filter(c => [g.joueurs[b].salle, q.perso, q.arme].includes(c)).every(c => c === c1)) {
+    assert.match(r.msg, /rien de nouveau/);
+    assert.equal(g.questions.at(-1).etat, 'repondue');
+    assert.equal(E.playerView(ctx, g, a).mesQuestions[0].rien, true);
+  }
+});
+
+test('un mort reste affiché dans sa salle ; son nom n\'est barré qu\'après le premier scan du corps', () => {
+  const { g, ctx, tueur, innocents } = setup();
+  armer(ctx, g, tueur);
+  const [v, w] = innocents;
+  placer(ctx, g, 's1', tueur, v, w);
+  act(ctx, g, tueur, { type: 'tuer', cible: v });
+  const nom = ctx.name(v);
+  const vue = () => E.screenView(ctx, g).salles[1].joueurs.find(j => j.name === nom);
+  assert.ok(vue(), 'toujours affiché à l\'écran');
+  assert.equal(vue().barre, false);
+  assert.ok(E.salleView(ctx, g, 1).joueurs.some(j => j.name === nom), 'et sur la tablette');
+  assert.ok(E.playerView(ctx, g, w).presents.some(p => p.pid === v && !p.barre));
+  // interroger un mort : sans réponse, personne ne sait qu'il est mort
+  g.joueurs[w].nextAsk = 0;
+  const persos = Object.keys(g.cartes).filter(c => g.cartes[c].type === 'perso'), armes = Object.keys(g.cartes).filter(c => g.cartes[c].type === 'arme');
+  assert.equal(act(ctx, g, w, { type: 'interroger', cible: v, perso: persos[0], arme: armes[0] }).ok, true);
+  assert.equal(g.questions.at(-1).etat, 'attente');
+  // le corps est trouvé : le nom est barré
+  const m = E.playerView(ctx, g, v).mort;
+  act(ctx, g, w, { type: 'corps', victime: v, c: m.jeton });
+  assert.equal(vue().barre, true);
+  assert.equal(E.playerView(ctx, g, w).presents.find(p => p.pid === v).barre, true);
+});
+
+test('indices : jamais « … » (plus rien à éliminer = phrase claire)', () => {
+  const { g, ctx, innocents } = setup();
+  ctx.cfg.sallesPropres = 0; g.propres = [];
+  const p = innocents[0];
+  // le joueur connaît déjà toutes les cartes hors solution
+  for (const c of Object.keys(g.cartes)) if (!Object.values(g.solution).includes(c)) (g.joueurs[p].elimines.push(c));
+  ctx.cfg.indicesSalles = ctx.cfg.indicesSalles.map(x => ({ ...x, textes: ['', '', ''] }));
+  g.auto = g.auto.map(() => []);
+  placer(ctx, g, 's2', p);
+  const r = act(ctx, g, p, { type: 'indice' });
+  assert.ok(r.ok);
+  assert.ok(!r.msg.includes('…'), r.msg);
 });

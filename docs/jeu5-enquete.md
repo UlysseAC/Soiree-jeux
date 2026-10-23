@@ -113,6 +113,8 @@ Les joueurs peuvent se servir d'armes les uns contre les autres. Un joueur porte
   - **Chandelier, matraque, club de golf, clé anglaise** : la personne est assommée et ne peut plus quitter la salle pendant une durée réglable.
   - **Corde** : mains liées, même effet, pendant une durée réglable. Le joueur porte un nombre de cordes réglable ; sans corde, l'arme disparaît.
   - **Poison** : la personne ne sait rien ; l'indice qu'elle lira ensuite sera illisible (il compte quand même comme pris).
+- **Usure.** Chaque arme a un nombre d'utilisations réglable (3 par défaut, 2 pour la corde, le poison et les armes à feu) : après la dernière, elle se casse.
+- **Menace.** Une personne ne peut jamais donner deux fois la même carte à la même personne. Si elle les a déjà toutes données, on ne peut plus la menacer.
 - **Délais.** Chaque arme a ses délais côté joueur (entre deux victimes dans la même salle, victimes maximum par salle, rechargement après avoir quitté la salle). Réglages dans Réglages, L'Enquête, cadre « Armes ».
   - S'il ne reste plus aucun innocent en vie, le tueur l'emporte.
 - **Victoire des autres.** Les autres gagnent toujours en accusant juste.
@@ -127,3 +129,10 @@ Les joueurs peuvent se servir d'armes les uns contre les autres. Un joueur porte
 ## Quitter la salle
 
 Avant d'aller ailleurs, chaque joueur doit appuyer sur **« Quitter la salle »**. Un chrono de 10 s (réglable) démarre : pendant ce temps, le joueur reste dans la salle (visible, interrogeable). S'il scanne une autre salle sans l'avoir fait, il est **immobilisé 30 s** (réglable) : il ne peut ni interroger, ni faire de tâche, ni demander d'indice.
+
+## Règles diverses
+
+- **Questions.** On ne montre jamais deux fois la même carte à la même personne. Si toutes les cartes demandées ont déjà été montrées, la réponse est « rien de nouveau ».
+- **Les morts.** Leur nom reste affiché dans leur salle (écran, tablette, téléphones) : personne ne sait qu'ils sont morts. Il est barré dès le premier scan de leur corps. Les interroger ne donne aucune réponse.
+- **Tâches des salles.** Une salle ne tire jamais deux fois de suite la même tâche : elle alterne entre sa tâche solo et sa tâche à plusieurs. La chance de tâche solo ne sert qu'au premier tirage de la partie.
+- **Écran.** Les salles sont rangées par étage, dans l'ordre des étages de la liste des salles.

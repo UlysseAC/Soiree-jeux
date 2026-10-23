@@ -300,10 +300,11 @@ export const GROUPES = {
 };
 
 // Tâche de la salle n tirée au hasard parmi celles activées dans l'admin (solo : chanceSolo %) ; null si aucune.
-export function tirer(n, { solo = true, groupe = true, chanceSolo = 50 } = {}) {
+export function tirer(n, { solo = true, groupe = true, chanceSolo = 50, precedent = null } = {}) {
   const def = SALLES[n % SALLES.length];
   if (!solo && !groupe) return null;
-  const prendreSolo = solo && (!groupe || Math.random() * 100 < chanceSolo);
+  // jamais deux fois de suite la même tâche dans une salle : on alterne entre la solo et celle à plusieurs
+  const prendreSolo = solo && (!groupe || (precedent ? precedent.groupe : Math.random() * 100 < chanceSolo));
   return prendreSolo ? { id: def.solo, groupe: false } : { id: def.groupe, groupe: true };
 }
 GROUPES.vannes = GROUPES.canalisations; // anciennes parties en cours

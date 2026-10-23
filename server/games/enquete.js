@@ -20,8 +20,8 @@ export const ARMES_1930 = ['Poignard', 'Chandelier', 'Revolver', 'Corde', 'Clé 
 // Réglages d'une arme, pour le tueur et pour un joueur : délai entre deux victimes dans la même salle (s), nombre maximum de victimes
 // par passage dans une salle, délai de rechargement une fois la salle quittée (s) et effet (selon l'arme : assommé en s, cordes, salles de poison).
 // Joueur : effet = durée (s) d'assommé ou de mains liées ; nombre = cordes que porte le joueur.
-const reg = (eTueur, eJoueur, tueur = {}) => ({ tueur: { usage: 20, max: 2, recharge: 180, effet: eTueur, ...tueur }, joueur: { usage: 30, max: 1, recharge: 240, effet: eJoueur, nombre: 2 } });
-export const ARMES_REGLAGES = [reg(0, 0), reg(60, 60), reg(0, 0, { usage: 60, max: 1 }), reg(2, 60), reg(60, 60), reg(60, 60), reg(3, 0), reg(0, 0, { usage: 60, max: 1 }), reg(60, 60), reg(0, 0)];
+const reg = (eTueur, eJoueur, tueur = {}, nombre = 3) => ({ tueur: { usage: 20, max: 2, recharge: 180, effet: eTueur, ...tueur }, joueur: { usage: 30, max: 1, recharge: 240, effet: eJoueur, nombre } });
+export const ARMES_REGLAGES = [reg(0, 0), reg(60, 60), reg(0, 0, { usage: 60, max: 1 }, 2), reg(2, 60, {}, 2), reg(60, 60), reg(60, 60), reg(3, 0, {}, 2), reg(0, 0, { usage: 60, max: 1 }, 2), reg(60, 60), reg(0, 0)];
 export const ARMES_AVANT = ['Couteau', 'Corde', 'Chandelier', 'Revolver', 'Poison', 'Clé anglaise', 'Matraque'].join('\n');
 // Ancienne liste par défaut (avant les tâches) : remplacée par celle du manoir si elle n'a pas été modifiée.
 export const SALLES_AVANT = ['Cuisine', 'Salon', 'Salle à manger', 'Bibliothèque', 'Bureau', 'Chambre', 'Salle de bain', 'Entrée', 'Jardin', 'Cave', 'Grenier'].join('\n');
@@ -227,8 +227,8 @@ function commencer(ctx, g) {
 const niveau = ctx => T.NIVEAUX[ctx.cfg.difficulte] ?? 1;
 const activees = (ctx, n) => ({ solo: ctx.cfg.tachesSolo?.[n] !== false, groupe: ctx.cfg.tachesGroupe?.[n] !== false });
 const paramsSolo = (ctx, id) => ({ ...(T.SOLOS[id].params ? T.SOLOS[id].params() : {}), niveau: niveau(ctx) });
-function tirerTache(ctx, n) {
-  const t = T.tirer(n, { ...activees(ctx, n), chanceSolo: Number(ctx.cfg.chanceSolo ?? 50) });
+function tirerTache(ctx, n, precedent = null) {
+  const t = T.tirer(n, { ...activees(ctx, n), chanceSolo: Number(ctx.cfg.chanceSolo ?? 50), precedent });
   return t && { ...t, params: t.groupe ? {} : paramsSolo(ctx, t.id) };
 }
 const maxSalle = (ctx, g) => (g.phase === 'finale' ? ctx.cfg.indicesFinale : ctx.cfg.indicesParSalle);
@@ -240,7 +240,7 @@ function tacheDe(ctx, g, s) {
   const on = activees(ctx, n);
   // réglages changés dans l'admin : la salle retire une tâche permise (sauf pendant une tâche à plusieurs)
   let t = g.taches[n];
-  if (!g.sessions[s] && (!t ? on.solo || on.groupe : !(t.groupe ? on.groupe : on.solo))) t = g.taches[n] = tirerTache(ctx, n);
+  if (!g.sessions[s] && (!t ? on.solo || on.groupe : !(t.groupe ? on.groupe : on.solo))) t = g.taches[n] = tirerTache(ctx, n, t);
   if (!t) return null; // aucune tâche dans cette salle : l'indice est gratuit
   if (!t.groupe || g.sessions[s]) return t;
   const besoin = Object.keys(g.joueurs).filter(p => !g.joueurs[p].mort && !aIndice(ctx, g, p, s)).length;
@@ -267,7 +267,7 @@ function reussir(ctx, g, s, pids) {
   const n = Number(s.slice(1));
   feed(g, ctx, `✅ ${pids.map(p => ctx.name(p)).join(' et ')} : tâche réussie (${nom(g, s)})`);
   delete g.sessions[s];
-  g.taches[n] = tirerTache(ctx, n);
+  g.taches[n] = tirerTache(ctx, n, g.taches[n]);
   return textes;
 }
 // Un joueur qui quitte la salle annule la tâche à plusieurs en cours (ou quitte la file d'attente).
@@ -297,14 +297,17 @@ function terminer(ctx, g, winner = null) {
 }
 
 // Une question en attente se résout : carte choisie, ou au hasard si le temps est écoulé.
-function resoudre(ctx, g, q, carte) {
+function resoudre(ctx, g, q, carte, rien = false) {
   q.carte = carte;
   q.etat = 'repondue';
   const de = g.joueurs[q.de];
   if (carte) (de.vus[carte] ??= []).includes(q.a) || de.vus[carte].push(q.a);
-  feed(g, ctx, `🗣 ${qui(ctx, g, q.de)} a interrogé ${qui(ctx, g, q.a)} dans ${nom(g, q.salle)} : ${carte ? 'une carte montrée' : 'aucune carte'}`);
+  feed(g, ctx, `🗣 ${qui(ctx, g, q.de)} a interrogé ${qui(ctx, g, q.a)} dans ${nom(g, q.salle)} : ${carte ? 'une carte montrée' : rien ? 'rien de nouveau' : 'aucune carte'}`);
 }
 const enCommun = (g, q) => g.joueurs[q.a].main.filter(c => [q.salle, q.perso, q.arme].includes(c));
+// Cartes que l'interrogé peut encore montrer : jamais deux fois la même à la même personne.
+const dejaMontree = (g, de, a, c) => (g.joueurs[de].vus[c] || []).includes(a);
+const aMontrer = (g, q) => enCommun(g, q).filter(c => !dejaMontree(g, q.de, q.a, c));
 
 // Fin du chrono « Quitter la salle » : le joueur sort pour de bon.
 function sortir(ctx, g, p) {
@@ -322,7 +325,7 @@ export function tick(ctx, g) {
   let changed = false;
   for (const [p, J] of Object.entries(g.joueurs)) if (J.quitteA && now >= J.quitteA) { sortir(ctx, g, p); changed = true; }
   for (const q of g.questions) {
-    if (q.etat === 'attente' && now >= q.at + ctx.cfg.delaiReponse * 1000) { resoudre(ctx, g, q, pick(enCommun(g, q))); changed = true; }
+    if (q.etat === 'attente' && now >= q.at + ctx.cfg.delaiReponse * 1000) { if (g.joueurs[q.a].mort) q.etat = 'annulee'; else { const l = aMontrer(g, q); resoudre(ctx, g, q, l.length ? pick(l) : null, !l.length); } changed = true; }
   }
   for (const [s, se] of Object.entries(g.sessions || {})) {
     const def = T.GROUPES[se.id];
@@ -330,7 +333,7 @@ export function tick(ctx, g) {
     const avant = JSON.stringify(se.data.code ?? null);
     if (def.tick(se.data, now) === 'reussi') { reussir(ctx, g, s, se.joueurs); changed = true; } else if (JSON.stringify(se.data.code ?? null) !== avant) changed = true;
   }
-  for (const m of g.menaces || []) if (m.etat === 'attente' && now >= m.fin) { remettreCarte(ctx, g, m, pick(g.joueurs[m.a].main)); changed = true; }
+  for (const m of g.menaces || []) if (m.etat === 'attente' && now >= m.fin) { { const l = cartesLibres(g, m.de, m.a); if (l.length) remettreCarte(ctx, g, m, pick(l)); else m.etat = 'annulee'; changed = true; } }
   if (ctx.cfg.armesJoueurs && g.phase !== 'intro') {
     g.prochaineArme ||= now + (ctx.cfg.apparitionArme ?? 150) * 1000;
     if (now >= g.prochaineArme) {
@@ -353,10 +356,12 @@ function inconnues(g, p, type = null) {
 }
 function remplir(g, p, texte, n) {
   const elimines = [];
+  let vide = false; // plus aucune carte à éliminer de ce type pour ce joueur
   const prendre = type => {
     const libres = inconnues(g, p, type).filter(c => !elimines.includes(c));
     const pris = shuffle(libres).slice(0, n);
     elimines.push(...pris);
+    if (!pris.length) vide = true;
     return pris.length ? pris.map(c => nom(g, c)).join(' » et « ') : '…';
   };
   // Indice à recouper : k cartes dont au plus une est dans la solution (une fois sur deux). Ces cartes ne comptent pas comme éliminées.
@@ -373,6 +378,7 @@ function remplir(g, p, texte, n) {
   const out = texte
     .replace(/\{(\d)(carte|salle|perso|arme)s?\}/g, (_, k, t) => groupe(Math.max(2, Number(k)), t === 'carte' ? null : t))
     .replace(/\{(carte|salle|perso|arme)\}/g, (_, k) => prendre(k === 'carte' ? null : k));
+  if (vide) return { texte: "Tu as déjà éliminé toutes les pistes que cette salle pouvait t'apprendre : il ne te revient rien de nouveau.", elimines: [] };
   return { texte: out, elimines };
 }
 
@@ -561,7 +567,7 @@ function armeJoueur(ctx, g, i) {
   return { type: typeJoueur(g, i), usage: Number(r.usage) || 0, max: Math.max(1, Number(r.max) || 1), recharge: Number(r.recharge) || 0, effet: Number(r.effet) || 0, nombre: Math.max(1, Number(r.nombre) || 1) };
 }
 function donnerArme(ctx, g, p, i) {
-  g.joueurs[p].arme = { i, reste: armeJoueur(ctx, g, i).type === 'corde' ? armeJoueur(ctx, g, i).nombre : 0, usage: null, pret: 0 };
+  g.joueurs[p].arme = { i, reste: armeJoueur(ctx, g, i).nombre, usage: null, pret: 0 };
 }
 const armesNoms = g => deType(g, 'arme').map(id => Number(id.slice(1)));
 function ramasser(ctx, g, p) {
@@ -587,37 +593,41 @@ function viser(ctx, g, p, cible) {
   const arm = armeJoueur(ctx, g, J.arme.i), n = nom(g, `a${J.arme.i}`);
   const refus = delaiRefus(J.arme, J, arm, now);
   if (refus) return err(refus);
-  if (!C || cible === p || C.mort || C.salle !== J.salle) return err('Choisis quelqu\'un de ta salle.');
+  // une utilisation réussie : l'arme finit par se casser
+  const use = r => {
+    aServi(J, now, J.arme);
+    if (--J.arme.reste <= 0) { J.arme = null; r.msg += ` Ton ${n} se casse : plus aucune utilisation.`; } else r.msg += ` (${J.arme.reste} utilisation${J.arme.reste > 1 ? 's' : ''} restante${J.arme.reste > 1 ? 's' : ''})`;
+    return r;
+  };
+  if (!C || cible === p || C.salle !== J.salle) return err('Choisis quelqu\'un de ta salle.');
   const qui = ctx.name(cible);
+  if (C.mort) return err(`${qui} ne réagit pas…`);
   if (arm.type === 'assomme' || arm.type === 'corde') {
     if (C.assomme > now) return err(`${qui} est déjà immobilisé.`);
-    if (arm.type === 'corde' && !(J.arme.reste > 0)) return err('Tu n\'as plus de corde.');
     C.assomme = now + (arm.effet || 60) * 1000;
     C.assommeType = arm.type === 'corde' ? 'corde' : 'assomme';
     C.quitteA = 0;
-    if (arm.type === 'corde') J.arme.reste--;
     feed(g, ctx, arm.type === 'corde' ? `🪢 ${qui} a les mains liées.` : `💫 ${qui} a été assommé.`);
-    aServi(J, now, J.arme);
-    if (arm.type === 'corde' && !J.arme.reste) J.arme = null;
-    return ok(arm.type === 'corde' ? `Tu as lié les mains de ${qui} (${arm.effet || 60} s).` : `${qui} est assommé (${arm.effet || 60} s).`);
+    return use(ok(arm.type === 'corde' ? `Tu as lié les mains de ${qui} (${arm.effet || 60} s).` : `${qui} est assommé (${arm.effet || 60} s).`));
   }
   if (arm.type === 'poison') {
     if (C.aveugle) return err(`${qui} est déjà empoisonné.`);
     C.aveugle = true; // il ne le sait pas : son prochain indice sera illisible
-    aServi(J, now, J.arme);
-    return ok(`${qui} est empoisonné : le prochain indice qu'il lira sera illisible.`);
+    return use(ok(`${qui} est empoisonné : le prochain indice qu'il lira sera illisible.`));
   }
   g.menaces ??= [];
   if (g.menaces.some(m => m.etat === 'attente' && m.a === cible)) return err(`${qui} est déjà menacé.`);
+  if (!cartesLibres(g, p, cible).length) return err(`${qui} t'a déjà donné toutes ses cartes.`);
   g.menaces.push({ id: `m${g.menaces.length + 1}`, de: p, a: cible, at: now, fin: now + (ctx.cfg.delaiMenace ?? 60) * 1000, etat: 'attente' });
   C.quitteA = 0;
-  aServi(J, now, J.arme);
-  return ok(`Tu menaces ${qui} avec ${n} : il doit te donner une carte.`);
+  return use(ok(`Tu menaces ${qui} avec ${n} : il doit te donner une carte.`));
 }
+// Cartes qu'un joueur peut encore donner à une personne qui le menace : jamais deux fois la même.
+const cartesLibres = (g, de, a) => g.joueurs[a].main.filter(c => !dejaMontree(g, de, a, c));
 function donner(ctx, g, p, carte) {
   const J = g.joueurs[p], m = (g.menaces || []).find(x => x.etat === 'attente' && x.a === p);
   if (!m) return err('Personne ne te menace.');
-  if (!J.main.includes(carte)) return err('Choisis une de tes cartes.');
+  if (!cartesLibres(g, m.de, p).includes(carte)) return err('Choisis une de tes cartes que tu ne lui as pas déjà donnée.');
   remettreCarte(ctx, g, m, carte);
   return ok('Tu as donné ta carte.');
 }
@@ -729,7 +739,7 @@ export function playerAction(ctx, g, p, a) {
   if (a.type === 'montrer') { // je réponds à une question : la carte que je montre
     const q = g.questions.find(x => x.id === a.q && x.a === p && x.etat === 'attente');
     if (!q) return err('Cette question n\'attend plus de réponse.');
-    if (!enCommun(g, q).includes(a.carte)) return err('Tu dois montrer une des cartes demandées.');
+    if (!aMontrer(g, q).includes(a.carte)) return err('Tu dois montrer une des cartes demandées (pas une carte déjà montrée à cette personne).');
     resoudre(ctx, g, q, a.carte);
     return ok(`Tu as montré « ${nom(g, a.carte)} ».`);
   }
@@ -807,7 +817,7 @@ export function playerAction(ctx, g, p, a) {
     const cible = a.cible;
     const C = g.joueurs[cible];
     if (!C || cible === p) return err('Choisis quelqu\'un à interroger.');
-    if (C.salle !== J.salle || C.mort) return err(`${ctx.name(cible)} n'est pas dans cette salle.`);
+    if (C.salle !== J.salle || C.mort?.trouvePar.length) return err(`${ctx.name(cible)} n'est pas dans cette salle.`);
     if (J.last === cible) return err(`Tu viens d'interroger ${ctx.name(cible)} : interroge quelqu'un d'autre d'abord.`);
     if (now < J.nextAsk) return err(`Attends encore ${Math.ceil((J.nextAsk - now) / 1000)} s avant ta prochaine question.`);
     if (g.questions.some(q => q.de === p && q.etat === 'attente')) return err('Attends la réponse à ta question.');
@@ -816,7 +826,9 @@ export function playerAction(ctx, g, p, a) {
     g.questions.push(q);
     J.last = cible;
     J.nextAsk = now + ctx.cfg.delaiQuestion * 1000;
+    if (C.mort) return ok(`Question posée à ${ctx.name(cible)} : attends sa réponse.`); // sans réponse : il est mort, et personne ne le sait encore
     if (!enCommun(g, q).length) { resoudre(ctx, g, q, null); return ok(`${ctx.name(cible)} n'a aucune de ces cartes.`); }
+    if (!aMontrer(g, q).length) { resoudre(ctx, g, q, null, true); return ok(`${ctx.name(cible)} ne peut te montrer que des cartes qu'il t'a déjà montrées : rien de nouveau.`); }
     return ok(`Question posée à ${ctx.name(cible)} : attends sa réponse.`);
   }
   return err('Action inconnue.');
@@ -853,7 +865,7 @@ export function adminAction(ctx, g, a) {
     const n = Number(String(a.salle).slice(1));
     if (!g.taches?.[n]) return err('Salle inconnue.');
     delete g.sessions[`s${n}`];
-    g.taches[n] = tirerTache(ctx, n);
+    g.taches[n] = tirerTache(ctx, n, g.taches[n]);
     return ok(`${nom(g, `s${n}`)} : ${g.taches[n] ? T.nomTache(g.taches[n]) : 'pas de tâche (indice gratuit)'}`);
   }
   if (a.type === 'placer') { // l'admin place un joueur dans une salle (QR code qui ne passe pas)
@@ -901,6 +913,10 @@ function secretTueur(ctx, g, p, now) {
     max: arm.max, cordes: T.cordes || 0, effet: arm.effet, piegeIci: !!g.pieges?.[J.salle], etage: J.salle ? etageDe(ctx, g, J.salle) : '', cibles,
   };
 }
+// Qui s'affiche dans une salle : les vivants, et les morts (dont le nom reste : personne ne sait encore qu'ils sont morts) ;
+// leur nom n'est barré qu'une fois le corps trouvé.
+const affiches = (g, s) => Object.keys(g.joueurs).filter(p => g.joueurs[p].salle === s);
+const barre = (g, p) => !!g.joueurs[p].mort?.trouvePar.length;
 const presents = (g, s) => Object.keys(g.joueurs).filter(p => g.joueurs[p].salle === s && !g.joueurs[p].mort);
 const listes = g => ({ salles: deType(g, 'salle').map(id => carteVue(g, id)), persos: deType(g, 'perso').map(id => carteVue(g, id)), armes: deType(g, 'arme').map(id => carteVue(g, id)) });
 
@@ -928,17 +944,17 @@ export function playerView(ctx, g, p) {
   const fiche = ctx.cfg.ficheNumerique ? Object.fromEntries(Object.keys(g.cartes).map(id => [id, { statut: statut(id), par: (J.vus[id] || []).map(ctx.name) }])) : null;
   const aRepondre = g.questions.filter(q => q.a === p && q.etat === 'attente').map(q => ({
     id: q.id, de: ctx.name(q.de), salle: nom(g, q.salle), perso: nom(g, q.perso), arme: nom(g, q.arme), fin: q.at + ctx.cfg.delaiReponse * 1000,
-    choix: enCommun(g, q).map(c => carteVue(g, c)),
+    choix: aMontrer(g, q).map(c => carteVue(g, c)),
   }));
   const mesQuestions = g.questions.filter(q => q.de === p).reverse().map(q => ({
-    a: ctx.name(q.a), salle: nom(g, q.salle), perso: nom(g, q.perso), arme: nom(g, q.arme), etat: q.etat, carte: q.carte ? carteVue(g, q.carte) : null,
+    a: ctx.name(q.a), salle: nom(g, q.salle), perso: nom(g, q.perso), arme: nom(g, q.arme), etat: q.etat, carte: q.carte ? carteVue(g, q.carte) : null, rien: q.etat === 'repondue' && !q.carte && enCommun(g, q).length > 0,
   }));
   const max = g.phase === 'finale' ? ctx.cfg.indicesFinale : ctx.cfg.indicesParSalle;
   return {
     phase: g.phase, finished: g.finished, endsAt: g.endsAt, finaleAt: g.finaleAt,
     moi: carteVue(g, J.perso), main: J.main.map(c => carteVue(g, c)),
     salle: J.salle ? carteVue(g, J.salle) : null,
-    presents: J.salle ? presents(g, J.salle).filter(x => x !== p).map(x => ({ pid: x, name: ctx.name(x), dernier: J.last === x, ...(J.tueur ? { indices: g.joueurs[x].indices } : {}) })) : [],
+    presents: J.salle ? affiches(g, J.salle).filter(x => x !== p).map(x => ({ pid: x, name: ctx.name(x), dernier: J.last === x, barre: barre(g, x), ...(J.tueur && !g.joueurs[x].mort ? { indices: g.joueurs[x].indices } : {}) })) : [],
     mort: J.mort ? { salle: nom(g, J.mort.salle), victime: p, jeton: J.mort.jeton, trouve: J.mort.trouvePar.length } : null,
     panne: g.phase === 'panne' ? { salle: nom(g, g.panne.salles[p]), entre: g.panne.entres.includes(p), restants: Object.keys(g.joueurs).length - g.panne.entres.length } : null,
     bloque: J.bloque > now ? J.bloque : 0,
@@ -948,7 +964,7 @@ export function playerView(ctx, g, p) {
     assomme: J.assomme > now ? J.assomme : 0, liens: J.assommeType || 'assomme',
     armeIci: J.salle && g.armesSol?.[J.salle] != null ? { nom: nom(g, `a${g.armesSol[J.salle]}`), type: typeJoueur(g, g.armesSol[J.salle]) } : null,
     monArme: J.arme ? monArme(ctx, g, p, now) : null,
-    menace: (() => { const m = (g.menaces || []).find(x => x.etat === 'attente' && x.a === p); return m ? { de: ctx.name(m.de), fin: m.fin, main: J.main.map(c => carteVue(g, c)) } : null; })(),
+    menace: (() => { const m = (g.menaces || []).find(x => x.etat === 'attente' && x.a === p); return m ? { de: ctx.name(m.de), fin: m.fin, main: cartesLibres(g, m.de, p).map(c => carteVue(g, c)) } : null; })(),
     menaceur: (() => { const m = (g.menaces || []).find(x => x.etat === 'attente' && x.de === p); return m ? { a: ctx.name(m.a), fin: m.fin } : null; })(),
     bruit: g.bruits?.[0] && now - g.bruits[0].t < 90e3 ? g.bruits[0] : null,
     secret: J.tueur ? secretTueur(ctx, g, p, now) : null,
@@ -985,7 +1001,7 @@ export function screenView(ctx, g) {
   return {
     phase: g.phase, finished: g.finished, endsAt: g.endsAt, finaleAt: g.finaleAt, debut: g.debut,
     intro: ctx.cfg.intro,
-    salles: deType(g, 'salle').map(s => ({ ...carteVue(g, s), joueurs: presents(g, s).map(p => ({ name: ctx.name(p) })) })),
+    salles: deType(g, 'salle').map(s => ({ ...carteVue(g, s), etage: etageDe(ctx, g, s), joueurs: affiches(g, s).map(p => ({ name: ctx.name(p), barre: barre(g, p) })) })),
     joueurs: Object.keys(g.joueurs).length,
     panne: g.phase === 'panne' ? { entres: g.panne.entres.length, total: Object.keys(g.joueurs).length } : null,
     feed: g.feed.slice(0, 14),
@@ -1024,7 +1040,7 @@ export function salleView(ctx, g, n) {
     // panne : les codes des joueurs envoyés dans cette salle (sans nom), à taper sur leur téléphone
     panne: g.phase === 'panne' ? { codes: Object.keys(g.panne.salles).filter(x => g.panne.salles[x] === s && !g.panne.entres.includes(x)).map(x => g.panne.codes[x]).sort(), repare: Object.keys(g.panne.salles).filter(x => g.panne.salles[x] === s).every(x => g.panne.entres.includes(x)) } : null,
     change: rot > 0 ? (w + 1) * rot : 0,
-    joueurs: presents(g, s).map(p => ({ name: ctx.name(p) })),
+    joueurs: affiches(g, s).map(p => ({ name: ctx.name(p), barre: barre(g, p) })),
     tache: (() => {
       const t = ctx.cfg.taches && g.taches && !g.finished && g.phase !== 'intro' ? tacheDe(ctx, g, s) : null;
       if (!t) return null;
