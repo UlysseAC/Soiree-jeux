@@ -115,41 +115,45 @@ test('sans réponse à temps, une carte au hasard ; sans carte en commun, « auc
     assert.equal(g.questions.at(-1).carte, null);
   }
   avance(31e3);
-  entrer(ctx, g, 'p2', 0);
-  const c = g.joueurs.p2.main.find(x => x.startsWith('p') || x.startsWith('a') || x === 's0');
+  // un joueur qui a une carte qu'on peut demander dans cette salle (personnage, arme ou la salle s0)
+  const utile = x => x.startsWith('p') || x.startsWith('a') || x === 's0';
+  const p2 = ['p2', 'p3', 'p4', 'p5'].find(x => g.joueurs[x].main.some(utile));
+  entrer(ctx, g, p2, 0);
+  const c = g.joueurs[p2].main.find(utile);
   const q = { perso: c.startsWith('p') ? c : perso, arme: c.startsWith('a') ? c : arme };
-  E.playerAction(ctx, g, 'p0', { type: 'interroger', cible: 'p2', ...q });
+  E.playerAction(ctx, g, 'p0', { type: 'interroger', cible: p2, ...q });
   const derniere = g.questions.at(-1);
   if (derniere.etat === 'attente') {
     avance(61e3);
     assert.equal(derniere.etat, 'repondue');
-    assert.ok(g.joueurs.p2.main.includes(derniere.carte));
+    assert.ok(g.joueurs[p2].main.includes(derniere.carte));
   }
 });
 
 test('indices : un par salle (deux en phase finale, avec deux cartes), écrits ou automatiques, tous consultables', () => {
   const { g, ctx } = setup(12, c => { c.indices[0] = 'Le majordome a vu quelque chose près de « {arme} ».\nDeuxième indice : {salle}'; c.modeles = "Un souvenir revient : « {carte} » n'a rien à voir avec le crime."; return c; });
   E.adminAction(ctx, g, { type: 'lancer' });
-  entrer(ctx, g, 'p0', 0);
-  const r = E.playerAction(ctx, g, 'p0', { type: 'indice' });
+  const P = Object.keys(g.joueurs).find(x => g.joueurs[x].perso !== g.solution.perso); // pas le tueur : ses indices sont plus précis
+  entrer(ctx, g, P, 0);
+  const r = E.playerAction(ctx, g, P, { type: 'indice' });
   assert.equal(r.ok, true);
   assert.match(r.indice, /^Le majordome a vu quelque chose près de « .+ »\.$/);
-  const elim = g.joueurs.p0.elimines;
+  const elim = g.joueurs[P].elimines;
   assert.equal(elim.length, 1);
   assert.equal(g.cartes[elim[0]].type, 'arme');
   assert.ok(!Object.values(g.solution).includes(elim[0]), 'jamais la solution');
-  assert.equal(E.playerView(ctx, g, 'p0').notes[0].salle, g.cartes.s0.nom, 'indice consultable, avec sa salle');
-  assert.equal(E.playerAction(ctx, g, 'p0', { type: 'indice' }).ok, false, 'un seul par salle');
+  assert.equal(E.playerView(ctx, g, P).notes[0].salle, g.cartes.s0.nom, 'indice consultable, avec sa salle');
+  assert.equal(E.playerAction(ctx, g, P, { type: 'indice' }).ok, false, 'un seul par salle');
   // autre salle : le modèle automatique
-  entrer(ctx, g, 'p0', 4);
-  assert.match(E.playerAction(ctx, g, 'p0', { type: 'indice' }).indice, /n'a rien à voir avec le crime/);
+  entrer(ctx, g, P, 4);
+  assert.match(E.playerAction(ctx, g, P, { type: 'indice' }).indice, /n'a rien à voir avec le crime/);
   // phase finale : un deuxième indice dans la salle, avec deux cartes
   E.adminAction(ctx, g, { type: 'finale' });
-  entrer(ctx, g, 'p0', 0);
-  const f = E.playerAction(ctx, g, 'p0', { type: 'indice' });
+  entrer(ctx, g, P, 0);
+  const f = E.playerAction(ctx, g, P, { type: 'indice' });
   assert.equal(f.ok, true);
   assert.match(f.indice, /^Deuxième indice : .+ » et « .+$/);
-  assert.equal(g.joueurs.p0.indices, 3);
+  assert.equal(g.joueurs[P].indices, 3);
 });
 
 test('indice à recouper : 3 cartes du même type, au plus une de la solution, rien de barré', () => {
@@ -175,14 +179,16 @@ test('indice à recouper : 3 cartes du même type, au plus une de la solution, r
 test('accusation : une seule ; fausse = plus d\'accusation ; juste = gagne seul, classement par indices', () => {
   const { g, ctx } = setup();
   E.adminAction(ctx, g, { type: 'lancer' });
-  const faux = { salle: g.solution.salle, perso: g.solution.perso, arme: Object.keys(g.cartes).find(c => c.startsWith('a') && c !== g.solution.arme) };
-  assert.equal(E.playerAction(ctx, g, 'p0', { type: 'accuser', ...faux }).ok, false);
-  assert.equal(E.playerAction(ctx, g, 'p0', { type: 'accuser', ...g.solution }).ok, false, 'déjà accusé');
-  g.joueurs.p3.indices = 5; g.joueurs.p4.indices = 2;
-  assert.equal(E.playerAction(ctx, g, 'p1', { type: 'accuser', ...g.solution }).ok, true);
+  // (le tueur, lui, a une seconde chance et ne gagne pas en s'accusant : voir tueur.test.js)
+  const [a, b2, c, d] = Object.keys(g.joueurs).filter(p => g.joueurs[p].perso !== g.solution.perso);
+  const faux = { salle: g.solution.salle, perso: g.solution.perso, arme: Object.keys(g.cartes).find(x => x.startsWith('a') && x !== g.solution.arme) };
+  assert.equal(E.playerAction(ctx, g, a, { type: 'accuser', ...faux }).ok, false);
+  assert.equal(E.playerAction(ctx, g, a, { type: 'accuser', ...g.solution }).ok, false, 'déjà accusé');
+  g.joueurs[c].indices = 5; g.joueurs[d].indices = 2;
+  assert.equal(E.playerAction(ctx, g, b2, { type: 'accuser', ...g.solution }).ok, true);
   assert.equal(g.finished, true);
   const res = E.results(ctx, g);
-  assert.deepEqual(res.slice(0, 3).map(r => r.pid), ['p1', 'p3', 'p4']);
+  assert.deepEqual(res.slice(0, 3).map(r => r.pid), [b2, c, d]);
   assert.equal(res[0].won, true);
 });
 
