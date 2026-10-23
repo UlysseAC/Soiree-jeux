@@ -300,3 +300,17 @@ test('salles « trop propres » : N salles (réglable), jamais la salle du crime
   // réglable : 0 salle propre
   assert.equal(setup(6, c => { c.sallesPropres = 0; return c; }).g.propres.length, 0);
 });
+
+test('indice « {joueur} est peut-être {3perso} » : le nom d\'un autre joueur et 3 personnages dont son vrai personnage', () => {
+  const { g, ctx } = setup(6, c => { c.sallesPropres = 0; c.indicesSalles[0] = { textes: ['{joueur} est peut-être {3perso}.', '', ''], p1: [100, 0, 0], p2: [0, 0, 0] }; return c; });
+  ctx.name = p => 'Joueur-' + p;
+  E.adminAction(ctx, g, { type: 'lancer' });
+  const P = Object.keys(g.joueurs).find(x => g.joueurs[x].perso !== g.solution.perso);
+  entrer(ctx, g, P, 0);
+  const t = E.playerAction(ctx, g, P, { type: 'indice' }).indice;
+  const m = t.match(/^Joueur-(\w+) est peut-être (.+) ou (.+) ou (.+)\.$/) || t.match(/^Joueur-(\w+) est peut-être (.+), (.+) ou (.+)\.$/);
+  assert.ok(m, t);
+  assert.notEqual(m[1], P, 'jamais le joueur lui-même');
+  const vrai = g.cartes[g.joueurs[m[1]].perso].nom;
+  assert.ok([m[2], m[3], m[4]].includes(vrai), `${t} (vrai : ${vrai})`);
+});

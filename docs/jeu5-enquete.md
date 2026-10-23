@@ -69,6 +69,7 @@ Dans **Réglages, L'Enquête, cadre « Indices des salles »**, tu écris **jusq
   - `{carte}`, `{perso}`, `{arme}` et `{salle}` donnent une carte innocente que le joueur ne connaît pas encore.
   - `{3salle}`, `{3arme}`, `{3perso}` et `{3carte}` donnent 3 cartes dont au plus une est dans la solution.
   - En phase finale, chaque repère donne deux cartes.
+  - `{joueur}` : le nom d'un autre joueur (de préférence dont le personnage est encore inconnu de celui qui lit). Avec `{3perso}`, les 3 personnages contiennent son vrai personnage : « {joueur} est peut-être {3perso} » donne par exemple « Léa est peut-être Colonel Moutarde, Madame Blanche ou Baron Safran ».
 - **Indices de secours.** Quand un joueur n'a plus d'indice disponible dans une salle, un des modèles de secours est tiré au hasard (une ligne = un modèle).
 
 ### Salles « trop propres »

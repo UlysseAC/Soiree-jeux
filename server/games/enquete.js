@@ -373,8 +373,13 @@ function inconnues(g, p, type = null) {
   const J = g.joueurs[p], sol = new Set(Object.values(g.solution));
   return Object.values(g.cartes).filter(c => !sol.has(c.id) && (!type || c.type === type) && !J.main.includes(c.id) && !J.vus[c.id] && !J.elimines.includes(c.id)).map(c => c.id);
 }
-function remplir(g, p, texte, n) {
+function remplir(g, p, texte, n, nomJoueur = x => x) {
   const elimines = [];
+  // {joueur} : le nom d'un autre joueur (de préférence dont le personnage est encore inconnu de celui qui lit) ;
+  // avec {3perso}, les 3 personnages proposés contiennent le vrai personnage de ce joueur.
+  const autres = Object.keys(g.joueurs).filter(x => x !== p && !g.joueurs[x].mort);
+  const J0 = g.joueurs[p], inconnuPerso = x => !J0.main.includes(g.joueurs[x].perso) && !J0.vus[g.joueurs[x].perso] && !J0.elimines.includes(g.joueurs[x].perso);
+  const cible = /\{joueur\}/.test(texte) && autres.length ? pick(autres.filter(inconnuPerso).length ? autres.filter(inconnuPerso) : autres) : null;
   let vide = false; // plus aucune carte à éliminer de ce type pour ce joueur
   const prendre = type => {
     const libres = inconnues(g, p, type).filter(c => !elimines.includes(c));
@@ -385,6 +390,11 @@ function remplir(g, p, texte, n) {
   };
   // Indice à recouper : k cartes dont au plus une est dans la solution (une fois sur deux). Ces cartes ne comptent pas comme éliminées.
   const groupe = (k, type) => {
+    if (cible && type === 'perso') { // « X peut être A, B ou C » : le vrai personnage de X parmi k personnages
+      const vrai = g.joueurs[cible].perso, autresPersos = shuffle(deType(g, 'perso').filter(c => c !== vrai && c !== g.joueurs[p].perso));
+      const noms = shuffle([vrai, ...autresPersos.slice(0, Math.max(1, k - 1))]).map(c => nom(g, c));
+      return noms.length > 1 ? `${noms.slice(0, -1).join(', ')} ou ${noms.at(-1)}` : noms[0];
+    }
     const J = g.joueurs[p], sol = Object.values(g.solution).filter(c => !type || g.cartes[c].type === type);
     const innocentes = Object.values(g.cartes).filter(c => !Object.values(g.solution).includes(c.id) && (!type || c.type === type)).map(c => c.id);
     const inconnu = c => !J.main.includes(c) && !J.vus[c] && !J.elimines.includes(c) && !elimines.includes(c);
@@ -395,6 +405,7 @@ function remplir(g, p, texte, n) {
     return listeNoms(shuffle(choix).map(c => nom(g, c)));
   };
   const out = texte
+    .replace(/\{joueur\}/g, cible ? nomJoueur(cible) : 'Quelqu\'un')
     .replace(/\{(\d)(carte|salle|perso|arme)s?\}/g, (_, k, t) => groupe(Math.max(2, Number(k)), t === 'carte' ? null : t))
     .replace(/\{(carte|salle|perso|arme)\}/g, (_, k) => prendre(k === 'carte' ? null : k));
   if (vide) return { texte: "Tu as déjà éliminé toutes les pistes que cette salle pouvait t'apprendre : il ne te revient rien de nouveau.", elimines: [] };
@@ -445,7 +456,7 @@ function indice(ctx, g, p, parTache = false) {
   const choix = choisirIndice(ctx, g, p, s);
   let r;
   if (choix && !(tueur && choix.auto)) {
-    r = choix.concret ? { texte: choix.texte, elimines: choix.elim || [] } : remplir(g, p, choix.texte, g.phase === 'finale' ? 2 : 1);
+    r = choix.concret ? { texte: choix.texte, elimines: choix.elim || [] } : remplir(g, p, choix.texte, g.phase === 'finale' ? 2 : 1, ctx.name);
     (J.recus[s] ??= []).push(choix.cle);
   } else { // plus d'indice disponible pour ce joueur dans cette salle : indice automatique de secours
     const brut = tueur ? 'Un souvenir précis te revient : « {carte} » n\'a rien à voir avec le crime.' : modeles.length ? pick(modeles) : "« {carte} » n'a rien à voir avec le crime.";
