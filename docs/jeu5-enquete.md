@@ -146,9 +146,9 @@ Avant d'aller ailleurs, chaque joueur doit appuyer sur **« Quitter la salle »*
 Chaque joueur a un complice, tiré au hasard au lancement : deux par deux (si le nombre de joueurs est impair, un trio en cercle). Un joueur qui rejoint en cours de partie reçoit un complice au hasard.
 
 1. **Bureau.** Le 1er indice qu'un joueur obtient dans le Bureau est suivi d'un texte (réglable) qui annonce qu'il y a des complices. Un bouton **🤝 Complice** apparaît alors sur son téléphone.
-2. **Salle de jeu.** Dans la salle, un bouton « Chercher » donne un texte (réglable) : par exemple « Ton complice est {complice} » (le personnage du complice).
-3. **Grenier.** Même chose, avec par exemple « {complice} est incarné par {joueur} » (le joueur qui l'incarne). Les deux salles se font dans n'importe quel ordre, une fois chacune. Ces infos sont en plus des 3 indices de la salle.
+2. **Salle de jeu.** En scannant le QR code de la salle, le joueur reçoit un texte (réglable) : par exemple « Ton complice est {complice} » (le personnage du complice).
+3. **Grenier.** Même chose en scannant le QR code, avec par exemple « {complice} est incarné par {joueur} » (le joueur qui l'incarne). Les deux salles se font dans n'importe quel ordre, une fois chacune. Ces infos sont en plus des 3 indices de la salle.
 4. **Échange.** Quand le joueur a trouvé ses deux infos et qu'il est dans la même salle que son complice, chacun choisit une carte à donner ; quand les deux ont choisi, chacun voit la carte de l'autre. Un seul échange par paire.
-5. **Tueur.** Un tueur actif qui retrouve son complice peut le **recruter** (une fois). Le complice devient tueur actif, mais n'a pas d'arme : il doit en ramasser une qui traîne dans une salle, qui sert alors comme arme de tueur (avec les réglages « tueur » de cette arme). Tous les tueurs gagnent quand il ne reste aucun innocent.
+5. **Tueur.** Un tueur actif qui retrouve son complice, dans la même salle, peut lui **proposer** de devenir tueur (une seule proposition). Le complice, dans la même salle, **accepte ou refuse**. S'il accepte, il devient tueur actif, mais n'a pas d'arme : il doit en ramasser une qui traîne dans une salle, qui sert alors comme arme de tueur (avec les réglages « tueur » de cette arme). Tous les tueurs gagnent quand il ne reste aucun innocent.
 
 Réglages : Réglages, L'Enquête, cadre « 🤝 Complices » (activer, noms des 3 salles, les 3 textes). L'admin voit les complices dans le tableau des enquêteurs, après « Révéler ».

@@ -457,9 +457,9 @@ const trouver = (ctx, g, p) => { // le joueur obtient l'indice du Bureau, puis l
   placer(ctx, g, `s${SALLE.bureau}`, p);
   ctx.cfg.taches = false;
   act(ctx, g, p, { type: 'indice' });
-  placer(ctx, g, `s${SALLE.jeu}`, p); act(ctx, g, p, { type: 'complice', op: 'chercher' });
-  placer(ctx, g, `s${SALLE.grenier}`, p); act(ctx, g, p, { type: 'complice', op: 'chercher' });
+  scanner(ctx, g, p, SALLE.jeu); scanner(ctx, g, p, SALLE.grenier);
 };
+const scanner = (ctx, g, p, n) => { ctx.cfg.delaiQuitter = 0; act(ctx, g, p, { type: 'quitter' }); return act(ctx, g, p, { type: 'entrer', salle: n, code: code(ctx, g, n) }); };
 
 test('complices : deux par deux (trio en cercle si impair), chacun a le sien', () => {
   for (const n of [6, 7]) {
@@ -475,20 +475,19 @@ test('complices : le Bureau débloque le bouton, la Salle de jeu et le Grenier d
   ctx.cfg.sallesPropres = 0; g.propres = [];
   const p = innocents[0], c = g.joueurs[p].complice;
   assert.equal(voir(ctx, g, p), null, 'pas de bouton au départ');
-  placer(ctx, g, `s${SALLE.jeu}`, p);
+  assert.doesNotMatch(scanner(ctx, g, p, SALLE.jeu).msg, /complice/, 'rien avant le Bureau');
   assert.equal(act(ctx, g, p, { type: 'complice', op: 'chercher' }).ok, false, 'pas avant le Bureau');
   placer(ctx, g, `s${SALLE.bureau}`, p);
   ctx.cfg.taches = false;
   const r = act(ctx, g, p, { type: 'indice' });
   assert.match(r.msg, /complice/);
   assert.equal(voir(ctx, g, p).pret, false);
-  placer(ctx, g, `s${SALLE.jeu}`, p);
-  assert.equal(voir(ctx, g, p).chercher, 'jeu');
-  assert.match(act(ctx, g, p, { type: 'complice', op: 'chercher' }).msg, new RegExp(g.cartes[g.joueurs[c].perso].nom));
+  const r1 = scanner(ctx, g, p, SALLE.jeu); // l'info arrive en scannant le QR code de la salle
+  assert.match(r1.msg, new RegExp(g.cartes[g.joueurs[c].perso].nom));
   assert.equal(act(ctx, g, p, { type: 'complice', op: 'chercher' }).ok, false, 'une seule fois');
   assert.equal(voir(ctx, g, p).nom, null, 'son nom reste secret tant qu\'il manque le Grenier');
-  placer(ctx, g, `s${SALLE.grenier}`, p);
-  assert.match(act(ctx, g, p, { type: 'complice', op: 'chercher' }).msg, new RegExp(ctx.name(c)));
+  assert.equal(scanner(ctx, g, p, 2).ok, true);
+  assert.match(scanner(ctx, g, p, SALLE.grenier).msg, new RegExp(ctx.name(c)));
   assert.equal(voir(ctx, g, p).pret, true);
   assert.equal(voir(ctx, g, p).nom, ctx.name(c));
 });
@@ -513,21 +512,32 @@ test('complices : dans la même salle, chacun donne une carte à l\'autre (une s
   assert.equal(act(ctx, g, a, { type: 'complice', op: 'echanger', carte: ca }).ok, false, 'une seule fois');
 });
 
-test('complices : le tueur recrute son complice, qui doit trouver une arme', () => {
+test('complices : le tueur propose, le complice choisit ; accepté, il doit trouver une arme', () => {
   const { g, ctx, tueur } = setup();
   ctx.cfg.sallesPropres = 0; g.propres = [];
   armer(ctx, g, tueur);
   const c = g.joueurs[tueur].complice;
   trouver(ctx, g, tueur); trouver(ctx, g, c);
+  placer(ctx, g, 's4', tueur);
+  assert.equal(voir(ctx, g, tueur).peutRecruter, false, 'pas dans la même salle');
   placer(ctx, g, 's4', tueur, c);
   assert.equal(voir(ctx, g, tueur).peutRecruter, true);
-  assert.equal(voir(ctx, g, c).peutRecruter, false, 'seul le tueur peut recruter');
+  assert.equal(voir(ctx, g, c).peutRecruter, false, 'seul le tueur propose');
   assert.equal(act(ctx, g, c, { type: 'complice', op: 'recruter' }).ok, false);
   assert.equal(act(ctx, g, tueur, { type: 'complice', op: 'recruter' }).ok, true);
+  assert.ok(!g.joueurs[c].tueur, 'rien tant qu\'il n\'a pas accepté');
+  assert.equal(E.playerView(ctx, g, c).propositionTueur.de, ctx.name(tueur));
+  assert.equal(voir(ctx, g, tueur).recrutement, 'attente');
+  // il faut être dans la même salle pour répondre
+  placer(ctx, g, 's6', c);
+  assert.equal(act(ctx, g, c, { type: 'complice', op: 'accepter' }).ok, false);
+  placer(ctx, g, 's4', c);
+  assert.equal(act(ctx, g, c, { type: 'complice', op: 'accepter' }).ok, true);
   assert.equal(g.joueurs[c].tueur.recrue, true);
   const s = E.playerView(ctx, g, c).secret;
   assert.equal(s.recrue, true);
   assert.equal(s.armeRecup, false, 'pas d\'arme au départ');
+  assert.equal(voir(ctx, g, tueur).recrutement, 'accepte');
   const victime = Object.keys(g.joueurs).find(x => x !== tueur && x !== c);
   placer(ctx, g, 's4', victime);
   assert.match(act(ctx, g, c, { type: 'tuer', cible: victime }).msg, /pas d'arme/);
@@ -537,5 +547,20 @@ test('complices : le tueur recrute son complice, qui doit trouver une arme', () 
   assert.equal(E.playerView(ctx, g, c).secret.armeRecup, true);
   assert.equal(act(ctx, g, c, { type: 'tuer', cible: victime }).ok, true);
   assert.ok(g.joueurs[victime].mort);
-  assert.equal(act(ctx, g, tueur, { type: 'complice', op: 'recruter' }).ok, false, 'une seule fois');
+  assert.equal(act(ctx, g, tueur, { type: 'complice', op: 'recruter' }).ok, false, 'une seule proposition');
+});
+
+test('complices : le complice peut refuser de devenir tueur', () => {
+  const { g, ctx, tueur } = setup();
+  ctx.cfg.sallesPropres = 0; g.propres = [];
+  armer(ctx, g, tueur);
+  const c = g.joueurs[tueur].complice;
+  trouver(ctx, g, tueur); trouver(ctx, g, c);
+  placer(ctx, g, 's4', tueur, c);
+  act(ctx, g, tueur, { type: 'complice', op: 'recruter' });
+  assert.equal(act(ctx, g, c, { type: 'complice', op: 'refuser' }).ok, true);
+  assert.ok(!g.joueurs[c].tueur);
+  assert.equal(E.playerView(ctx, g, c).propositionTueur, null);
+  assert.equal(voir(ctx, g, tueur).recrutement, 'refuse');
+  assert.equal(act(ctx, g, tueur, { type: 'complice', op: 'recruter' }).ok, false, 'pas de nouvelle proposition');
 });

@@ -262,15 +262,29 @@ function complice(ctx, g, p, a) {
     }
     return ok('Carte choisie : l\'échange se fera quand ton complice aura choisi la sienne.');
   }
-  if (a.op === 'recruter') {
+  if (a.op === 'recruter') { // le tueur propose : son complice (dans la même salle) choisit d'accepter ou non
     if (!J.tueur?.actif) return err('Action inconnue.');
-    if (J.tueur.recrute) return err('Tu as déjà recruté ton complice.');
+    if (J.tueur.recrute) return err('Tu as déjà fait ta proposition à ton complice.');
     if (C.tueur) return err('Ton complice est déjà tueur.');
     if (!peutSeRetrouver(g, p, J.complice) && !peutSeRetrouver(g, J.complice, p)) return err('Tu dois être dans la même salle que ton complice, après l\'avoir retrouvé.');
-    J.tueur.recrute = J.complice;
-    C.tueur = { actif: true, recrue: true, cache: null, arme: false, pret: 0, usage: null, victimes: 0, at: ctx.now() };
-    (C.notes ??= []).unshift({ t: ctx.now(), salle: C.salle, texte: '🩸 Ton complice t\'a entraîné dans le crime : tu es désormais tueur. Il te faut une arme : ramasse-en une dans une salle.' });
-    return ok(`😈 ${ctx.name(J.complice)} est maintenant tueur. Il doit trouver une arme.`);
+    J.tueur.recrute = 'attente';
+    C.comp.propose = p;
+    return ok(`😈 Tu as proposé à ${ctx.name(J.complice)} de devenir tueur. Il doit accepter, dans cette salle.`);
+  }
+  if (a.op === 'accepter' || a.op === 'refuser') { // réponse du complice
+    const pid = J.comp.propose, P = pid && g.joueurs[pid];
+    if (!P?.tueur || P.tueur.recrute !== 'attente' || P.mort) { J.comp.propose = null; return err('Personne ne te propose rien.'); }
+    if (a.op === 'refuser') {
+      J.comp.propose = null; P.tueur.recrute = 'refuse';
+      (P.notes ??= []).unshift({ t: ctx.now(), salle: P.salle, texte: `😈 ${ctx.name(p)} a refusé de devenir tueur.` });
+      return ok('Tu as refusé : tu restes innocent.');
+    }
+    if (!P.salle || P.salle !== J.salle) return err('Il faut être dans la même salle que ton complice pour accepter.');
+    J.comp.propose = null; P.tueur.recrute = p;
+    J.tueur = { actif: true, recrue: true, cache: null, arme: false, pret: 0, usage: null, victimes: 0, at: ctx.now() };
+    (J.notes ??= []).unshift({ t: ctx.now(), salle: J.salle, texte: '🩸 Tu as accepté : tu es désormais tueur. Il te faut une arme : ramasse-en une dans une salle.' });
+    (P.notes ??= []).unshift({ t: ctx.now(), salle: P.salle, texte: `😈 ${ctx.name(p)} a accepté : il est tueur, mais doit trouver une arme.` });
+    return ok('🩸 Tu es désormais tueur. Il te faut une arme : ramasse-en une qui traîne dans une salle.');
   }
   return err('Action inconnue.');
 }
@@ -849,13 +863,16 @@ export function playerAction(ctx, g, p, a) {
       mettreAMort(ctx, g, J.poison.par, p, { poison: true });
       return err('Tu te sens mal… tes jambes te lâchent. Tout devient noir.');
     }
+    // la salle de jeu et le grenier livrent leur info d'un coup de QR code, une fois les complices annoncés au Bureau
+    let trace = '';
+    if (change && ctx.cfg.complices && J.comp?.debloque) { const r = complice(ctx, g, p, { op: 'chercher' }); if (r.ok) trace = `\n${r.msg}`; }
     const piege = g.pieges?.[J.salle];
     if (change && piege && piege.par !== p && !J.tueur) { // la corde se resserre
       delete g.pieges[J.salle];
       mettreAMort(ctx, g, piege.par, p, { corde: true });
       return err('Une corde se resserre autour de ton cou…');
     }
-    return oubli ? err(`Tu as oublié de quitter ${oubli} ! Immobilisé ${ctx.cfg.penaliteOubli ?? 30} s.`) : ok(`Tu es dans : ${nom(g, J.salle)}`);
+    return oubli ? err(`Tu as oublié de quitter ${oubli} ! Immobilisé ${ctx.cfg.penaliteOubli ?? 30} s.`) : ok(`Tu es dans : ${nom(g, J.salle)}${trace}`);
   }
 
   if (a.type === 'quitter') { // « Quitter la salle » : obligatoire avant d'aller ailleurs
@@ -1050,7 +1067,7 @@ function complicesVue(ctx, g, p) {
     nom: pret ? ctx.name(J.complice) : null, perso: pret ? nom(g, C.perso) : null,
     ici: pret && ici, fait: J.comp.fait, monChoix: J.comp.choix ? carteVue(g, J.comp.choix) : null, sonChoix: !!C.comp?.choix,
     peutRecruter: !!J.tueur?.actif && !J.tueur.recrute && !C.tueur && ici,
-    recrutee: !!J.tueur?.recrute, recrue: !!J.tueur?.recrue,
+    recrutement: J.tueur?.recrute === 'attente' ? 'attente' : J.tueur?.recrute === 'refuse' ? 'refuse' : J.tueur?.recrute ? 'accepte' : null, recrue: !!J.tueur?.recrue,
   };
 }
 function monArme(ctx, g, p, now) {
@@ -1121,6 +1138,7 @@ export function playerView(ctx, g, p) {
     secondeChance: !!J.secondeChance,
     // panneau secret du tueur actif
     complice: complicesVue(ctx, g, p),
+    propositionTueur: (() => { const q = J.comp?.propose && g.joueurs[J.comp.propose]; return q?.tueur?.recrute === 'attente' ? { de: ctx.name(J.comp.propose), ici: q.salle === J.salle } : null; })(),
     assomme: J.assomme > now ? J.assomme : 0, liens: J.assommeType || 'assomme',
     armeIci: J.salle && g.armesSol?.[J.salle] != null ? { nom: nom(g, `a${g.armesSol[J.salle]}`), type: typeJoueur(g, g.armesSol[J.salle]) } : null,
     monArme: J.arme ? monArme(ctx, g, p, now) : null,

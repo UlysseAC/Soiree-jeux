@@ -601,8 +601,11 @@ function eqArme(g) {
 // Les complices : le bouton apparaît une fois l'info du Bureau reçue ; on cherche des traces dans deux salles, puis on échange une carte.
 function eqComplice(g) {
   const c = g.complice;
-  if (!c) return '';
   let h = '';
+  if (g.propositionTueur) h += `<div class="card danger"><strong>😈 ${esc(g.propositionTueur.de)} te propose de devenir tueur avec lui.</strong>
+    <p class="muted" style="margin:0;font-size:14px">Si tu acceptes, tu gagnes avec les tueurs quand il ne reste aucun innocent ; il te faudra trouver une arme. Tu es libre de refuser.</p>
+    ${g.propositionTueur.ici ? '<div class="row"><button class="btn danger" data-act="eqAccepter">Accepter</button><button class="btn" data-act="eqRefuser">Refuser</button></div>' : '<p class="muted" style="margin:0">Tu dois être dans la même salle que lui pour répondre.</p>'}</div>`;
+  if (!c) return h;
   if (c.chercher) h += `<div class="card accent"><p style="margin:0">🕵️ ${c.chercher === 'jeu' ? 'Des traces de ton complice dans cette salle…' : 'Un registre traîne ici : il parle de ton complice…'}</p><button class="btn primary" data-act="eqChercher">🔎 Chercher</button></div>`;
   if (!ui.eqComp) return h + `<button class="btn sm" data-act="eqComp" style="align-self:flex-end">🤝 Complice${c.pret ? ' ✓' : ''}</button>`;
   h += `<div class="card"><div class="row" style="justify-content:space-between"><strong>🤝 Ton complice</strong><button class="btn sm" data-act="eqComp">Cacher</button></div>
@@ -617,7 +620,10 @@ function eqComplice(g) {
       : `<p style="margin:0">Vous êtes ensemble : choisis la carte que tu lui donnes${c.sonChoix ? ' (il a déjà choisi la sienne)' : ''}.</p>`;
     h += `<div class="pions">${g.main.map(m => `<button class="pion choix" data-act="eqEchanger" data-carte="${esc(m.id)}" aria-pressed="${c.monChoix?.id === m.id}">${esc(m.nom)}</button>`).join('')}</div>`;
   }
-  if (c.peutRecruter) h += '<button class="btn danger" data-act="eqRecruter">😈 Rendre mon complice tueur</button>';
+  if (c.peutRecruter) h += '<button class="btn danger" data-act="eqRecruter">😈 Proposer à mon complice de devenir tueur</button>';
+  if (c.recrutement === 'attente') h += '<p class="muted" style="margin:0">😈 Proposition faite : ton complice doit répondre.</p>';
+  if (c.recrutement === 'refuse') h += '<p class="muted" style="margin:0">😈 Ton complice a refusé.</p>';
+  if (c.recrutement === 'accepte') h += '<p style="margin:0">😈 Ton complice est tueur : il doit trouver une arme.</p>';
   return h + '</div>';
 }
 
@@ -703,7 +709,9 @@ app.addEventListener('click', e => {
   if (a === 'eqComp') { ui.eqComp = !ui.eqComp; draw(); }
   if (a === 'eqChercher') act({ type: 'complice', op: 'chercher' });
   if (a === 'eqEchanger') act({ type: 'complice', op: 'echanger', carte: t.dataset.carte });
-  if (a === 'eqRecruter') { if (confirm('Rendre ton complice tueur ?')) act({ type: 'complice', op: 'recruter' }); }
+  if (a === 'eqRecruter') { if (confirm('Proposer à ton complice de devenir tueur ?')) act({ type: 'complice', op: 'recruter' }); }
+  if (a === 'eqAccepter') { if (confirm('Devenir tueur ?')) act({ type: 'complice', op: 'accepter' }); }
+  if (a === 'eqRefuser') act({ type: 'complice', op: 'refuser' });
   if (a === 'eqRamasser') act({ type: 'ramasser' });
   if (a === 'eqPoserArme') act({ type: 'poserArme' });
   if (a === 'eqDonner') act({ type: 'donner', carte: t.dataset.carte });
