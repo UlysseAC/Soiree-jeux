@@ -422,10 +422,25 @@ export class Soiree {
     const me = this.identify(token);
     if (!me) return { ok: false, msg: 'Inscris-toi d\'abord.' };
     if (a.type === 'inscription') return this.register(me.id, a.on !== false);
+    if (a.type === 'rejoindreEnCours') return this.rejoindreEnCours(me);
     const g = this.sess.game;
     if (!g || this.sess.status !== 'playing') return { ok: false, msg: 'Aucune partie en cours.' };
     if (this.sess.jeuPause) return { ok: false, msg: 'Le jeu est en pause.' };
     return this.module.playerAction(this.ctx(), g, me.id, a);
+  }
+
+  // Un joueur rejoint de lui-même une partie déjà lancée (L'Enquête) : il reçoit un personnage que personne ne joue.
+  rejoindreEnCours(me) {
+    const sess = this.sess, g = sess.game;
+    if (sess.status !== 'playing' || !g || !this.module.ajouterJoueur) return { ok: false, msg: 'Aucune partie en cours à rejoindre.' };
+    if (sess.registered.includes(me.id)) return { ok: false, msg: 'Tu es déjà dans la partie.' };
+    const peut = this.module.peutRejoindre?.(this.ctx(), g);
+    if (peut && !peut.ok) return peut;
+    const r = this.module.ajouterJoueur(this.ctx(), g, me.id);
+    if (!r.ok) return r;
+    sess.registered.push(me.id);
+    this.noter(me.id, `a rejoint la partie en cours${r.detail ? ` (${r.detail})` : ''}`);
+    return { ok: true, msg: `Tu rejoins l'enquête : tu es ${r.detail}.` };
   }
 
   // Mini-Jeux : le téléphone prend un nom de la liste (et reçoit une identité s'il n'en a pas encore).
@@ -476,6 +491,7 @@ export class Soiree {
       inscriptionsAt: sess.status === 'countdown' ? this.endsAt() - this.s.config.inscriptions * 1000 : 0,
       inscriptionsOpen: this.inscriptionsOpen(),
       registeredCount: sess.registered.length,
+      peutRejoindre: sess.status === 'playing' && !!sess.game && !!this.module.peutRejoindre && !!this.module.peutRejoindre(this.ctx(), sess.game).ok,
       message: sess.message,
     };
   }

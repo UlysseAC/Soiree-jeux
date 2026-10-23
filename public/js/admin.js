@@ -324,6 +324,15 @@ function eqTestTaches() {
     <p class="muted" style="margin:0;font-size:14px">Joue les 22 tâches à la suite, sans lancer de partie : scanne ce QR code avec ton téléphone (code orga : ${esc(V.config.orgaCode)}). Pour une tâche à plusieurs, tu joues tous les rôles sur le même appareil.</p>
     <div class="row" style="flex-wrap:wrap;align-items:center"><img src="/qr.svg?d=${encodeURIComponent(url)}" alt="QR code du test des tâches" width="150" height="150" style="background:#fff;border-radius:8px"><a class="btn primary" href="${url}" target="_blank" rel="noopener">🧪 Ouvrir le test</a></div></div>`;
 }
+// Liens permanents des salles : une ligne par salle, à copier-coller dans un message pour que chacun clique sur sa salle.
+function eqLiensSalles(g) {
+  if (!g.liensSalles?.length) return '';
+  const base = `${location.origin}${SJ.base}/jouer`;
+  const texte = g.liensSalles.map(l => `${l.nom} : ${base}?salle=${l.n}&c=${l.code}`).join('\n');
+  return `<div class="box"><div class="spread"><h2>🔗 Liens des salles</h2><button class="btn primary" data-act="copierLiens">📋 Copier</button></div>
+    <p class="muted" style="margin:0;font-size:14px">Un lien par salle, valable pour cette partie : un joueur qui clique dessus entre dans la salle, sans scanner la tablette. Attention : quiconque a le lien peut entrer dans la salle sans y être (tu peux désactiver ces liens dans les réglages).</p>
+    <textarea class="in" id="eq-liens" rows="${g.liensSalles.length + 1}" readonly style="font-size:13px;white-space:pre">${esc(texte)}</textarea></div>`;
+}
 function partieEnquete(g) {
   const phase = g.finished ? 'Terminée' : { intro: 'Introduction (texte à l\'écran)', panne: '⚡ Panne de courant', enquete: 'Enquête en cours', finale: '⚡ Phase finale' }[g.phase];
   let h = `<div class="spread"><div class="row"><span class="pill accent">${phase}</span>${g.endsAt && !g.finished ? `${g.panne ? `<span class="muted">⚡ Panne : ${g.panne.entres} / ${g.panne.total} salles réparées</span>` : ''}<span class="muted">fin dans <span class="mono" data-until="${g.endsAt}"></span>${g.finaleAt && g.phase === 'enquete' ? ` · phase finale dans <span class="mono" data-until="${g.finaleAt}"></span>` : ''}</span>` : ''}</div>
@@ -349,6 +358,7 @@ function partieEnquete(g) {
   const fiche = !!V.gameConfig?.ficheNumerique;
   h += `<div class="box"><div class="spread"><h2>📋 Fiche de détective</h2><button class="btn ${fiche ? 'primary' : ''}" data-act="eqFiche">${fiche ? 'Sur le téléphone · passer au papier' : 'Sur papier · mettre sur le téléphone'}</button></div>
     <p class="muted" style="margin:0;font-size:14px">${fiche ? 'Les joueurs ont un onglet « Fiche » qui se remplit tout seul (leurs cartes, les cartes montrées, les indices) et où ils barrent des cartes.' : 'Pas de fiche sur le téléphone : les joueurs la font sur papier. Ils gardent l\'onglet « Indices » avec tous leurs indices et leurs questions.'} Ça change tout de suite, même en pleine partie.</p></div>`;
+  h += eqLiensSalles(g);
   h += eqTestTaches();
   h += `<div class="box"><h2>Tablettes des salles</h2>${eqTablettes(g.salles.length)}</div>`;
   if (g.attente.length) h += `<div class="box"><h2>Questions en attente de réponse</h2>${g.attente.map(q => `<p style="margin:0">${esc(q.de)} → ${esc(q.a)} <span class="muted">(${esc(q.salle)})</span></p>`).join('')}</div>`;
@@ -430,7 +440,7 @@ function reglagesEnquete(c) {
     <div class="box"><h2>Temps et règles</h2><div class="grid-auto">
       ${cfgInput('ficheNumerique', c.ficheNumerique, 'bool', { label: 'Fiche de détective sur le téléphone (sinon papier)' })}
       ${d('dureeMax', 'Durée max de l\'enquête')}
-      ${cfgInput('panne', c.panne, 'bool', { label: 'Début : panne de courant (chacun répare une salle)' })}${d('delaiQuitter', 'Chrono « Quitter la salle » (reste dans la salle)')}${d('penaliteOubli', 'Immobilisé si on oublie « Quitter la salle »')}${d('finaleApres', 'Phase finale au bout de (0:00 = à la main)')}${d('delaiQuestion', 'Délai entre deux questions')}${d('delaiReponse', 'Temps pour montrer une carte')}
+      ${cfgInput('panne', c.panne, 'bool', { label: 'Début : panne de courant (chacun répare une salle)' })}${cfgInput('rejoindreEnCours', c.rejoindreEnCours, 'bool', { label: 'Joueurs : rejoindre la partie en cours (personnage libre)' })}${cfgInput('liensSalles', c.liensSalles, 'bool', { label: 'Liens permanents des salles (à copier dans Partie en cours)' })}${d('delaiQuitter', 'Chrono « Quitter la salle » (reste dans la salle)')}${d('penaliteOubli', 'Immobilisé si on oublie « Quitter la salle »')}${d('finaleApres', 'Phase finale au bout de (0:00 = à la main)')}${d('delaiQuestion', 'Délai entre deux questions')}${d('delaiReponse', 'Temps pour montrer une carte')}
       ${n('rotationQr', 'QR code changé toutes les … s (0 = fixe)')}${n('indicesParSalle', 'Indices par salle et par joueur')}${n('indicesFinale', 'Indices par salle en phase finale')}
     </div></div>
     <div class="box"><h2>Indices des salles</h2>
@@ -1102,6 +1112,13 @@ app.addEventListener('click', async e => {
     return c && admin({ type: 'importerReglages', config: c.config });
   }
   if (a === 'oublierCopie') { SJ.store('sj-admin-reglages', null); return draw(); }
+  if (a === 'copierLiens') {
+    const ta = document.getElementById('eq-liens');
+    if (!ta) return;
+    ta.select();
+    try { await navigator.clipboard.writeText(ta.value); } catch { document.execCommand?.('copy'); }
+    return SJ.toast({ ok: true, msg: 'Liens copiés : colle-les dans ton message.' });
+  }
   if (a === 'exporter') {
     const blob = new Blob([JSON.stringify(V.fullConfig, null, 2)], { type: 'application/json' });
     const link = document.createElement('a');

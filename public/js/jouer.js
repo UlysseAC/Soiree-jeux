@@ -991,7 +991,7 @@ function draw() {
     html = V.gameId === 'chemin' ? chemin(V.game) : V.gameId === 'grandpari' ? grandpari(V.game) : V.gameId === 'enquete' ? enquete(V.game) : duel(V.game);
   } else if (V.status === 'playing' || V.status === 'finished') {
     app.className = 'phone';
-    html = head() + `<div class="card"><p style="font-size:18px">${V.status === 'playing' ? 'Partie en cours.' : 'Partie terminée.'}</p><p class="muted">Tu n'es pas inscrit à ce jeu. Regarde l'écran !</p></div>`;
+    html = head() + `<div class="card"><p style="font-size:18px">${V.status === 'playing' ? 'Partie en cours.' : 'Partie terminée.'}</p><p class="muted">Tu n'es pas inscrit à ce jeu. Regarde l'écran !</p></div>${V.peutRejoindre ? `<div class="card accent center"><p style="font-size:18px;margin:0">🕵️ Tu peux encore rejoindre l'enquête !</p><p class="muted" style="margin:0">Tu joueras un personnage que personne n'incarne pour l'instant.</p><button class="btn primary big" data-act="rejoindreEnCours">Rejoindre la partie</button></div>` : ''}`;
   } else {
     app.className = 'phone';
     html = waitingScreen();
@@ -1098,6 +1098,7 @@ app.addEventListener('click', e => {
   }
   if (a === 'mjPasMoi') { if (confirm('Changer de nom ? Tu pourras choisir le bon dans la liste.')) act({ type: 'pasMoi' }); return; }
   if (a === 'inscrire') act({ type: 'inscription', on: true });
+  if (a === 'rejoindreEnCours') act({ type: 'rejoindreEnCours' });
   if (a === 'desinscrire') {
     if (!confirm('Tu ne joueras pas à ce jeu. Te désinscrire ?')) return;
     SJ.store('sj-inscrit', null);

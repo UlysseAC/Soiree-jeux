@@ -418,3 +418,34 @@ test('indices : jamais « … » (plus rien à éliminer = phrase claire)', () =
   assert.ok(r.ok);
   assert.ok(!r.msg.includes('…'), r.msg);
 });
+
+// ---------- rejoindre en cours de partie, liens permanents ----------
+test('rejoindre en cours : un personnage que personne ne joue, qu\'il tient en main ; plus de place = refusé', () => {
+  const { g, ctx } = setup(6);
+  assert.equal(E.peutRejoindre(ctx, g).ok, true);
+  ctx.name = p => ({ n1: 'Nouveau' })[p] ?? 'J';
+  const r = E.ajouterJoueur(ctx, g, 'n1');
+  assert.equal(r.ok, true);
+  const J = g.joueurs.n1;
+  assert.ok(!Object.values(g.joueurs).filter(x => x !== J).some(x => x.perso === J.perso), 'personnage jamais joué par un autre');
+  assert.ok(J.main.includes(J.perso), 'il tient la carte de son personnage');
+  assert.equal(J.main.length, 3);
+  assert.ok(!Object.values(g.solution).includes(J.perso));
+  ctx.cfg.rejoindreEnCours = false;
+  assert.equal(E.peutRejoindre(ctx, g).ok, false);
+  ctx.cfg.rejoindreEnCours = true;
+  ctx.cfg.personnages = Object.values(g.cartes).filter(c => c.type === 'perso').map(c => c.nom).join('\n');
+  assert.equal(E.peutRejoindre(ctx, g).ok, false, 'tous les personnages sont pris');
+});
+
+test('lien permanent d\'une salle : on entre sans le code qui change ; désactivable', () => {
+  const { g, ctx } = setup();
+  const p = 'p0', c = E.codeFixe(g, 3);
+  assert.equal(act(ctx, g, p, { type: 'entrer', salle: 3, code: c }).ok, true);
+  assert.equal(g.joueurs[p].salle, 's3');
+  assert.equal(act(ctx, g, 'p1', { type: 'entrer', salle: 4, code: c }).ok, false, 'le code est propre à la salle');
+  assert.equal(E.adminView(ctx, g).liensSalles.length, 11);
+  ctx.cfg.liensSalles = false;
+  assert.equal(act(ctx, g, 'p2', { type: 'entrer', salle: 3, code: c }).ok, false);
+  assert.equal(E.adminView(ctx, g).liensSalles.length, 0);
+});

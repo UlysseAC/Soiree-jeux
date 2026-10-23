@@ -53,6 +53,8 @@ export function defaultConfig() {
     panne: true, // début de partie : les plombs ont sauté, chacun va réparer dans sa salle (sinon l'enquête démarre tout de suite)
     delaiQuitter: 10, // après « Quitter la salle », le joueur reste dans la salle ce temps (s)
     penaliteOubli: 30, // immobilisé ce temps s'il scanne une autre salle sans avoir quitté la sienne (s)
+    rejoindreEnCours: true, // un joueur peut rejoindre la partie déjà lancée, avec un personnage qui n'est joué par personne
+    liensSalles: true, // l'admin peut copier des liens permanents vers chaque salle (ils marchent sans scanner la tablette)
     ficheNumerique: false, // fiche de détective sur le téléphone (sinon, sur papier)
     indicesParSalle: 1, // indices par joueur et par salle
     indicesFinale: 2, // pendant la phase finale
@@ -125,6 +127,8 @@ export function distribuer(cartes, pids, parJoueur = 3) {
 }
 
 // Code d'une salle pour une fenêtre de temps : 4 chiffres, différents d'une salle à l'autre.
+// Code permanent d'une salle (lien à envoyer aux joueurs) : propre à cette partie.
+export const codeFixe = (g, n) => createHmac('sha256', g.secret).update(`fixe:${n}`).digest('hex').slice(0, 10);
 function codesDe(g, w) {
   const out = [], pris = new Set();
   for (let s = 0; s < g.nbSalles; s++) {
@@ -691,7 +695,8 @@ export function playerAction(ctx, g, p, a) {
     const w = fenetre(ctx, g, now);
     const fenetres = [codesDe(g, w), codesDe(g, w - 1)];
     let s = null;
-    if (a.salle != null) { const i = Number(a.salle); if (fenetres.some(c => c[i] === code)) s = i; } else {
+    const fixe = i => ctx.cfg.liensSalles !== false && code === codeFixe(g, i); // liens permanents des salles (copiés par l'admin)
+    if (a.salle != null) { const i = Number(a.salle); if (fenetres.some(c => c[i] === code) || fixe(i)) s = i; } else {
       for (const c of fenetres) { const i = c.indexOf(code); if (i >= 0) { s = i; break; } }
     }
     if (s == null) return err('Code de salle incorrect ou expiré : scanne à nouveau la tablette.');
@@ -880,13 +885,22 @@ export function adminAction(ctx, g, a) {
 }
 
 // Rattrapage : un joueur ajouté en cours de partie reçoit un personnage libre et 3 cartes (doublons possibles).
+const persosLibres = (ctx, g) => personnagesDe(ctx.cfg.personnages).filter(n => !deType(g, 'perso').some(c => g.cartes[c].nom === n));
+// Un joueur peut-il rejoindre la partie en cours ? Seulement avec un personnage que personne ne joue.
+export function peutRejoindre(ctx, g) {
+  if (!g || g.finished) return { ok: false, msg: 'La partie est terminée.' };
+  if (ctx.cfg.rejoindreEnCours === false) return { ok: false, msg: 'On ne peut plus rejoindre la partie.' };
+  if (!persosLibres(ctx, g).length) return { ok: false, msg: 'Tous les personnages sont déjà joués.' };
+  return { ok: true };
+}
 export function ajouterJoueur(ctx, g, p) {
   if (g.joueurs[p]) return err('Ce joueur est déjà dans la partie.');
   if (g.finished) return err('La partie est terminée.');
   const i = deType(g, 'perso').length;
   g.cartes[`p${i}`] = { id: `p${i}`, type: 'perso', nom: attribuer(ctx, [p], deType(g, 'perso').map(c => g.cartes[c].nom))[p] };
   const sol = new Set(Object.values(g.solution));
-  const main = shuffle(Object.keys(g.cartes).filter(c => !sol.has(c))).slice(0, 3);
+  // son personnage est une carte comme les autres : il la tient en main (sinon personne ne la détiendrait)
+  const main = [`p${i}`, ...shuffle(Object.keys(g.cartes).filter(c => !sol.has(c) && c !== `p${i}`)).slice(0, 2)];
   g.joueurs[p] = { perso: `p${i}`, main, salle: null, indices: 0, pris: {}, accuse: null, nextAsk: 0, last: null, vus: {}, elimines: [], coches: [] };
   if (g.panne && g.phase === 'panne') { g.panne.salles[p] = pick(deType(g, 'salle')); g.panne.codes[p] = String(Math.floor(1000 + Math.random() * 9000)); }
   return { ok: true, detail: nom(g, `p${i}`) };
@@ -1023,6 +1037,7 @@ export function adminView(ctx, g) {
     })).sort((a, b) => a.name.localeCompare(b.name, 'fr')),
     attente: g.questions.filter(q => q.etat === 'attente').map(q => ({ de: ctx.name(q.de), a: ctx.name(q.a), salle: nom(g, q.salle) })),
     // indices des salles : écrits ou remplis au lancement avec la solution (réservé à l'admin)
+    liensSalles: ctx.cfg.liensSalles === false ? [] : deType(g, 'salle').map((sl, n) => ({ n, nom: nom(g, sl), code: codeFixe(g, n) })),
     indicesSalles: (g.auto || []).map((auto, n) => ({ salle: nom(g, `s${n}`), propre: !!g.propres?.includes(`s${n}`), indices: auto.map((a, k) => ({ texte: String(ctx.cfg.indicesSalles?.[n]?.textes?.[k] ?? '').trim() || a.texte, ecrit: !!String(ctx.cfg.indicesSalles?.[n]?.textes?.[k] ?? '').trim() })) })),
     taches: (g.taches || []).map((_, n) => { const s = `s${n}`, t = tacheDe(ctx, g, s), se = g.sessions[s]; return { salle: s, nomSalle: nom(g, s), nom: t ? T.nomTache(t) : 'Aucune : indice gratuit', groupe: !!t?.groupe, aucune: !t, etat: se?.etat || 'libre', joueurs: (se?.joueurs || []).map(ctx.name) }; }),
   };

@@ -69,3 +69,21 @@ test('terminer la soirée garde le classement', () => {
   assert.equal(so.s.soiree.started, false);
   assert.equal(so.s.history.length, 1);
 });
+
+test('L\'Enquête : un joueur non inscrit rejoint la partie en cours avec un personnage libre', () => {
+  const so = nouvelle();
+  so.admin({ type: 'choisirJeu', gameId: 'enquete' });
+  so.admin({ type: 'config', scope: 'soiree', path: 'decompte', value: 60 });
+  for (let i = 0; i < 4; i++) so.join('tok' + i, 'Joueur' + i);
+  so.admin({ type: 'demarrer' });
+  Object.keys(so.s.people).forEach(p => so.register(p));
+  assert.equal(so.admin({ type: 'lancerJeu' }).ok, true);
+  const retard = so.join('retard', 'Retardataire');
+  const tok = retard.token, vue = () => so.playerView(tok);
+  assert.equal(vue().peutRejoindre, true);
+  assert.equal(so.player(tok, { type: 'rejoindreEnCours' }).ok, true);
+  assert.equal(vue().me.registered, true);
+  assert.ok(vue().game.moi.nom, 'il a un personnage');
+  assert.equal(so.player(tok, { type: 'rejoindreEnCours' }).ok, false, 'une seule fois');
+  assert.ok(retard.pid);
+});
