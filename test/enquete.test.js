@@ -17,11 +17,11 @@ function setup(n = 12, tweak = c => c) {
 const code = (ctx, g, n) => E.salleView(ctx, g, n).code;
 const entrer = (ctx, g, p, n) => { ctx.cfg.delaiQuitter = 0; E.playerAction(ctx, g, p, { type: 'quitter' }); return E.playerAction(ctx, g, p, { type: 'entrer', salle: n, code: code(ctx, g, n) }); };
 
-test('cartes : 11 salles, autant de personnages que de joueurs, 7 armes ; solution hors des mains ; 3 cartes chacun, 2 joueurs au plus par carte', () => {
+test('cartes : 11 salles, autant de personnages que de joueurs, 10 armes ; solution hors des mains ; 3 cartes chacun, 2 joueurs au plus par carte', () => {
   for (const n of [12, 14]) {
     const { g } = setup(n);
     const types = t => Object.values(g.cartes).filter(c => c.type === t).length;
-    assert.deepEqual([types('salle'), types('perso'), types('arme')], [11, n, 7]);
+    assert.deepEqual([types('salle'), types('perso'), types('arme')], [11, n, 10]);
     const sol = Object.values(g.solution);
     const compte = {};
     for (const J of Object.values(g.joueurs)) {
@@ -30,7 +30,7 @@ test('cartes : 11 salles, autant de personnages que de joueurs, 7 armes ; soluti
       for (const c of J.main) { assert.ok(!sol.includes(c), 'la solution n\'est chez personne'); compte[c] = (compte[c] || 0) + 1; }
     }
     assert.ok(Object.values(compte).every(x => x <= 2), 'deux joueurs au plus par carte');
-    const distribuees = 11 + n + 7 - 3;
+    const distribuees = 11 + n + 10 - 3;
     assert.equal(Object.keys(compte).length, distribuees, 'toutes les cartes hors solution sont distribuées');
     assert.equal(Object.values(compte).filter(x => x === 2).length, 3 * n - distribuees, `${n} joueurs : ${3 * n - distribuees} doublons`);
     assert.equal(new Set(Object.values(g.joueurs).map(J => J.perso)).size, n, 'un personnage par joueur');
@@ -38,8 +38,8 @@ test('cartes : 11 salles, autant de personnages que de joueurs, 7 armes ; soluti
 });
 
 test('solution fixée dans l\'admin ; le tueur est le joueur de ce personnage', () => {
-  const { g, ctx } = setup(12, c => ({ ...c, solution: { salle: 'Grenier', perso: 'La Comtesse', arme: 'Poison' } }));
-  assert.deepEqual([g.cartes[g.solution.salle].nom, g.cartes[g.solution.perso].nom, g.cartes[g.solution.arme].nom], ['Grenier', 'La Comtesse', 'Poison']);
+  const { g, ctx } = setup(12, c => ({ ...c, solution: { salle: 'Grenier', perso: 'Comptesse Ivoire', arme: 'Poison' } }));
+  assert.deepEqual([g.cartes[g.solution.salle].nom, g.cartes[g.solution.perso].nom, g.cartes[g.solution.arme].nom], ['Grenier', 'Comptesse Ivoire', 'Poison']);
   E.adminAction(ctx, g, { type: 'lancer' });
   E.adminAction(ctx, g, { type: 'terminer' });
   const tueur = Object.keys(g.joueurs).find(p => g.joueurs[p].perso === g.solution.perso);

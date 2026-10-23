@@ -10,7 +10,7 @@ Le texte d'introduction s'écrit dans **Réglages des jeux → L'Enquête → Hi
 
 ## Les cartes
 
-- **11 salles**, **un personnage par joueur** et **7 armes**. Les noms se changent dans les réglages.
+- **11 salles**, **un personnage par joueur** et **10 armes**. Les noms se changent dans les réglages.
 - **Personnages** : un nom par ligne dans les réglages. Au lancement, chaque joueur reçoit un personnage **au hasard**. Seul le joueur voit son personnage : l'écran, les tablettes et les autres téléphones n'affichent que les prénoms (tout est révélé à la fin). Pendant l'introduction, l'admin peut encore changer le personnage d'un joueur (onglet Partie en cours).
 - **La solution** est une salle, un personnage et une arme. Personne n'a ces cartes.
   - Elle est tirée au hasard, ou fixée dans les réglages avec le nom exact.

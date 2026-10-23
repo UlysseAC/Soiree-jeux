@@ -70,7 +70,9 @@ export function restore(saved) {
   };
   // L'Enquête : l'ancienne liste de salles par défaut devient celle du manoir (les tâches suivent l'ordre des salles).
   const eq = out.config.games?.enquete;
-  if (eq && eq.salles === enquete.SALLES_AVANT) eq.salles = enquete.SALLES_1930;
+  if (eq && (eq.salles === enquete.SALLES_AVANT || eq.salles === enquete.SALLES_V1)) eq.salles = enquete.SALLES_1930;
+  if (eq && eq.personnages === enquete.PERSOS_AVANT) eq.personnages = enquete.PERSOS_1930;
+  if (eq && eq.armes === enquete.ARMES_AVANT) eq.armes = enquete.ARMES_1930;
   // L'Enquête : l'ancien format d'indices (une ligne = un indice, par salle) devient les 3 emplacements de chaque salle.
   if (eq?.indices?.some(t => String(t).trim()) && eq.indicesSalles?.every(x => x.textes.every(t => !t))) {
     eq.indices.forEach((t, i) => { const l = String(t).split(/\r?\n/).map(x => x.trim()).filter(Boolean); if (eq.indicesSalles[i]) l.slice(0, 3).forEach((x, k) => { eq.indicesSalles[i].textes[k] = x; }); });

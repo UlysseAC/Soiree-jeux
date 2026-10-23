@@ -12,7 +12,12 @@ export const name = "L'Enquête";
 export const minPlayers = 2;
 
 
-export const SALLES_1930 = ['Garage', 'Salle de jeu', 'Salle à manger', 'Salon', 'Cuisine', 'Bureau', 'Salle de bains', 'Chambre', 'Grenier', 'Bibliothèque', 'Pharmacie'].join('\n');
+export const SALLES_1930 = ['Garage', 'Salle de jeu', 'Salle à manger', 'Salon', 'Cuisine', 'Bureau', 'Salle de bain', 'Chambre', 'Grenier', 'Bibliothèque', 'Pharmacie'].join('\n');
+export const SALLES_V1 = SALLES_1930.replace('Salle de bain', 'Salle de bains');
+export const PERSOS_1930 = ['Veuve Pervenche', 'Madame Blanche', 'Colonel Moutarde', 'Miss Scarlette', 'Maître Rose', 'Professeur Violet', 'Docteur Olive', 'Doctoresse Orchidée', 'Monsieur Prunelle', 'Sergent Legris', 'Juge Orange', 'Détective Anthracite', 'Comptesse Ivoire', 'Baron Safran'].join('\n');
+export const PERSOS_AVANT = ['Le Majordome', 'La Comtesse', 'Le Docteur', 'Le Colonel', 'La Cantatrice', 'Le Professeur', 'La Gouvernante', 'Le Notaire', "L'Héritière", 'Le Jardinier', 'La Veuve', 'Le Chef cuisinier', "L'Aventurière", 'Le Pasteur'].join('\n');
+export const ARMES_1930 = ['Poignard', 'Chandelier', 'Revolver', 'Corde', 'Clé anglaise', 'Matraque', 'Poison', 'Fusil de chasse', 'Club de Golf', 'Hache'].join('\n');
+export const ARMES_AVANT = ['Couteau', 'Corde', 'Chandelier', 'Revolver', 'Poison', 'Clé anglaise', 'Matraque'].join('\n');
 // Ancienne liste par défaut (avant les tâches) : remplacée par celle du manoir si elle n'a pas été modifiée.
 export const SALLES_AVANT = ['Cuisine', 'Salon', 'Salle à manger', 'Bibliothèque', 'Bureau', 'Chambre', 'Salle de bain', 'Entrée', 'Jardin', 'Cave', 'Grenier'].join('\n');
 
@@ -21,8 +26,8 @@ export function defaultConfig() {
     // Dans cet ordre : chaque salle a ses tâches (voir taches.js et docs/jeu5-taches.md).
     salles: SALLES_1930,
     // Une ligne par personnage ; chaque joueur en reçoit un au hasard.
-    personnages: ['Le Majordome', 'La Comtesse', 'Le Docteur', 'Le Colonel', 'La Cantatrice', 'Le Professeur', 'La Gouvernante', 'Le Notaire', "L'Héritière", 'Le Jardinier', 'La Veuve', 'Le Chef cuisinier', "L'Aventurière", 'Le Pasteur'].join('\n'),
-    armes: ['Couteau', 'Corde', 'Chandelier', 'Revolver', 'Poison', 'Clé anglaise', 'Matraque'].join('\n'),
+    personnages: PERSOS_1930,
+    armes: ARMES_1930,
     intro: "Vous vous réveillez autour de la table du dîner. Personne ne se souvient de rien.\nDans la maison, un corps.\nPersonne n'a pu entrer ni sortir : le coupable est l'un d'entre vous… et il ne le sait peut-être pas lui-même.",
     dureeMax: 7200, // durée maximale de l'enquête (s)
     finaleApres: 5400, // la phase finale commence au bout de ce temps (s) ; 0 = seulement à la main
@@ -85,7 +90,7 @@ function attribuer(ctx, pids, deja = []) {
 
 // Cartes de la partie : salles s0…, personnages p0… (un par joueur, dans l'ordre donné), armes a0….
 function cartesDe(cfg, persos) {
-  const salles = lignes(cfg.salles === SALLES_AVANT ? SALLES_1930 : cfg.salles, 20), armes = lignes(cfg.armes, 20);
+  const salles = lignes(cfg.salles === SALLES_AVANT || cfg.salles === SALLES_V1 ? SALLES_1930 : cfg.salles, 20), armes = lignes(cfg.armes, 20);
   const c = {};
   salles.forEach((nom, i) => { c[`s${i}`] = { id: `s${i}`, type: 'salle', nom }; });
   persos.forEach((nom, i) => { c[`p${i}`] = { id: `p${i}`, type: 'perso', nom }; });
