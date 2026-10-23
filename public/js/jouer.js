@@ -552,11 +552,26 @@ function eqSecret(g) {
   if (!ui.eqSecret) return '<button class="btn sm" data-act="eqSecret" style="align-self:flex-end">🌀 Souvenirs</button>';
   let h = `<div class="card danger"><div class="row" style="justify-content:space-between"><strong>🩸 C'était toi.</strong><button class="btn sm" data-act="eqSecret">Cacher</button></div>
     <p class="muted" style="margin:0;font-size:13px">Continue de faire semblant d'enquêter. Personne ne doit voir cet écran.</p>`;
+  const ICONE = { tranche: '🔪', assomme: '🔨', piege: '🪢', poison: '☠️', tir: '🔫' }[t.type] || '🔪';
+  const REGLE = {
+    tranche: 'Elle tue en un coup une personne de ta salle.',
+    assomme: `Un premier coup assomme (elle ne peut plus quitter la salle pendant ${t.effet || 60} s), le second tue.`,
+    piege: 'Pose un piège : la prochaine personne qui entre dans la salle meurt. Récupère ta corde en scannant le QR code du cadavre.',
+    poison: `Empoisonne une personne de ta salle : elle mourra dans 0 à ${t.effet} salles qu'elle visitera, sans le savoir.`,
+    tir: 'Tue n\'importe qui de ton étage, mais le coup de feu s\'entend : tout le monde saura de quel étage il vient.',
+  }[t.type];
   if (!t.armeRecup) h += `<p style="margin:0">Tu as caché <strong>${esc(t.arme)}</strong> dans : <strong>${esc(t.cache)}</strong>. Va scanner cette salle pour la récupérer.</p>`;
-  else if (t.recharge) h += `<p style="margin:0">${esc(t.arme)} : prêt dans <span class="mono" data-until="${t.recharge}"></span>.</p>`;
-  else if (!g.salle) h += `<p style="margin:0">${esc(t.arme)} est prêt. Scanne une salle pour trouver une victime.</p>`;
-  else if (!g.presents.length) h += `<p style="margin:0">${esc(t.arme)} est prêt, mais tu es seul dans la salle.</p>`;
-  else h += `<p style="margin:0">${esc(t.arme)} est prêt. Victime dans cette salle :</p><div class="pions">${[...g.presents].sort((a, b) => (b.indices || 0) - (a.indices || 0)).map(p => `<button class="pion choix" data-act="eqTuer" data-cible="${esc(p.pid)}" data-nom="${esc(p.name)}">🔪 ${esc(p.name)} <small class="pion-perso">${p.indices || 0} 💡</small></button>`).join('')}</div>`;
+  else {
+    h += `<p class="muted" style="margin:0;font-size:13px">${ICONE} ${esc(t.arme)} : ${REGLE}</p>`;
+    if (t.type === 'piege') h += `<p style="margin:0">Cordes : <strong>${t.cordes}</strong>${t.piegeIci ? ' · un piège est déjà tendu ici' : ''}</p>`;
+    if (t.pret) h += `<p style="margin:0">${esc(t.arme)} recharge : prêt dans <span class="mono" data-until="${t.pret}"></span>.</p>`;
+    else if (!g.salle) h += `<p style="margin:0">${esc(t.arme)} est prêt. Scanne une salle pour t'en servir.</p>`;
+    else if (!t.reste) h += `<p style="margin:0">Tu ne peux plus t'en servir ici (${t.max} au maximum). Quitte la salle pour recharger.</p>`;
+    else if (t.attente) h += `<p style="margin:0">${esc(t.arme)} : prêt dans <span class="mono" data-until="${t.attente}"></span>.</p>`;
+    else if (t.type === 'piege') h += t.cordes && !t.piegeIci ? '<button class="btn primary" data-act="eqPiege">🪢 Tendre le piège ici</button>' : '';
+    else if (!t.cibles.length) h += `<p style="margin:0">${esc(t.arme)} est prêt, mais personne ${t.type === 'tir' ? 'à ton étage' : 'dans la salle'}.</p>`;
+    else h += `<p style="margin:0">${esc(t.arme)} est prêt. ${t.type === 'tir' ? `Cible à l'étage « ${esc(t.etage)} » :` : 'Cible dans cette salle :'}</p><div class="pions">${[...t.cibles].sort((a, b) => (b.indices || 0) - (a.indices || 0)).map(p => `<button class="pion choix" data-act="eqTuer" data-cible="${esc(p.pid)}" data-nom="${esc(p.name)}">${ICONE} ${esc(p.name)}${p.assomme ? ' 💫' : ''} <small class="pion-perso">${p.salle ? esc(p.salle) + ' · ' : ''}${p.indices || 0} 💡</small></button>`).join('')}</div>`;
+  }
   if (t.victimes) h += `<p class="muted" style="margin:0">Victimes : ${t.victimes}</p>`;
   return h + '</div>';
 }
@@ -602,6 +617,8 @@ function enquete(g) {
       <p class="muted" style="margin:0">Corps fouillé ${g.mort.trouve} fois.</p></div>`;
   }
   if (g.bloque) h += `<div class="card danger center"><p style="margin:0;font-size:18px">⛔ Immobilisé encore <span class="mono" data-until="${g.bloque}"></span></p><p class="muted" style="margin:0">Tu as oublié d'appuyer sur « Quitter la salle ».</p></div>`;
+  if (g.bruit) h += `<div class="card danger center"><strong>🔫 Un coup de feu !</strong> Il vient de l'étage « ${esc(g.bruit.etage)} ».</div>`;
+  if (g.assomme) h += `<div class="card danger center">💫 Tu es assommé : tu ne peux pas quitter la salle (<span class="mono" data-until="${g.assomme}"></span>).</div>`;
   if (g.secret) h += eqSecret(g);
   h += eqRepondre(g);
   ui.eqTab ??= 'salle';
@@ -631,9 +648,10 @@ app.addEventListener('click', e => {
   if (a === 'eqSecret') { ui.eqSecret = !ui.eqSecret; draw(); }
   if (a === 'eqTuer') {
     const nomV = t.dataset.nom;
-    if (!confirm(`Assassiner ${nomV} ?`)) return;
+    if (!confirm(`Viser ${nomV} ?`)) return;
     act({ type: 'tuer', cible: t.dataset.cible }).then(() => { ui.eqSecret = false; draw(); });
   }
+  if (a === 'eqPiege') act({ type: 'piege' }).then(() => { ui.eqSecret = false; draw(); });
   if (a === 'eqIndice') act({ type: 'indice' });
   if (a === 'eqTacheGo') { ui.tacheLancee = V.game.tache?.cle; draw(); }
   if (a === 'eqTacheLancer') act({ type: 'tacheLancer' });

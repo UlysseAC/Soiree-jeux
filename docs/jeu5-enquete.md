@@ -92,9 +92,13 @@ Le gagnant est premier. Les autres joueurs sont classés selon le nombre d'indic
   - sa cachette ;
   - si son arme est prête ;
   - les joueurs de sa salle, avec leur nombre d'indices.
-- **Tuer.**
-  - Il choisit une victime **dans sa salle**. C'est une règle provisoire, qui sera adaptée à chaque arme.
-  - Il doit ensuite attendre le temps de recharge (3 min, réglable).
+- **Tuer : l'effet dépend de l'arme du crime** (reconnue par son nom).
+  - **Poignard, hache** : tue en un coup une personne de la salle.
+  - **Chandelier, matraque, club de golf, clé anglaise** : le 1er coup assomme (la victime ne peut plus quitter la salle, pendant une durée réglable), le 2e coup tue. Si elle n'est pas achevée à temps, elle se réveille.
+  - **Corde** : le tueur tend un piège dans sa salle ; la prochaine personne qui y entre meurt. La corde reste sur le cadavre : le tueur la récupère en scannant son QR code. Nombre de cordes réglable.
+  - **Poison** : il faut être dans la même salle. La victime ne sait rien et meurt dans 0 à N des prochaines salles qu'elle visite (N réglable, 3 par défaut).
+  - **Revolver, fusil de chasse** : tue n'importe qui du même étage. Le coup de feu retentit : l'écran et tous les téléphones affichent l'étage d'où il vient. Les étages se règlent salle par salle.
+- **Délais de chaque arme** (admin, Réglages, L'Enquête, cadre « Armes »), pour le tueur : délai entre deux victimes dans la même salle, nombre maximum de victimes par passage dans une salle, rechargement une fois la salle quittée, et l'effet (durée d'assommé, cordes, salles de poison). Les mêmes réglages existent pour un joueur : ils serviront aux armes de pénalité, qui ne sont pas encore en jeu.
   - S'il ne reste plus aucun innocent en vie, le tueur l'emporte.
 - **Victoire des autres.** Les autres gagnent toujours en accusant juste.
 

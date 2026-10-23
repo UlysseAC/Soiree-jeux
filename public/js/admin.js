@@ -390,6 +390,18 @@ function eqReglagesTaches(c, salles) {
       <td><label class="row" style="gap:8px">${cfgInput(`tachesGroupe.${i}`, c.tachesGroupe?.[i] !== false, 'bool')} ${esc(groupe)} <span class="muted">(${n === 3 ? 'trio' : 'duo'})</span></label></td></tr>`).join('')}</tbody></table></div></div>`;
 }
 
+// Même logique que le serveur (server/games/enquete.js) pour libeller l'effet de chaque arme.
+const eqTypeArme = n => { const x = String(n).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase(); return /poison/.test(x) ? 'poison' : /corde/.test(x) ? 'piege' : /revolver|fusil|pistolet/.test(x) ? 'tir' : /chandelier|matraque|club|anglaise|marteau/.test(x) ? 'assomme' : 'tranche'; };
+const EQ_EFFETS = { tranche: ['Tue en un coup une personne de la salle', null], assomme: ['1er coup : assomme, 2e coup : tue (la salle ne se quitte plus)', 'Durée assommé'], piege: ['Piège pour le prochain qui entre (corde à récupérer sur le cadavre)', 'Nombre de cordes'], poison: ['Tue dans 0 à N salles visitées, sans que la victime le sache', 'N : salles max'], tir: ['Tue n\'importe qui du même étage ; le coup de feu indique l\'étage', null] };
+function eqReglagesArmes(c) {
+  const armes = eqLignes(c.armes), ligne = (i, qui, nomArme) => {
+    const t = eqTypeArme(nomArme), ef = EQ_EFFETS[t][1], r = `armesReglages.${i}.${qui}`, v = c.armesReglages[i]?.[qui] || {};
+    return `<div class="muted" style="font-size:13px;margin-top:6px"><strong>${qui === 'tueur' ? '🩸 Le tueur' : '🧑 Un joueur'}</strong> ${qui === 'joueur' ? '(armes de pénalité, pas encore en jeu)' : ''}</div>
+      <div class="grid-auto">${cfgInput(`${r}.usage`, v.usage, 'dur', { label: 'Délai entre deux victimes (même salle)' })}${cfgInput(`${r}.max`, v.max, 'num', { label: 'Victimes max. par salle' })}${cfgInput(`${r}.recharge`, v.recharge, 'dur', { label: 'Rechargement après avoir quitté la salle' })}${ef ? cfgInput(`${r}.effet`, v.effet, t === 'assomme' ? 'dur' : 'num', { label: ef }) : ''}</div>`;
+  };
+  return armes.map((a, i) => `<div class="box" style="background:var(--ink)"><h3 style="margin:0">${i + 1}. ${esc(a)}</h3><p class="muted" style="margin:0;font-size:13px">Effet : ${esc(EQ_EFFETS[eqTypeArme(a)][0])} (selon le nom de l'arme).</p>${ligne(i, 'tueur', a)}${ligne(i, 'joueur', a)}</div>`).join('');
+}
+
 function reglagesEnquete(c) {
   const salles = eqLignes(c.salles);
   const d = (p, l) => cfgInput(p, c[p], 'dur', { label: l });
@@ -407,7 +419,7 @@ function reglagesEnquete(c) {
     <div class="box"><h2>Temps et règles</h2><div class="grid-auto">
       ${cfgInput('ficheNumerique', c.ficheNumerique, 'bool', { label: 'Fiche de détective sur le téléphone (sinon papier)' })}
       ${d('dureeMax', 'Durée max de l\'enquête')}
-      ${cfgInput('panne', c.panne, 'bool', { label: 'Début : panne de courant (chacun répare une salle)' })}${d('delaiQuitter', 'Chrono « Quitter la salle » (reste dans la salle)')}${d('rechargeArme', 'Tueur : temps entre deux meurtres')}${d('penaliteOubli', 'Immobilisé si on oublie « Quitter la salle »')}${d('finaleApres', 'Phase finale au bout de (0:00 = à la main)')}${d('delaiQuestion', 'Délai entre deux questions')}${d('delaiReponse', 'Temps pour montrer une carte')}
+      ${cfgInput('panne', c.panne, 'bool', { label: 'Début : panne de courant (chacun répare une salle)' })}${d('delaiQuitter', 'Chrono « Quitter la salle » (reste dans la salle)')}${d('penaliteOubli', 'Immobilisé si on oublie « Quitter la salle »')}${d('finaleApres', 'Phase finale au bout de (0:00 = à la main)')}${d('delaiQuestion', 'Délai entre deux questions')}${d('delaiReponse', 'Temps pour montrer une carte')}
       ${n('rotationQr', 'QR code changé toutes les … s (0 = fixe)')}${n('indicesParSalle', 'Indices par salle et par joueur')}${n('indicesFinale', 'Indices par salle en phase finale')}
     </div></div>
     <div class="box"><h2>Indices des salles</h2>
@@ -421,6 +433,9 @@ function reglagesEnquete(c) {
         <div class="muted" style="display:grid;grid-template-columns:1fr 80px 80px;gap:8px;font-size:12px"><span>Indice</span><span>% 1er</span><span>% 2e</span></div>
         ${[0, 1, 2].map(k => `<div style="display:grid;grid-template-columns:1fr 80px 80px;gap:8px;align-items:start">${cfgInput(`indicesSalles.${i}.textes.${k}`, is.textes[k], 'area', { ph: 'vide = rempli automatiquement' })}${cfgInput(`indicesSalles.${i}.p1.${k}`, is.p1[k], 'num')}${cfgInput(`indicesSalles.${i}.p2.${k}`, is.p2[k], 'num')}</div>`).join('')}</div>`).join('')}
     </div>
+    <div class="box"><h2>Étages des salles</h2><p class="muted" style="margin:0;font-size:14px">Les armes à feu tuent n'importe qui du même étage, et le coup de feu indique cet étage à tout le monde. Écris le nom de l'étage de chaque salle.</p>
+      <div class="grid-auto">${salles.map((nomSalle, i) => cfgInput(`etages.${i}`, c.etages[i] ?? c.etages[0], 'text', { label: `${i + 1}. ${nomSalle}` })).join('')}</div></div>
+    <div class="box"><h2>Armes</h2><p class="muted" style="margin:0;font-size:14px">Pour chaque arme : le délai entre deux victimes dans la même salle, le nombre maximum de victimes par passage dans une salle, le délai de rechargement une fois la salle quittée, et son effet. Le <strong>tueur</strong> n'a que l'arme du crime (une fois son rôle découvert). Les réglages « joueur » serviront aux armes de pénalité.</p>${eqReglagesArmes(c)}</div>
     <div class="box"><h2>Tablettes</h2>${eqTablettes(salles.length)}</div>`;
 }
 

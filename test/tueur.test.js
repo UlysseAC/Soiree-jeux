@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as E from '../server/games/enquete.js';
 
-function setup(n = 6) {
+function setup(n = 6, arme = 'Poignard') {
   let t = 1_800_000_000_000;
   const cfg = { ...E.defaultConfig(), taches: false, panne: false };
   const names = {};
@@ -11,6 +11,7 @@ function setup(n = 6) {
   const ctx = { now: () => t, cfg, name: p => names[p] ?? '?', sfx: () => {} };
   const g = E.start(ctx, pids);
   E.adminAction(ctx, g, { type: 'lancer' });
+  g.solution.arme = Object.keys(g.cartes).find(c => g.cartes[c].nom === arme);
   const tueur = pids.find(p => g.joueurs[p].perso === g.solution.perso);
   return { g, ctx, pids, tueur, innocents: pids.filter(p => p !== tueur), avance: ms => { t += ms; return E.tick(ctx, g); } };
 }
@@ -61,7 +62,7 @@ test('tueur actif : arme récupérée en scannant la salle de la cachette, meurt
   assert.equal(act(ctx, g, tueur, { type: 'tuer', cible: innocents[0] }).ok, true);
   assert.ok(g.joueurs[innocents[0]].mort);
   assert.match(act(ctx, g, tueur, { type: 'tuer', cible: innocents[1] }).msg, /pas prête/);
-  avance(ctx.cfg.rechargeArme * 1000);
+  avance(20e3);
   assert.equal(act(ctx, g, tueur, { type: 'tuer', cible: innocents[1] }).ok, true);
   // la victime ne joue plus et n'apparaît plus dans la salle
   assert.match(act(ctx, g, innocents[0], { type: 'indice' }).msg, /assassiné/);
@@ -93,7 +94,7 @@ test('plus aucun innocent en vie : le tueur l\'emporte', () => {
   Object.assign(g.joueurs[tueur].tueur, { arme: true });
   placer(ctx, g, 's1', tueur, ...innocents);
   act(ctx, g, tueur, { type: 'tuer', cible: innocents[0] });
-  g.joueurs[tueur].tueur.recharge = 0;
+  g.joueurs[tueur].tueur.usage = null;
   act(ctx, g, tueur, { type: 'tuer', cible: innocents[1] });
   assert.equal(g.finished, true);
   assert.equal(g.winner, tueur);
@@ -183,4 +184,105 @@ test('panne : le code d\'un voisin de salle est refusé ; l\'admin peut forcer l
   assert.equal(g.phase, 'enquete');
   assert.ok(pids.every(p => g.joueurs[p].salle === g.panne.salles[p]), 'les absents sont placés');
   void b;
+});
+
+// ---------- les armes du tueur ----------
+const armer = (ctx, g, tueur) => { act(ctx, g, tueur, { type: 'accuser', ...g.solution }); g.joueurs[tueur].tueur.arme = true; };
+
+test('poignard : au plus 2 victimes par salle, puis rechargement une fois la salle quittée', () => {
+  const { g, ctx, tueur, innocents, avance } = setup();
+  armer(ctx, g, tueur);
+  placer(ctx, g, 's1', tueur, ...innocents.slice(0, 3));
+  assert.equal(act(ctx, g, tueur, { type: 'tuer', cible: innocents[0] }).ok, true);
+  avance(20e3);
+  assert.equal(act(ctx, g, tueur, { type: 'tuer', cible: innocents[1] }).ok, true);
+  avance(20e3);
+  assert.match(act(ctx, g, tueur, { type: 'tuer', cible: innocents[2] }).msg, /plus t'en servir/);
+  act(ctx, g, tueur, { type: 'quitter' }); avance(11e3);
+  act(ctx, g, tueur, { type: 'entrer', salle: 2, code: code(ctx, g, 2) });
+  placer(ctx, g, 's2', innocents[2]);
+  assert.match(act(ctx, g, tueur, { type: 'tuer', cible: innocents[2] }).msg, /recharge/);
+  avance(ctx.cfg.armesReglages[0].tueur.recharge * 1000);
+  assert.equal(act(ctx, g, tueur, { type: 'tuer', cible: innocents[2] }).ok, true);
+});
+
+test('chandelier : le 1er coup assomme (bloqué dans la salle), le 2e tue ; l\'assommé se réveille', () => {
+  const { g, ctx, tueur, innocents, avance } = setup(6, 'Chandelier');
+  armer(ctx, g, tueur);
+  const [v, w] = innocents;
+  placer(ctx, g, 's1', tueur, v, w);
+  assert.equal(act(ctx, g, tueur, { type: 'tuer', cible: v }).ok, true);
+  assert.ok(!g.joueurs[v].mort);
+  assert.ok(E.playerView(ctx, g, v).assomme);
+  assert.match(act(ctx, g, v, { type: 'quitter' }).msg, /assommé/);
+  assert.match(act(ctx, g, v, { type: 'entrer', salle: 3, code: code(ctx, g, 3) }).msg, /assommé/);
+  avance(20e3);
+  assert.equal(act(ctx, g, tueur, { type: 'tuer', cible: v }).ok, true);
+  assert.ok(g.joueurs[v].mort);
+  // une autre victime assommée puis laissée : elle se réveille et peut partir
+  avance(20e3);
+  g.joueurs[tueur].tueur.usage = null;
+  assert.equal(act(ctx, g, tueur, { type: 'tuer', cible: w }).ok, true);
+  avance(61e3);
+  assert.equal(act(ctx, g, w, { type: 'quitter' }).ok, true);
+});
+
+test('poison : la victime ne sait rien et meurt dans les salles suivantes', () => {
+  const { g, ctx, tueur, innocents, avance } = setup(6, 'Poison');
+  armer(ctx, g, tueur);
+  const [v] = innocents;
+  placer(ctx, g, 's1', tueur, v);
+  const r = act(ctx, g, tueur, { type: 'tuer', cible: v });
+  assert.equal(r.ok, true);
+  assert.ok(g.joueurs[v].poison && !g.joueurs[v].mort);
+  assert.match(act(ctx, g, tueur, { type: 'tuer', cible: v }).msg, /déjà empoisonné|recharge|prêt/);
+  g.joueurs[v].poison.restant = 2;
+  const va = n => { act(ctx, g, v, { type: 'quitter' }); avance(11e3); return act(ctx, g, v, { type: 'entrer', salle: n, code: code(ctx, g, n) }); };
+  va(2); assert.ok(!g.joueurs[v].mort);
+  va(3); assert.ok(g.joueurs[v].mort, 'mort à la 2e salle visitée');
+  assert.equal(g.joueurs[v].mort.salle, 's3');
+  // 0 salle : il meurt en quittant la salle où il a été empoisonné
+  const w = innocents[1];
+  placer(ctx, g, 's1', w);
+  g.joueurs[tueur].tueur.usage = null; g.joueurs[tueur].tueur.pret = 0;
+  act(ctx, g, tueur, { type: 'entrer', salle: 1, code: code(ctx, g, 1) });
+  act(ctx, g, tueur, { type: 'tuer', cible: w });
+  g.joueurs[w].poison.restant = 0;
+  act(ctx, g, w, { type: 'quitter' }); avance(11e3);
+  assert.ok(g.joueurs[w].mort);
+  assert.equal(g.joueurs[w].mort.salle, 's1');
+});
+
+test('corde : piège pour le prochain qui entre, corde récupérée sur le cadavre', () => {
+  const { g, ctx, tueur, innocents, avance } = setup(6, 'Corde');
+  armer(ctx, g, tueur);
+  assert.equal(g.joueurs[tueur].tueur.cordes, ctx.cfg.armesReglages[3].tueur.effet);
+  placer(ctx, g, 's4', tueur, innocents[1]);
+  assert.match(act(ctx, g, tueur, { type: 'tuer', cible: innocents[1] }).msg, /piège/);
+  assert.equal(act(ctx, g, tueur, { type: 'piege' }).ok, true);
+  assert.equal(g.joueurs[tueur].tueur.cordes, 1);
+  const [v] = innocents;
+  const r = act(ctx, g, v, { type: 'entrer', salle: 4, code: code(ctx, g, 4) });
+  assert.match(r.msg, /corde/);
+  assert.ok(g.joueurs[v].mort?.corde);
+  const m = E.playerView(ctx, g, v).mort;
+  assert.match(act(ctx, g, tueur, { type: 'corps', victime: v, c: m.jeton }).msg, /récupères ta corde/);
+  assert.equal(g.joueurs[tueur].tueur.cordes, 2);
+});
+
+test('revolver : tue n\'importe qui du même étage, le coup de feu annonce l\'étage', () => {
+  const { g, ctx, tueur, innocents } = setup(6, 'Revolver');
+  armer(ctx, g, tueur);
+  const [loin, proche, autre] = innocents;
+  placer(ctx, g, 's5', tueur);         // rez-de-chaussée
+  placer(ctx, g, 's2', proche);        // rez-de-chaussée, autre salle
+  placer(ctx, g, 's8', loin);          // étage
+  const cibles = E.playerView(ctx, g, tueur).secret.cibles.map(c => c.pid);
+  assert.ok(cibles.includes(proche) && !cibles.includes(loin));
+  assert.match(act(ctx, g, tueur, { type: 'tuer', cible: loin }).msg, /étage/);
+  assert.equal(act(ctx, g, tueur, { type: 'tuer', cible: proche }).ok, true);
+  assert.ok(g.joueurs[proche].mort);
+  assert.match(g.feed[0].text, /coup de feu.*Rez-de-chaussée/);
+  assert.match(E.playerView(ctx, g, autre).bruit.etage, /Rez-de-chaussée/);
+  assert.match(E.playerView(ctx, g, autre).notes[0].texte, /coup de feu/);
 });

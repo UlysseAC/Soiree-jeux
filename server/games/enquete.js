@@ -17,6 +17,10 @@ export const SALLES_V1 = SALLES_1930.replace('Salle de bain', 'Salle de bains');
 export const PERSOS_1930 = ['Veuve Pervenche', 'Madame Blanche', 'Colonel Moutarde', 'Miss Scarlette', 'Maître Rose', 'Professeur Violet', 'Docteur Olive', 'Doctoresse Orchidée', 'Monsieur Prunelle', 'Sergent Legris', 'Juge Orange', 'Détective Anthracite', 'Comptesse Ivoire', 'Baron Safran'].join('\n');
 export const PERSOS_AVANT = ['Le Majordome', 'La Comtesse', 'Le Docteur', 'Le Colonel', 'La Cantatrice', 'Le Professeur', 'La Gouvernante', 'Le Notaire', "L'Héritière", 'Le Jardinier', 'La Veuve', 'Le Chef cuisinier', "L'Aventurière", 'Le Pasteur'].join('\n');
 export const ARMES_1930 = ['Poignard', 'Chandelier', 'Revolver', 'Corde', 'Clé anglaise', 'Matraque', 'Poison', 'Fusil de chasse', 'Club de Golf', 'Hache'].join('\n');
+// Réglages d'une arme, pour le tueur et pour un joueur : délai entre deux victimes dans la même salle (s), nombre maximum de victimes
+// par passage dans une salle, délai de rechargement une fois la salle quittée (s) et effet (selon l'arme : assommé en s, cordes, salles de poison).
+const reg = (effet, tueur = {}) => ({ tueur: { usage: 20, max: 2, recharge: 180, effet, ...tueur }, joueur: { usage: 30, max: 1, recharge: 240, effet } });
+export const ARMES_REGLAGES = [reg(0), reg(60), reg(0, { usage: 60, max: 1 }), reg(2), reg(60), reg(60), reg(3), reg(0, { usage: 60, max: 1 }), reg(60), reg(0)];
 export const ARMES_AVANT = ['Couteau', 'Corde', 'Chandelier', 'Revolver', 'Poison', 'Clé anglaise', 'Matraque'].join('\n');
 // Ancienne liste par défaut (avant les tâches) : remplacée par celle du manoir si elle n'a pas été modifiée.
 export const SALLES_AVANT = ['Cuisine', 'Salon', 'Salle à manger', 'Bibliothèque', 'Bureau', 'Chambre', 'Salle de bain', 'Entrée', 'Jardin', 'Cave', 'Grenier'].join('\n');
@@ -39,7 +43,8 @@ export function defaultConfig() {
     tachesGroupe: Array.from({ length: 11 }, () => true), // tâche à plusieurs activée, salle par salle
     chanceSolo: 50, // chance (%) que la salle tire sa tâche solo plutôt que celle à plusieurs
     difficulte: 'normal', // facile | normal | difficile
-    rechargeArme: 180, // le tueur actif doit attendre ce temps entre deux meurtres (s)
+    etages: ['Sous-sol', 'Sous-sol', 'Rez-de-chaussée', 'Rez-de-chaussée', 'Rez-de-chaussée', 'Rez-de-chaussée', 'Rez-de-chaussée', 'Étage', 'Étage', 'Étage', 'Étage'], // étage de chaque salle (armes à feu : même étage)
+    armesReglages: ARMES_REGLAGES, // une entrée par arme (dans l'ordre des armes) : { tueur, joueur } = { usage, max, recharge, effet }
     panne: true, // début de partie : les plombs ont sauté, chacun va réparer dans sa salle (sinon l'enquête démarre tout de suite)
     delaiQuitter: 10, // après « Quitter la salle », le joueur reste dans la salle ce temps (s)
     penaliteOubli: 30, // immobilisé ce temps s'il scanne une autre salle sans avoir quitté la sienne (s)
@@ -292,8 +297,10 @@ function resoudre(ctx, g, q, carte) {
 const enCommun = (g, q) => g.joueurs[q.a].main.filter(c => [q.salle, q.perso, q.arme].includes(c));
 
 // Fin du chrono « Quitter la salle » : le joueur sort pour de bon.
-function sortir(g, p) {
+function sortir(ctx, g, p) {
   const J = g.joueurs[p];
+  quitteSalle(ctx, g, p);
+  if (J.mort) return;
   quitterSession(g, p);
   J.salle = null;
   J.quitteA = 0;
@@ -303,7 +310,7 @@ export function tick(ctx, g) {
   if (g.finished || g.phase === 'intro' || g.phase === 'panne') return false;
   const now = ctx.now();
   let changed = false;
-  for (const [p, J] of Object.entries(g.joueurs)) if (J.quitteA && now >= J.quitteA) { sortir(g, p); changed = true; }
+  for (const [p, J] of Object.entries(g.joueurs)) if (J.quitteA && now >= J.quitteA) { sortir(ctx, g, p); changed = true; }
   for (const q of g.questions) {
     if (q.etat === 'attente' && now >= q.at + ctx.cfg.delaiReponse * 1000) { resoudre(ctx, g, q, pick(enCommun(g, q))); changed = true; }
   }
@@ -406,22 +413,115 @@ function indice(ctx, g, p, parTache = false) {
 }
 
 // ---------- le tueur actif et les corps ----------
-// Meurtre (règle de base, en attendant celle de chaque arme) : une victime vivante dans la même salle, puis un temps de recharge.
+// Ce que fait l'arme dépend de son nom : tranche (un coup), assomme (deux coups), piège (corde), poison, tir (même étage).
+const sansAccent = x => String(x).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+export function typeArme(n) {
+  const x = sansAccent(n);
+  if (/poison/.test(x)) return 'poison';
+  if (/corde/.test(x)) return 'piege';
+  if (/revolver|fusil|pistolet/.test(x)) return 'tir';
+  if (/chandelier|matraque|club|anglaise|marteau/.test(x)) return 'assomme';
+  return 'tranche';
+}
+function armeTueur(ctx, g) {
+  const i = Number(String(g.solution.arme).slice(1));
+  const r = { ...ARMES_REGLAGES[i % ARMES_REGLAGES.length].tueur, ...ctx.cfg.armesReglages?.[i]?.tueur };
+  return { type: typeArme(nom(g, g.solution.arme)), usage: Number(r.usage) || 0, max: Math.max(1, Number(r.max) || 1), recharge: Number(r.recharge) || 0, effet: Number(r.effet) || 0 };
+}
+const etageDe = (ctx, g, s) => String(ctx.cfg.etages?.[Number(String(s).slice(1))] ?? '').trim() || 'Rez-de-chaussée';
+
+// Le tueur quitte une salle où il s'est servi de l'arme : elle recharge. Un empoisonné qui part au bout de 0 salle meurt.
+function quitteSalle(ctx, g, p) {
+  const J = g.joueurs[p], now = ctx.now();
+  if (J.tueur?.usage?.n && J.tueur.usage.salle === J.salle) {
+    J.tueur.pret = now + armeTueur(ctx, g).recharge * 1000;
+    J.tueur.usage = null;
+  }
+  if (J.poison && J.poison.restant <= 0 && J.salle && !J.mort) mettreAMort(ctx, g, J.poison.par, p, { poison: true });
+}
+
+function mettreAMort(ctx, g, tueurId, cible, extra = {}) {
+  const C = g.joueurs[cible], now = ctx.now();
+  C.mort = { at: now, salle: C.salle, par: tueurId, jeton: randomBytes(4).toString('hex'), trouvePar: [], ...extra };
+  C.assomme = 0; C.poison = null;
+  quitterSession(g, cible);
+  for (const q of g.questions) if (q.etat === 'attente' && (q.a === cible || q.de === cible)) q.etat = 'annulee';
+  const T = g.joueurs[tueurId];
+  if (T?.tueur) T.tueur.victimes = (T.tueur.victimes || 0) + 1;
+  // plus aucun innocent en vie : le tueur l'emporte
+  const tueurs = Object.keys(g.joueurs).filter(x => g.joueurs[x].tueur);
+  if (!g.finished && tueurs.length && Object.keys(g.joueurs).every(x => g.joueurs[x].tueur || g.joueurs[x].mort)) terminer(ctx, g, tueurs[0]);
+}
+
+// L'arme est-elle utilisable maintenant, dans cette salle ?
+function peutServir(ctx, g, J, arm, now) {
+  const T = J.tueur;
+  if (!T.arme) return `Va d'abord chercher ${nom(g, g.solution.arme)} dans : ${nom(g, T.cache)}.`;
+  if (now < (T.pret || 0)) return `Ton arme recharge : encore ${Math.ceil((T.pret - now) / 1000)} s.`;
+  const u = T.usage;
+  if (u && u.salle === J.salle) {
+    if (u.n >= arm.max) return `Tu ne peux plus t'en servir dans cette salle (${arm.max} au maximum) : quitte-la d'abord.`;
+    if (now < u.last + arm.usage * 1000) return `Ton arme n'est pas prête : encore ${Math.ceil((u.last + arm.usage * 1000 - now) / 1000)} s.`;
+  }
+  return null;
+}
+function aServi(J, now) {
+  const T = J.tueur;
+  if (!T.usage || T.usage.salle !== J.salle) T.usage = { salle: J.salle, n: 0, last: 0 };
+  T.usage.n++; T.usage.last = now;
+}
+const bruit = (ctx, g, etage) => {
+  const texte = `🔫 Un coup de feu retentit : il vient de l'étage « ${etage} » !`;
+  feed(g, ctx, texte);
+  g.bruits = [{ t: ctx.now(), etage }];
+  for (const J of Object.values(g.joueurs)) if (!J.mort) (J.notes ??= []).unshift({ t: ctx.now(), salle: null, texte });
+};
+
+// Meurtre : la règle dépend de l'arme du crime.
 function tuer(ctx, g, p, cible) {
   const J = g.joueurs[p], C = g.joueurs[cible], now = ctx.now();
   if (!J.tueur?.actif) return err('Action inconnue.');
-  if (!J.tueur.arme) return err(`Va d'abord chercher ${nom(g, g.solution.arme)} dans : ${nom(g, J.tueur.cache)}.`);
-  if (now < J.tueur.recharge) return err(`Ton arme n'est pas prête : encore ${Math.ceil((J.tueur.recharge - now) / 1000)} s.`);
+  const arm = armeTueur(ctx, g);
+  if (arm.type === 'piege') return err('Avec une corde, on pose un piège.');
+  const refus = peutServir(ctx, g, J, arm, now);
+  if (refus) return err(refus);
   if (!C || cible === p || C.mort) return err('Choisis une victime.');
-  if (C.salle !== J.salle) return err(`${ctx.name(cible)} n'est pas dans ta salle.`);
-  C.mort = { at: now, salle: J.salle, par: p, jeton: randomBytes(4).toString('hex'), trouvePar: [] };
-  quitterSession(g, cible);
-  for (const q of g.questions) if (q.etat === 'attente' && (q.a === cible || q.de === cible)) q.etat = 'annulee';
-  J.tueur.recharge = now + (ctx.cfg.rechargeArme ?? 180) * 1000;
-  J.tueur.victimes = (J.tueur.victimes || 0) + 1;
-  // plus aucun innocent en vie : le tueur l'emporte
-  if (Object.keys(g.joueurs).every(x => x === p || g.joueurs[x].mort)) terminer(ctx, g, p);
+  if (arm.type === 'tir') {
+    if (!C.salle) return err(`${ctx.name(cible)} n'est dans aucune salle.`);
+    if (etageDe(ctx, g, C.salle) !== etageDe(ctx, g, J.salle)) return err(`${ctx.name(cible)} n'est pas à ton étage.`);
+  } else if (C.salle !== J.salle) return err(`${ctx.name(cible)} n'est pas dans ta salle.`);
+  if (arm.type === 'poison') {
+    if (C.poison) return err(`${ctx.name(cible)} est déjà empoisonné.`);
+    C.poison = { par: p, restant: Math.floor(Math.random() * (arm.effet + 1)) };
+    aServi(J, now);
+    return ok(`${ctx.name(cible)} est empoisonné. Il ne le sait pas… il mourra dans 0 à ${arm.effet} salles.`);
+  }
+  if (arm.type === 'assomme' && !(C.assomme > now)) {
+    C.assomme = now + (arm.effet || 60) * 1000;
+    C.quitteA = 0;
+    aServi(J, now);
+    return ok(`${ctx.name(cible)} est assommé et reste dans la salle ${arm.effet || 60} s. Un deuxième coup le tuera.`);
+  }
+  mettreAMort(ctx, g, p, cible);
+  aServi(J, now);
+  if (arm.type === 'tir') bruit(ctx, g, etageDe(ctx, g, J.salle));
   return ok(`${ctx.name(cible)} ne se relèvera pas.`);
+}
+// Corde : un piège pour la prochaine personne qui entre dans la salle.
+function poserPiege(ctx, g, p) {
+  const J = g.joueurs[p], now = ctx.now();
+  if (!J.tueur?.actif) return err('Action inconnue.');
+  const arm = armeTueur(ctx, g);
+  if (arm.type !== 'piege') return err('Action inconnue.');
+  const refus = peutServir(ctx, g, J, arm, now);
+  if (refus) return err(refus);
+  if (!(J.tueur.cordes > 0)) return err('Tu n\'as plus de corde : récupère-la sur un cadavre.');
+  g.pieges ??= {};
+  if (g.pieges[J.salle]) return err('Un piège est déjà tendu ici.');
+  g.pieges[J.salle] = { par: p, at: now };
+  J.tueur.cordes--;
+  aServi(J, now);
+  return ok('Piège tendu : la prochaine personne qui entrera ici sera prise.');
 }
 // Scanner le QR code d'une victime : ses 3 cartes ; le 1er scan annonce le corps, le 2e innocent l'identifie.
 function trouverCorps(ctx, g, p, a) {
@@ -434,10 +534,12 @@ function trouverCorps(ctx, g, p, a) {
   const innocents = C.mort.trouvePar.filter(x => !g.joueurs[x].tueur).length;
   if (C.mort.trouvePar.length === 1) feed(g, ctx, `💀 Un corps a été trouvé dans : ${nom(g, C.mort.salle)} !`);
   if (innocents === 2 && !C.mort.identifie) { C.mort.identifie = true; feed(g, ctx, `🕯 La victime est ${ctx.name(a.victime)} (${nom(g, C.perso)}).`); }
+  let corde = '';
+  if (J.tueur?.actif && C.mort.corde && !C.mort.cordeReprise) { C.mort.cordeReprise = true; J.tueur.cordes++; corde = ' Tu récupères ta corde.'; }
   for (const c of C.main) { (J.vus[c] ??= []).includes(a.victime) || J.vus[c].push(a.victime); }
   const texte = `Sur le corps de ${ctx.name(a.victime)} : ${C.main.map(c => `« ${nom(g, c)} »`).join(', ')}.`;
   (J.notes ??= []).unshift({ t: ctx.now(), salle: C.mort.salle, texte });
-  return { ok: true, msg: `🔍 ${texte}` };
+  return { ok: true, msg: `🔍 ${texte}${corde}` };
 }
 
 // ---------- actions des joueurs ----------
@@ -478,24 +580,41 @@ export function playerAction(ctx, g, p, a) {
       for (const c of fenetres) { const i = c.indexOf(code); if (i >= 0) { s = i; break; } }
     }
     if (s == null) return err('Code de salle incorrect ou expiré : scanne à nouveau la tablette.');
+    const change = J.salle !== `s${s}`;
+    if (change && J.assomme > now) return err(`Tu es assommé : tu ne peux pas quitter la salle avant ${Math.ceil((J.assomme - now) / 1000)} s.`);
     if (J.quitteA && J.salle !== `s${s}`) return err(`Tu quittes ta salle dans ${Math.ceil((J.quitteA - now) / 1000)} s : attends la fin du chrono.`);
     let oubli = '';
     if (J.salle && J.salle !== `s${s}`) { // il fallait d'abord appuyer sur « Quitter la salle »
       oubli = nom(g, J.salle);
       J.bloque = now + (ctx.cfg.penaliteOubli ?? 30) * 1000;
     }
-    if (J.salle !== `s${s}`) quitterSession(g, p);
+    if (change && J.salle) {
+      quitteSalle(ctx, g, p);
+      if (J.mort) return err('Tu te sens mal… tes jambes te lâchent. Tout devient noir.');
+    }
+    if (change) quitterSession(g, p);
     J.quitteA = 0;
     J.salle = `s${s}`;
     if (J.tueur && !J.tueur.arme && J.salle === J.tueur.cache) J.tueur.arme = true; // le tueur retrouve son arme (rien ne s'affiche ailleurs)
+    if (change && J.poison && --J.poison.restant <= 0) { // le poison agit : il ne le savait pas
+      mettreAMort(ctx, g, J.poison.par, p, { poison: true });
+      return err('Tu te sens mal… tes jambes te lâchent. Tout devient noir.');
+    }
+    const piege = g.pieges?.[J.salle];
+    if (change && piege && piege.par !== p && !J.tueur) { // la corde se resserre
+      delete g.pieges[J.salle];
+      mettreAMort(ctx, g, piege.par, p, { corde: true });
+      return err('Une corde se resserre autour de ton cou…');
+    }
     return oubli ? err(`Tu as oublié de quitter ${oubli} ! Immobilisé ${ctx.cfg.penaliteOubli ?? 30} s.`) : ok(`Tu es dans : ${nom(g, J.salle)}`);
   }
 
   if (a.type === 'quitter') { // « Quitter la salle » : obligatoire avant d'aller ailleurs
     if (!J.salle) return err('Tu n\'es dans aucune salle.');
     const delai = ctx.cfg.delaiQuitter ?? 10;
+    if (J.assomme > now) return err(`Tu es assommé : tu ne peux pas quitter la salle avant ${Math.ceil((J.assomme - now) / 1000)} s.`);
     if (J.quitteA) return ok(`Tu pars dans ${Math.ceil((J.quitteA - now) / 1000)} s…`);
-    if (delai <= 0) { sortir(g, p); return ok('Tu as quitté la salle. Scanne la tablette de ta prochaine salle.'); }
+    if (delai <= 0) { sortir(ctx, g, p); return ok('Tu as quitté la salle. Scanne la tablette de ta prochaine salle.'); }
     J.quitteA = now + delai * 1000; // il reste dans la salle (interrogeable, visible) jusqu'à la fin du chrono
     return ok(`Tu quittes la salle dans ${delai} s…`);
   }
@@ -517,7 +636,7 @@ export function playerAction(ctx, g, p, a) {
     if (perso === J.perso && J.perso === g.solution.perso) {
       if (juste) {
         const autres = deType(g, 'salle').filter(x => x !== J.salle);
-        J.tueur = { actif: true, cache: pick(autres.length ? autres : deType(g, 'salle')), arme: false, recharge: 0, at: now };
+        J.tueur = { actif: true, cache: pick(autres.length ? autres : deType(g, 'salle')), arme: false, pret: 0, usage: null, cordes: armeTueur(ctx, g).type === 'piege' ? armeTueur(ctx, g).effet : 0, at: now };
         J.accuse = { salle, perso, arme, juste: true, tueur: true, at: now };
         return { ok: true, tueur: true, msg: `🩸 Un souvenir te revient… C'était toi. Tu as caché ${nom(g, g.solution.arme)} dans : ${nom(g, J.tueur.cache)}.` };
       }
@@ -537,6 +656,7 @@ export function playerAction(ctx, g, p, a) {
   if (J.bloque > now) return err(`Tu es immobilisé encore ${Math.ceil((J.bloque - now) / 1000)} s.`);
   if (!J.salle) return err('Scanne d\'abord le QR code de la salle où tu es.');
   if (a.type === 'tuer') return tuer(ctx, g, p, a.cible);
+  if (a.type === 'piege') return poserPiege(ctx, g, p);
 
   if (a.type === 'indice') return indice(ctx, g, p);
 
@@ -651,6 +771,18 @@ export function ajouterJoueur(ctx, g, p) {
 
 // ---------- vues ----------
 const carteVue = (g, id) => ({ id, ...g.cartes[id] });
+function secretTueur(ctx, g, p, now) {
+  const J = g.joueurs[p], T = J.tueur, arm = armeTueur(ctx, g), u = T.usage && T.usage.salle === J.salle ? T.usage : null;
+  const vivants = Object.keys(g.joueurs).filter(x => x !== p && !g.joueurs[x].mort);
+  const ici = vivants.filter(x => J.salle && g.joueurs[x].salle === J.salle);
+  const cibles = (arm.type === 'tir' ? vivants.filter(x => g.joueurs[x].salle && J.salle && etageDe(ctx, g, g.joueurs[x].salle) === etageDe(ctx, g, J.salle)) : ici)
+    .map(x => ({ pid: x, name: ctx.name(x), indices: g.joueurs[x].indices, assomme: g.joueurs[x].assomme > now, salle: arm.type === 'tir' && g.joueurs[x].salle !== J.salle ? nom(g, g.joueurs[x].salle) : '' }));
+  return {
+    arme: nom(g, g.solution.arme), type: arm.type, cache: nom(g, T.cache), armeRecup: T.arme, victimes: T.victimes || 0,
+    pret: T.pret > now ? T.pret : 0, attente: u && u.last + arm.usage * 1000 > now ? u.last + arm.usage * 1000 : 0, reste: u ? Math.max(0, arm.max - u.n) : arm.max,
+    max: arm.max, cordes: T.cordes || 0, effet: arm.effet, piegeIci: !!g.pieges?.[J.salle], etage: J.salle ? etageDe(ctx, g, J.salle) : '', cibles,
+  };
+}
 const presents = (g, s) => Object.keys(g.joueurs).filter(p => g.joueurs[p].salle === s && !g.joueurs[p].mort);
 const listes = g => ({ salles: deType(g, 'salle').map(id => carteVue(g, id)), persos: deType(g, 'perso').map(id => carteVue(g, id)), armes: deType(g, 'arme').map(id => carteVue(g, id)) });
 
@@ -695,13 +827,15 @@ export function playerView(ctx, g, p) {
     quitteA: J.quitteA > now ? J.quitteA : 0,
     secondeChance: !!J.secondeChance,
     // panneau secret du tueur actif
-    secret: J.tueur ? { arme: nom(g, g.solution.arme), cache: nom(g, J.tueur.cache), armeRecup: J.tueur.arme, recharge: J.tueur.recharge > now ? J.tueur.recharge : 0, victimes: J.tueur.victimes || 0 } : null,
+    assomme: J.assomme > now ? J.assomme : 0,
+    bruit: g.bruits?.[0] && now - g.bruits[0].t < 90e3 ? g.bruits[0] : null,
+    secret: J.tueur ? secretTueur(ctx, g, p, now) : null,
     nextAsk: J.nextAsk > now ? J.nextAsk : 0,
     attente: g.questions.some(q => q.de === p && q.etat === 'attente'),
     indicesRestants: J.salle ? Math.max(0, max - (J.pris[J.salle] || 0)) : 0,
     tache: J.salle && ctx.cfg.taches && g.taches && !g.finished ? tacheVue(ctx, g, p, J.salle, now) : null,
     // tous les indices obtenus (la fiche de détective se fait sur papier)
-    indices: J.indices, notes: (J.notes || []).map(n => ({ t: n.t, salle: nom(g, n.salle), texte: n.texte })),
+    indices: J.indices, notes: (J.notes || []).map(n => ({ t: n.t, salle: n.salle ? nom(g, n.salle) : '', texte: n.texte })),
     aRepondre, mesQuestions, fiche, ...listes(g),
     accuse: J.accuse ? { juste: J.accuse.juste } : null,
     winner: g.winner ? ctx.name(g.winner) : null, gagne: g.winner === p,
