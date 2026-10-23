@@ -621,6 +621,11 @@ function mettreAMort(ctx, g, tueurId, cible, extra = {}) {
   for (const q of g.questions) if (q.etat === 'attente' && (q.a === cible || q.de === cible)) q.etat = 'annulee';
   const T = g.joueurs[tueurId];
   if (T?.tueur) T.tueur.victimes = (T.tueur.victimes || 0) + 1;
+  // victime d'un complice recruté : son corps désigne 5 personnages, dont celui du meurtrier (reste à trouver quel joueur l'incarne)
+  if (T?.tueur?.recrue) {
+    const autres = shuffle(deType(g, 'perso').filter(c => c !== T.perso && c !== C.perso)).slice(0, 4);
+    C.mort.suspects = shuffle([T.perso, ...autres]);
+  }
   // plus aucun innocent en vie : le tueur l'emporte
   const tueurs = Object.keys(g.joueurs).filter(x => g.joueurs[x].tueur);
   if (!g.finished && tueurs.length && Object.keys(g.joueurs).every(x => g.joueurs[x].tueur || g.joueurs[x].mort)) terminer(ctx, g, tueurs[0]);
@@ -798,8 +803,9 @@ function trouverCorps(ctx, g, p, a) {
   if (J.tueur?.actif && C.mort.corde && !C.mort.cordeReprise) { C.mort.cordeReprise = true; J.tueur.cordes++; corde = ' Tu récupères ta corde.'; }
   for (const c of C.main) { (J.vus[c] ??= []).includes(a.victime) || J.vus[c].push(a.victime); }
   const texte = `Sur le corps de ${ctx.name(a.victime)} : ${C.main.map(c => `« ${nom(g, c)} »`).join(', ')}.`;
-  (J.notes ??= []).unshift({ t: ctx.now(), salle: C.mort.salle, texte });
-  return { ok: true, msg: `🔍 ${texte}${corde}` };
+  const suspects = C.mort.suspects ? ` Le meurtrier est l'un de ces personnages : ${C.mort.suspects.map(c => nom(g, c)).join(', ')}.` : '';
+  (J.notes ??= []).unshift({ t: ctx.now(), salle: C.mort.salle, texte: texte + suspects });
+  return { ok: true, msg: `🔍 ${texte}${suspects}${corde}` };
 }
 
 // ---------- actions des joueurs ----------

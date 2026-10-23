@@ -564,3 +564,28 @@ test('complices : le complice peut refuser de devenir tueur', () => {
   assert.equal(voir(ctx, g, tueur).recrutement, 'refuse');
   assert.equal(act(ctx, g, tueur, { type: 'complice', op: 'recruter' }).ok, false, 'pas de nouvelle proposition');
 });
+
+test('victime d\'un complice recruté : le corps désigne 5 personnages dont celui du meurtrier ; pas pour le tueur d\'origine', () => {
+  const { g, ctx, tueur } = setup(8);
+  ctx.cfg.sallesPropres = 0; g.propres = [];
+  armer(ctx, g, tueur);
+  const c = g.joueurs[tueur].complice;
+  const [v, w, x] = Object.keys(g.joueurs).filter(p => p !== tueur && p !== c);
+  placer(ctx, g, 's4', tueur, v);
+  act(ctx, g, tueur, { type: 'tuer', cible: v });
+  const m0 = E.playerView(ctx, g, v).mort;
+  assert.doesNotMatch(act(ctx, g, w, { type: 'corps', victime: v, c: m0.jeton }).msg, /meurtrier/, 'tueur d\'origine : pas de liste');
+  // le complice devient tueur et tue avec une arme ramassée
+  g.joueurs[c].tueur = { actif: true, recrue: true, cache: null, arme: false, pret: 0, usage: null, victimes: 0 };
+  g.joueurs[c].arme = { i: Number(Object.keys(g.cartes).find(k => g.cartes[k].nom === 'Poignard').slice(1)), reste: 3, usage: null, pret: 0 };
+  placer(ctx, g, 's5', c, x);
+  assert.equal(act(ctx, g, c, { type: 'tuer', cible: x }).ok, true);
+  const m = E.playerView(ctx, g, x).mort;
+  const r = act(ctx, g, w, { type: 'corps', victime: x, c: m.jeton });
+  assert.match(r.msg, /meurtrier est l'un de ces personnages/);
+  const liste = g.joueurs[x].mort.suspects;
+  assert.equal(liste.length, 5);
+  assert.ok(liste.includes(g.joueurs[c].perso), 'le vrai meurtrier y est');
+  assert.ok(!liste.includes(g.joueurs[x].perso), 'pas la victime');
+  assert.match(g.joueurs[w].notes[0].texte, /meurtrier/);
+});
