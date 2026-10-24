@@ -186,7 +186,7 @@ ${[[-300, '−5 min'], [-60, '−1 min'], [60, '+1 min'], [300, '+5 min']].map((
         <div>📱 Joueurs : <a href="${SJ.base}/jouer" target="_blank" class="mono">${location.origin}${SJ.base}/jouer</a> (QR code sur l'écran)</div>
         <div>🛡 Orga safe zone : <a href="${SJ.base}/orga" target="_blank" class="mono">${location.origin}${SJ.base}/orga</a></div>
       </div>
-      <div class="grid-auto">${cfgInput('orgaCode', V.config.orgaCode, 'text', { scope: 'soiree', label: 'Code orga' })}</div>
+      <div class="grid-auto">${cfgInput('orgaCode', V.config.orgaCode, 'text', { scope: 'soiree', label: 'Code orga' })}${cfgInput('reconnexionPrenom', V.config.reconnexionPrenom, 'bool', { scope: 'soiree', label: 'Retrouver son compte en tapant son prénom (désactive-le si deux joueurs ont le même prénom)' })}</div>
       <h2 style="margin-top:8px">Simulation</h2>
       <p class="muted" style="margin:0;font-size:14px">De faux joueurs jouent pour de vrai : regarde l'écran public. Tes réglages sont remis comme avant à la fin.
         Pendant une vraie partie, la simulation tourne à part, sans rien toucher : regarde-la sur l'<a href="${SJ.base}/ecran?test" target="_blank" rel="noopener">écran de test</a>.

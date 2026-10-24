@@ -1091,6 +1091,7 @@ app.addEventListener('submit', async e => {
   e.preventDefault();
   const r = await SJ.emit('rejoindre', { name: document.getElementById('nom').value });
   if (!r.ok) return SJ.toast(r);
+  if (r.msg) SJ.toast(r); // « Content de te retrouver » : il a retrouvé son compte
   SJ.store(CLE_TOKEN, r.token);
   SJ.store('sj-nom', document.getElementById('nom').value.trim());
   hello();

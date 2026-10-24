@@ -4,7 +4,7 @@ import * as duel from './games/duel.js';
 import * as grandpari from './games/grandpari.js';
 import * as minijeux from './games/minijeux.js';
 import * as enquete from './games/enquete.js';
-import { uid, normName, setPath, mergeDefaults, cleanCode } from './util.js';
+import { uid, normName, normPrenom, setPath, mergeDefaults, cleanCode } from './util.js';
 import * as classement from './classement.js';
 
 export const GAMES = { chemin, duel, grandpari, minijeux, enquete };
@@ -17,6 +17,7 @@ export function defaultState() {
       decompte: 2700,
       inscriptions: 900,
       orgaCode: '1234',
+      reconnexionPrenom: true, // taper un prénom déjà connu redonne accès à ce compte (sinon : « prénom déjà pris »)
       nomsJeux: Object.fromEntries(Object.values(GAMES).map(m => [m.id, m.name])),
       programme: Object.keys(GAMES), // jeux choisis pour la soirée, dans l'ordre
       classement: classement.defaultConfig(),
@@ -182,7 +183,11 @@ export class Soiree {
     const clean = String(name ?? '').trim().replace(/\s+/g, ' ').slice(0, 24);
     if (clean.length < 2) return { ok: false, msg: 'Écris ton prénom (2 lettres minimum).' };
     let me = this.identify(token);
-    const taken = Object.values(this.s.people).find(p => normName(p.name) === normName(clean) && p !== me);
+    const taken = Object.values(this.s.people).find(p => normPrenom(p.name) === normPrenom(clean) && p !== me);
+    if (taken && this.s.config.reconnexionPrenom !== false) { // c'est son compte : nouveau téléphone, navigateur vidé, page rouverte…
+      this.noter(taken.id, 'reconnecté en tapant son prénom');
+      return { ok: true, token: taken.token, pid: taken.id, msg: `Content de te retrouver, ${taken.name} !` };
+    }
     if (taken) return { ok: false, msg: 'Ce prénom est déjà pris : ajoute l\'initiale de ton nom (ex. « Léa M. »). Si c\'est toi sur un autre téléphone, touche « J\'étais déjà inscrit sur un autre téléphone ».' };
     if (!me) {
       // Jeton déjà présent sur le téléphone (serveur redémarré sans sauvegarde) : on le garde.

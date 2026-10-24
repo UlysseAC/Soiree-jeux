@@ -48,6 +48,10 @@ export function cleanCode(v) {
 export function normName(s) {
   return String(s ?? '').trim().replace(/\s+/g, ' ').toLocaleLowerCase('fr');
 }
+// Un prénom sans accents ni majuscules : « Lea » = « Léa » (pour retrouver un compte).
+export function normPrenom(s) {
+  return normName(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
 
 export function getPath(obj, path) {
   return path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);

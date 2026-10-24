@@ -37,3 +37,9 @@ Onglet Classement, bouton **« 🧹 Supprimer tous les joueurs »** (il demande 
 - Le classement en cours est **archivé** dans les soirées précédentes, puis remis à zéro (comme « Nouvelle soirée »).
 - Impossible pendant une partie (seulement quand aucun jeu n'est en cours ou après la fin d'un jeu).
 - Les téléphones des anciens joueurs **oublient leur prénom** : ils reviennent à l'écran « Écris ton prénom », au lieu de se réinscrire tout seuls.
+
+## Retrouver son compte en tapant son prénom
+
+Quand un joueur tape un prénom déjà connu (sans tenir compte des majuscules ni des accents : « lea » = « Léa »), il **retrouve ce compte** sur son téléphone (inscription, points, personnage…) : « Content de te retrouver ». C'est utile pour changer de téléphone, vider son navigateur ou rouvrir la page, sans code.
+- Réglage : onglet Soirée, **« Retrouver son compte en tapant son prénom »**. Désactive-le si deux joueurs ont le même prénom : ils devront alors ajouter une initiale (« Léa M. »).
+- Avec ce réglage, quelqu'un qui tape le prénom d'un autre joueur prend sa place sur son téléphone : à réserver à une soirée entre amis.
