@@ -157,3 +157,14 @@ test('liens permanents des salles : ils existent sans partie, restent les mêmes
   assert.equal(r.ok, true, r.msg);
   assert.equal(so.sess.game.joueurs[j.pid].salle, 's3');
 });
+
+test('étages par défaut : « Étage » devient « 1er étage » (réglages enregistrés avec l\'ancien nom mis à jour, noms personnalisés gardés)', async () => {
+  const E = await import('../server/games/enquete.js');
+  const s = JSON.parse(JSON.stringify(defaultState()));
+  s.config.games.enquete.etages = [...E.ETAGES_AVANT];
+  assert.ok(restore(s).config.games.enquete.etages.includes('1er étage'));
+  assert.ok(!restore(s).config.games.enquete.etages.includes('Étage'));
+  const t = JSON.parse(JSON.stringify(defaultState()));
+  t.config.games.enquete.etages = ['Cave', 'Cave', 'Salon', 'Salon', 'Salon', 'Salon', 'Salon', 'Haut', 'Haut', 'Haut', 'Haut'];
+  assert.ok(restore(t).config.games.enquete.etages.includes('Haut'), 'noms personnalisés conservés');
+});

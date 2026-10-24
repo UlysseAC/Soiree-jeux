@@ -13,6 +13,8 @@ export const minPlayers = 2;
 
 
 export const SALLES_1930 = ['Garage', 'Salle de jeu', 'Salle à manger', 'Salon', 'Cuisine', 'Bureau', 'Salle de bain', 'Chambre', 'Grenier', 'Bibliothèque', 'Pharmacie'].join('\n');
+export const ETAGES_AVANT = ['Sous-sol', 'Sous-sol', 'Rez-de-chaussée', 'Rez-de-chaussée', 'Rez-de-chaussée', 'Rez-de-chaussée', 'Rez-de-chaussée', 'Étage', 'Étage', 'Étage', 'Étage'];
+export const ETAGES_1930 = ETAGES_AVANT.map(x => (x === 'Étage' ? '1er étage' : x));
 export const SALLES_V1 = SALLES_1930.replace('Salle de bain', 'Salle de bains');
 export const PERSOS_1930 = ['Veuve Pervenche', 'Madame Blanche', 'Colonel Moutarde', 'Miss Scarlette', 'Maître Rose', 'Professeur Violet', 'Docteur Olive', 'Doctoresse Orchidée', 'Monsieur Prunelle', 'Sergent Legris', 'Juge Orange', 'Détective Anthracite', 'Comptesse Ivoire', 'Baron Safran'].join('\n');
 export const PERSOS_AVANT = ['Le Majordome', 'La Comtesse', 'Le Docteur', 'Le Colonel', 'La Cantatrice', 'Le Professeur', 'La Gouvernante', 'Le Notaire', "L'Héritière", 'Le Jardinier', 'La Veuve', 'Le Chef cuisinier', "L'Aventurière", 'Le Pasteur'].join('\n');
@@ -44,7 +46,7 @@ export function defaultConfig() {
     tachesGroupe: Array.from({ length: 11 }, () => true), // tâche à plusieurs activée, salle par salle
     chanceSolo: 50, // chance (%) que la salle tire sa tâche solo plutôt que celle à plusieurs
     difficulte: 'normal', // facile | normal | difficile
-    etages: ['Sous-sol', 'Sous-sol', 'Rez-de-chaussée', 'Rez-de-chaussée', 'Rez-de-chaussée', 'Rez-de-chaussée', 'Rez-de-chaussée', 'Étage', 'Étage', 'Étage', 'Étage'], // étage de chaque salle (armes à feu : même étage)
+    etages: [...ETAGES_1930], // étage de chaque salle (armes à feu : même étage)
     armesJoueurs: true, // des armes traînent dans les salles (et s'obtiennent en réussissant une tâche) : les joueurs s'en servent entre eux
     chanceArmeTache: 25, // chance (%) de trouver une arme en réussissant une tâche
     premiereArme: 150, // la première arme apparaît au bout de … s d'enquête

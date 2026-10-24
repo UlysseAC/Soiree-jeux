@@ -96,6 +96,7 @@ export function restore(saved) {
   // L'Enquête : l'ancienne liste de salles par défaut devient celle du manoir (les tâches suivent l'ordre des salles).
   const eq = out.config.games?.enquete;
   if (eq && (eq.salles === enquete.SALLES_AVANT || eq.salles === enquete.SALLES_V1)) eq.salles = enquete.SALLES_1930;
+  if (eq && JSON.stringify(eq.etages) === JSON.stringify(enquete.ETAGES_AVANT)) eq.etages = [...enquete.ETAGES_1930]; // « Étage » devient « 1er étage »
   if (eq && eq.personnages === enquete.PERSOS_AVANT) eq.personnages = enquete.PERSOS_1930;
   if (eq && eq.armes === enquete.ARMES_AVANT) eq.armes = enquete.ARMES_1930;
   // L'Enquête : l'ancien réglage (1 indice par salle, 2 en phase finale) devient les 3 indices par salle.

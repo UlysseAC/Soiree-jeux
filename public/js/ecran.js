@@ -876,9 +876,10 @@ function draw() {
 // Le serveur n'envoie l'état que s'il change : on redessine quand même chaque seconde (tirage, couleurs du classement…).
 setInterval(() => { if (V) draw(); }, 1000);
 
-// Les salles de l'écran, rangées par étage (dans l'ordre des étages de la liste des salles).
+// Les salles de l'écran, rangées par étage, comme dans une maison : le premier étage cité dans la liste (le sous-sol) est en bas.
 function eqEtages(salles) {
-  const etages = [...new Set(salles.map(s => s.etage || ''))];
+  // le dernier étage cité dans la liste des salles est en haut : sous-sol en bas, rez-de-chaussée au milieu, 1er étage en haut
+  const etages = [...new Set(salles.map(s => s.etage || ''))].reverse();
   const carte = s => `<div class="eq-salle ${s.joueurs.length ? 'occupee' : ''}"><strong>${esc(s.nom)}</strong>
       <div class="pions">${s.joueurs.map(j => `<span class="pion ${j.barre ? 'barre' : ''}">${esc(j.name)}</span>`).join('')}</div></div>`;
   return etages.map(e => `${etages.length > 1 ? `<div class="label">${esc(e)}</div>` : ''}<div class="eq-salles">${salles.filter(s => (s.etage || '') === e).map(carte).join('')}</div>`).join('');
