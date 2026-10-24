@@ -676,3 +676,27 @@ test('indice « {lieu_arme} / {heure_arme} » : la prochaine arme prévue au cal
   avance(301e3);
   assert.equal(g.armesSol[prevue.salle] != null, true, 'l\'arme est apparue à la salle annoncée');
 });
+
+test('armes : le calendrier couvre toute la durée de l\'enquête (2 h = des armes jusqu\'à la fin)', () => {
+  const { g, ctx, avance } = setup();
+  ctx.cfg.dureeMax = 7200; ctx.cfg.premiereArme = 150; ctx.cfg.apparitionArme = 150; g.endsAt = g.debut + 7200e3; g.planArmes = null;
+  avance(1);
+  const dernier = g.planArmes.at(-1);
+  assert.ok(dernier.t >= g.endsAt - 150e3, `dernière arme prévue à ${Math.round((dernier.t - g.debut) / 60e3)} min`);
+  assert.ok(g.planArmes.length > 45, `${g.planArmes.length} armes prévues`);
+  // et si l'enquête est rallongée, le calendrier se prolonge
+  g.endsAt += 1800e3; avance(1);
+  assert.ok(g.planArmes.at(-1).t >= g.endsAt - 150e3);
+});
+
+test('complices : l\'info de la Salle de jeu arrive aussi quand on a oublié « Quitter la salle » (dans le message)', () => {
+  const { g, ctx, innocents } = setup();
+  ctx.cfg.sallesPropres = 0; g.propres = [];
+  const p = innocents[0];
+  placer(ctx, g, `s${SALLE.bureau}`, p); ctx.cfg.taches = false;
+  act(ctx, g, p, { type: 'indice' });
+  const r = act(ctx, g, p, { type: 'entrer', salle: SALLE.jeu, code: code(ctx, g, SALLE.jeu) }); // sans « Quitter » : immobilisé
+  assert.equal(r.ok, false);
+  assert.match(r.msg, /Immobilisé/);
+  assert.match(r.msg, new RegExp(g.cartes[g.joueurs[g.joueurs[p].complice].perso].nom), 'l\'info est dans le message, pas seulement dans les indices');
+});

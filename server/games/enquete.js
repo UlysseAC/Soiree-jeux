@@ -395,12 +395,20 @@ function lancer(ctx, g) {
 // Les armes apparaissent selon un calendrier fixé au début de l'enquête (une première après premiereArme s, puis une toutes les apparitionArme s),
 // pour qu'un indice puisse dire où et quand la prochaine arrivera.
 function planifierArmes(ctx, g, now) {
+  g.planArmes = [];
+  etendreArmes(ctx, g, now);
+}
+// Le calendrier couvre toute la durée de l'enquête (et se prolonge si elle est rallongée) : il y a des armes jusqu'à la fin.
+function etendreArmes(ctx, g, debut) {
   const premiere = (ctx.cfg.premiereArme ?? 150) * 1000, pas = Math.max(10, ctx.cfg.apparitionArme ?? 150) * 1000, salles = deType(g, 'salle');
-  let derniere = null;
-  g.planArmes = Array.from({ length: 40 }, (_, k) => {
+  const fin = Math.max(g.endsAt || 0, ctx.now()) + pas;
+  let derniere = g.planArmes.at(-1)?.salle ?? null;
+  for (let k = g.planArmes.length; k < 1000; k++) {
+    const t = (g.planArmes.at(-1)?.t ?? debut + premiere - pas) + pas;
+    if (t > fin) break;
     const salle = pick(salles.filter(x => x !== derniere)); derniere = salle;
-    return { t: now + premiere + k * pas, salle, arme: pick(armesNoms(g)), fait: false };
-  });
+    g.planArmes.push({ t, salle, arme: pick(armesNoms(g)), fait: false });
+  }
 }
 // Tous les codes tapés (ou l'admin force) : le courant revient et l'enquête commence.
 function commencer(ctx, g) {
@@ -408,8 +416,8 @@ function commencer(ctx, g) {
   for (const [p, s] of Object.entries(g.panne?.salles ?? {})) if (!g.joueurs[p].salle) g.joueurs[p].salle = s;
   g.phase = 'enquete';
   g.debut = now;
-  planifierArmes(ctx, g, now);
   g.endsAt = now + ctx.cfg.dureeMax * 1000;
+  planifierArmes(ctx, g, now);
   g.finaleAt = ctx.cfg.finaleApres > 0 ? now + ctx.cfg.finaleApres * 1000 : 0;
   g.taches = Array.from({ length: g.nbSalles }, (_, n) => tirerTache(ctx, n));
   g.sessions = {};
@@ -544,6 +552,7 @@ export function tick(ctx, g) {
   for (const m of g.menaces || []) if (m.etat === 'attente' && now >= m.fin) { { const l = cartesLibres(g, m.de, m.a); if (l.length) remettreCarte(ctx, g, m, pick(l)); else m.etat = 'annulee'; changed = true; } }
   if (ctx.cfg.armesJoueurs && g.phase !== 'intro') {
     if (!g.planArmes) planifierArmes(ctx, g, g.debut || now);
+    else if (g.planArmes.at(-1).t < g.endsAt) etendreArmes(ctx, g, g.debut || now);
     g.armesSol ??= {};
     for (const e of g.planArmes) {
       if (e.fait || now < e.t) continue;
@@ -986,7 +995,7 @@ export function playerAction(ctx, g, p, a) {
       mettreAMort(ctx, g, piege.par, p, { corde: true });
       return err('Une corde se resserre autour de ton cou…');
     }
-    return oubli ? err(`Tu as oublié de quitter ${oubli} ! Immobilisé ${ctx.cfg.penaliteOubli ?? 30} s.`) : ok(`Tu es dans : ${nom(g, J.salle)}${trace}`);
+    return oubli ? err(`Tu as oublié de quitter ${oubli} ! Immobilisé ${ctx.cfg.penaliteOubli ?? 30} s.${trace}`) : ok(`Tu es dans : ${nom(g, J.salle)}${trace}`);
   }
 
   if (a.type === 'quitter') { // « Quitter la salle » : obligatoire avant d'aller ailleurs
