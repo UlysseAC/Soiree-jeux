@@ -182,6 +182,9 @@ function indiceAuto(g) {
   return { texte: `Au moins 2 de ces 3 ${mot} : ${listeNoms(choix)}.`, elim: [] };
 }
 
+// Dans un pool, une ligne avec {propre} est un indice « trop propre » : la salle qui le porte est éliminée (jamais la salle du crime).
+const RE_PROPRE = /\{propre\}/;
+const textePropre = (ctx, texte) => String(texte).replace(RE_PROPRE, '').replace(/\s+/g, ' ').trim() || String(ctx.cfg.textePropre || '');
 // Un pool d'indices : une ligne = un indice ; « texte | 30 » donne sa chance (20 par défaut) ; 0 = jamais.
 export function lirePool(texte) {
   return String(texte ?? '').split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(l => {
@@ -195,13 +198,16 @@ function repartirIndices(ctx, g) {
   const n = g.nbSalles, parSalle = Array.from({ length: n }, () => [null, null, null]);
   [0, 1, 2].forEach(r => {
     const restants = lirePool(ctx.cfg.poolsIndices?.[r]);
-    const salles = shuffle(Array.from({ length: n }, (_, i) => i));
+    const salles = shuffle(Array.from({ length: n }, (_, i) => i)).sort((a, b) => (`s${b}` === g.solution.salle) - (`s${a}` === g.solution.salle)); // la salle du crime d'abord : elle ne peut pas recevoir {propre}
     for (const i of salles) {
-      if (!restants.length) break;
-      let total = restants.reduce((a, e) => a + Math.max(0, e.poids), 0), k;
-      if (total <= 0) k = Math.floor(Math.random() * restants.length);
-      else { let t = Math.random() * total; k = restants.findIndex(e => (t -= Math.max(0, e.poids)) <= 0); if (k < 0) k = restants.length - 1; }
-      parSalle[i][r] = restants.splice(k, 1)[0].texte;
+      // un indice « trop propre » ({propre}) dit qu'aucun crime n'a eu lieu ici : jamais dans la salle du crime
+      const dispo = restants.filter(e => !(RE_PROPRE.test(e.texte) && `s${i}` === g.solution.salle));
+      if (!dispo.length) continue;
+      let total = dispo.reduce((a, e) => a + Math.max(0, e.poids), 0), e;
+      if (total <= 0) e = dispo[Math.floor(Math.random() * dispo.length)];
+      else { let t = Math.random() * total; e = dispo.find(x => (t -= Math.max(0, x.poids)) <= 0) ?? dispo.at(-1); }
+      restants.splice(restants.indexOf(e), 1);
+      parSalle[i][r] = e.texte;
     }
   });
   g.indicesSalle = parSalle;
@@ -366,7 +372,7 @@ export function simulerIndices(cfgJeu, nb = 8) {
       const r = playerAction(ctx, g, P, { type: 'indice' });
       if (!r.ok) break;
       const cle = (J.recus?.[`s${i}`]?.length || 0) > avant ? J.recus[`s${i}`].at(-1) : null; // pas de nouveau repère : indice de secours
-      indices.push({ texte: r.indice, source: cle === 'propre' ? 'propre' : cle === 'auto' ? 'auto' : cle ? 'écrit' : 'secours', ...(r.complice ? { complice: r.complice } : {}) });
+      indices.push({ texte: r.indice, source: cle === 'propre' || RE_PROPRE.test(String(cle ?? '')) ? 'propre' : cle === 'auto' ? 'auto' : cle ? 'écrit' : 'secours', ...(r.complice ? { complice: r.complice } : {}) });
     }
     salles.push({ nom: nom(g, `s${i}`), indices });
   }
@@ -650,7 +656,9 @@ function choisirIndice(ctx, g, p, s) {
     return { cle: 'propre', texte: String(ctx.cfg.textePropre || ''), concret: true, elim: [s] };
   }
   const texte = String(g.indicesSalle?.[n]?.[rang] ?? '').trim();
-  if (texte && !recus.includes(texte) && !cite(texte) && !(RE_JOUEUR.test(texte) && !joueurNommable(g, p).length)) return { cle: texte, texte, concret: false, auto: false };
+  if (texte && RE_PROPRE.test(texte)) { // indice « trop propre » tiré dans un pool : il élimine la salle
+    if (!recus.includes(texte) && !connu.has(s) && s !== g.solution.salle) return { cle: texte, texte: textePropre(ctx, texte), concret: true, elim: [s] };
+  } else if (texte && !recus.includes(texte) && !cite(texte) && !(RE_JOUEUR.test(texte) && !joueurNommable(g, p).length)) return { cle: texte, texte, concret: false, auto: false };
   const a = g.auto?.[n]?.[rang]; // pas d'indice écrit pour cette salle à ce rang (ou inutilisable pour ce joueur) : un fait vrai tiré de la solution
   return a && !cite(a.texte) ? { cle: 'auto', texte: a.texte, concret: true, elim: a.elim, auto: true } : null;
 }
@@ -1353,7 +1361,7 @@ export function adminView(ctx, g) {
     attente: g.questions.filter(q => q.etat === 'attente').map(q => ({ de: ctx.name(q.de), a: ctx.name(q.a), salle: nom(g, q.salle) })),
     // indices des salles : écrits ou remplis au lancement avec la solution (réservé à l'admin)
     liensSalles: ctx.cfg.liensSalles === false ? [] : deType(g, 'salle').map((sl, n) => ({ n, nom: nom(g, sl), code: codeFixe(g, n) })),
-    indicesSalles: (g.auto || []).map((auto, n) => ({ salle: nom(g, `s${n}`), propre: !!g.propres?.includes(`s${n}`), rangPropre: g.proprePos?.[`s${n}`] ?? null, indices: auto.map((a, k) => ({ texte: String(g.indicesSalle?.[n]?.[k] ?? '').trim() || a.texte, ecrit: !!String(g.indicesSalle?.[n]?.[k] ?? '').trim() })) })),
+    indicesSalles: (g.auto || []).map((auto, n) => ({ salle: nom(g, `s${n}`), propre: !!g.propres?.includes(`s${n}`), rangPropre: g.proprePos?.[`s${n}`] ?? null, indices: auto.map((a, k) => ({ texte: RE_PROPRE.test(String(g.indicesSalle?.[n]?.[k] ?? '')) ? textePropre(ctx, g.indicesSalle[n][k]) : String(g.indicesSalle?.[n]?.[k] ?? '').trim() || a.texte, ecrit: !!String(g.indicesSalle?.[n]?.[k] ?? '').trim() })) })),
     taches: (g.taches || []).map((_, n) => { const s = `s${n}`, t = tacheDe(ctx, g, s), se = g.sessions[s]; return { salle: s, nomSalle: nom(g, s), nom: t ? T.nomTache(t) : 'Aucune : indice gratuit', groupe: !!t?.groupe, aucune: !t, etat: se?.etat || 'libre', joueurs: (se?.joueurs || []).map(ctx.name) }; }),
   };
 }

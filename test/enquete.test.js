@@ -502,3 +502,24 @@ test('tentatives d\'accusation réglables : une fausse accusation consomme un es
   assert.equal(E.playerAction(ctx, g, Q, { type: 'accuser', ...g.solution }).ok, true);
   assert.equal(g.winner, Q);
 });
+
+test('indice « trop propre » dans un pool ({propre}) : jamais dans la salle du crime, il élimine la salle', () => {
+  for (let k = 0; k < 40; k++) {
+    const pool1 = ['Pas une trace de lutte ici. {propre}', ...Array.from({ length: 10 }, (_, i) => `Indice neutre ${i}`)].join('\n');
+    const { g, ctx } = setup(6, c => { c.sallesPropres = 0; c.poolsIndices = [pool1, '', '']; return c; });
+    E.adminAction(ctx, g, { type: 'lancer' });
+    const n = g.indicesSalle.findIndex(x => x[0] && x[0].includes('{propre}'));
+    assert.ok(n >= 0 && `s${n}` !== g.solution.salle, 'jamais dans la salle du crime');
+    const P = Object.keys(g.joueurs).find(x => g.joueurs[x].perso !== g.solution.perso && !g.joueurs[x].main.includes(`s${n}`));
+    entrer(ctx, g, P, n);
+    const t = E.playerAction(ctx, g, P, { type: 'indice' }).indice;
+    assert.equal(t, 'Pas une trace de lutte ici.', 'le repère disparaît du texte');
+    assert.ok(g.joueurs[P].elimines.includes(`s${n}`), 'la salle est éliminée de sa fiche');
+  }
+  // {propre} seul : le texte « trop propre » des réglages
+  const { g, ctx } = setup(6, c => { c.sallesPropres = 0; c.textePropre = 'Salle immaculée.'; c.poolsIndices = [Array(11).fill('{propre}').map((x, i) => (i ? x + ' ' : x)).join('\n'), '', '']; return c; });
+  E.adminAction(ctx, g, { type: 'lancer' });
+  const n = g.indicesSalle.findIndex(x => x[0]?.includes('{propre}'));
+  assert.ok(n >= 0);
+  assert.equal(E.adminView(ctx, g).indicesSalles[n].indices[0].texte, 'Salle immaculée.');
+});
