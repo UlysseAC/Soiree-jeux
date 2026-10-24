@@ -412,7 +412,7 @@ test('indices : jamais « … » (plus rien à éliminer = phrase claire)', () =
   const p = innocents[0];
   // le joueur connaît déjà toutes les cartes hors solution
   for (const c of Object.keys(g.cartes)) if (!Object.values(g.solution).includes(c)) (g.joueurs[p].elimines.push(c));
-  ctx.cfg.indicesSalles = ctx.cfg.indicesSalles.map(x => ({ ...x, textes: ['', '', ''] }));
+  ctx.cfg.indicesSalles = ctx.cfg.indicesSalles.map(() => ({ pools: [[], [], []] }));
   g.auto = g.auto.map(() => []);
   placer(ctx, g, 's2', p);
   const r = act(ctx, g, p, { type: 'indice' });

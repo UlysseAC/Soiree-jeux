@@ -59,12 +59,12 @@ Le texte d'introduction s'écrit dans **Réglages des jeux → L'Enquête → Hi
 
 ## Indices des salles
 
-Dans **Réglages, L'Enquête, cadre « Indices des salles »**, tu écris **jusqu'à 3 indices par salle**.
+Dans **Réglages, L'Enquête, cadre « Indices des salles »**, chaque salle a **3 pools d'indices** : un pour le 1er indice qu'un joueur reçoit dans la salle, un pour le 2e, un pour le 3e. Chaque pool contient jusqu'à 5 indices, chacun avec une **chance** (nombre relatif : 20 et 20 = une chance sur deux ; 0 = jamais). À chaque indice, le jeu en tire un dans le pool du bon rang.
 
-- **Chances.** À côté de chaque indice, deux pourcentages : la chance qu'il soit donné **en premier** à un joueur, puis **en deuxième**. Le troisième indice donné est celui qui reste. Cela n'a rien à voir avec la phase finale.
+- **Pool vide ou épuisé.** Si aucun indice du pool n'est utilisable pour ce joueur, il reçoit un fait vrai tiré de la solution (une carte innocentée, ou « Au moins 2 de ces 3 … »). Tu les vois dans Partie en cours, après « Révéler » (🎲).
+- **Salles « trop propres ».** L'indice général n'est jamais le 1er indice de la salle : il prend la place du 2e ou du 3e (réglable : 2e, 3e, ou au hasard entre les deux). Il élimine la salle.
 - **Jamais deux fois le même.** Un joueur ne reçoit jamais deux fois le même indice dans une salle.
 - **Jamais une carte déjà connue.** Un joueur ne reçoit pas un indice qui cite une carte qu'il a déjà : cartes en main, cartes montrées ou cartes éliminées.
-- **Emplacement vide.** Il est rempli automatiquement au lancement avec un vrai fait tiré de la solution, par exemple une carte innocentée ou « Au moins 2 de ces 3 salles ne sont pas le lieu du crime : … ». Tu les vois dans Partie en cours, après « Révéler ». L'icône 🎲 marque ceux qui sont remplis automatiquement.
 - **Repères dans un texte.**
   - `{carte}`, `{perso}`, `{arme}` et `{salle}` donnent une carte innocente que le joueur ne connaît pas encore.
   - `{3salle}`, `{3arme}`, `{3perso}` et `{3carte}` donnent 3 cartes dont au plus une est dans la solution.
@@ -75,7 +75,7 @@ Dans **Réglages, L'Enquête, cadre « Indices des salles »**, tu écris **jusq
 ### Salles « trop propres »
 
 - Le réglage « Salles trop propres » est de 2 par défaut. Ce nombre de salles est tiré au hasard, jamais la salle du crime.
-- Dans ces salles, le **premier indice de chaque joueur** est l'indice général : « Cette salle est trop propre : il est impossible qu'un crime y ait eu lieu. » Le texte se modifie, et la salle est éliminée sur la fiche.
+- Dans ces salles, l'indice général prend la place du **2e ou du 3e indice** de chaque joueur (jamais le 1er) : « Cette salle est trop propre : il est impossible qu'un crime y ait eu lieu. » Le texte se modifie, et la salle est éliminée sur la fiche.
 - Un joueur qui a déjà la carte de cette salle reçoit un indice normal.
 
 ## Classement de la soirée

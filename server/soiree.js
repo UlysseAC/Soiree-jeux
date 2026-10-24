@@ -56,9 +56,26 @@ function newSession(gameId) {
 }
 
 // Recharge un état sauvegardé en complétant avec les valeurs par défaut.
+// L'Enquête : l'ancien format des indices d'une salle (3 textes, avec chances du 1er et du 2e) devient 3 pools d'indices.
+function migrerIndices(cfg) {
+  const eq = cfg?.games?.enquete;
+  if (!eq) return cfg;
+  const vide = () => ({ texte: '', poids: 20 });
+  const pad = l => [...l, ...Array.from({ length: 5 }, vide)].slice(0, 5);
+  if (Array.isArray(eq.indicesSalles)) eq.indicesSalles = eq.indicesSalles.map((x, i) => {
+    if (x?.pools) return x;
+    let textes = (x?.textes || []).map(t => String(t ?? '').trim());
+    if (!textes.some(Boolean) && eq.indices?.[i]) textes = String(eq.indices[i]).split(/\r?\n/).map(t => t.trim()).filter(Boolean).slice(0, 3); // tout premier format : une ligne = un indice
+    const pool = poids => pad(textes.map((texte, k) => ({ texte, poids: Number(poids?.[k]) || 0 })).filter(e => e.texte));
+    return { pools: [pool(x?.p1 || [34, 33, 33]), pool(x?.p2 || [34, 33, 33]), pool([34, 33, 33])] };
+  });
+  delete eq.indices;
+  return cfg;
+}
 export function restore(saved) {
   const def = defaultState();
   if (!saved) return def;
+  if (saved.config) saved = { ...saved, config: migrerIndices(JSON.parse(JSON.stringify(saved.config))) };
   const out = {
     ...def,
     ...saved,
@@ -79,11 +96,6 @@ export function restore(saved) {
   if (eq?.armes === enquete.ARMES_1930 && eq.armesReglages) {
     if (eq.armesReglages[3]?.joueur?.effet === 2) eq.armesReglages[3].joueur.effet = 60;
     if (eq.armesReglages[6]?.joueur?.effet === 3) eq.armesReglages[6].joueur.effet = 0;
-  }
-  // L'Enquête : l'ancien format d'indices (une ligne = un indice, par salle) devient les 3 emplacements de chaque salle.
-  if (eq?.indices?.some(t => String(t).trim()) && eq.indicesSalles?.every(x => x.textes.every(t => !t))) {
-    eq.indices.forEach((t, i) => { const l = String(t).split(/\r?\n/).map(x => x.trim()).filter(Boolean); if (eq.indicesSalles[i]) l.slice(0, 3).forEach((x, k) => { eq.indicesSalles[i].textes[k] = x; }); });
-    eq.indices = eq.indices.map(() => '');
   }
   // Sauvegarde d'avant le programme : tous les jeux, comme avant.
   out.config.programme = saved.config && 'programme' in saved.config ? cleanProgramme(saved.config.programme) : def.config.programme;

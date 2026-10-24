@@ -87,3 +87,19 @@ test('L\'Enquête : un joueur non inscrit rejoint la partie en cours avec un per
   assert.equal(so.player(tok, { type: 'rejoindreEnCours' }).ok, false, 'une seule fois');
   assert.ok(retard.pid);
 });
+
+test('ancien format des indices (3 textes + chances du 1er et du 2e) : repris dans les 3 pools', () => {
+  const s = JSON.parse(JSON.stringify(defaultState()));
+  s.config.games.enquete.indicesSalles = [{ textes: ['A', 'B', ''], p1: [70, 30, 0], p2: [10, 90, 0] }];
+  const e = restore(s).config.games.enquete.indicesSalles;
+  const garde = po => po.filter(x => x.texte).map(x => [x.texte, x.poids]);
+  assert.deepEqual(garde(e[0].pools[0]), [['A', 70], ['B', 30]]);
+  assert.deepEqual(garde(e[0].pools[1]), [['A', 10], ['B', 90]]);
+  assert.equal(e[0].pools[2].filter(x => x.texte).length, 2);
+  assert.equal(e[0].pools[0].length, 5);
+  // tout premier format : une ligne = un indice par salle
+  const t = JSON.parse(JSON.stringify(defaultState()));
+  t.config.games.enquete.indices = ['X\nY', ''];
+  t.config.games.enquete.indicesSalles = [{ textes: ['', '', ''], p1: [34, 33, 33], p2: [34, 33, 33] }];
+  assert.deepEqual(restore(t).config.games.enquete.indicesSalles[0].pools[0].filter(x => x.texte).map(x => x.texte), ['X', 'Y']);
+});

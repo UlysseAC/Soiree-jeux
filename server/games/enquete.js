@@ -71,8 +71,9 @@ export function defaultConfig() {
     // Trois indices écrits par salle, avec la chance (en %) qu'ils soient donnés en premier (p1) puis en deuxième (p2).
     // Un joueur ne reçoit jamais deux fois le même indice, ni un indice qui cite une carte qu'il connaît déjà.
     // Un emplacement vide est rempli au lancement avec un vrai fait tiré de la solution (visible dans l'admin).
-    indicesSalles: Array.from({ length: 11 }, () => ({ textes: ['', '', ''], p1: [34, 33, 33], p2: [34, 33, 33] })),
-    indices: Array.from({ length: 11 }, () => ''), // ancien format (une ligne = un indice), repris dans indicesSalles
+    // 3 pools d'indices par salle : un pour le 1er indice d'un joueur, un pour le 2e, un pour le 3e ; chaque indice a une chance (poids) dans son pool
+    indicesSalles: Array.from({ length: 11 }, () => ({ pools: [0, 1, 2].map(() => Array.from({ length: 5 }, () => ({ texte: '', poids: 20 }))) })),
+    rangPropre: 'hasard', // rang auquel une salle « trop propre » donne son indice général : '2', '3' ou 'hasard' (jamais le premier)
     sallesPropres: 2, // nombre de salles « trop propres » (indice général : le crime n'a pas eu lieu ici)
     textePropre: "Cette salle est trop propre : il est impossible qu'un crime y ait eu lieu.",
     // Indices automatiques (quand une salle n'a plus d'indice écrit) : une ligne = un modèle, tiré au hasard.
@@ -194,6 +195,7 @@ export function start(ctx, pids) {
   };
   // salles « trop propres » (jamais la salle du crime) et indices de remplissage tirés de la vraie solution
   g.propres = shuffle(deType(g, 'salle').filter(x => x !== g.solution.salle)).slice(0, Math.max(0, Math.round(Number(cfg.sallesPropres) || 0)));
+  g.proprePos = Object.fromEntries(g.propres.map(x => [x, cfg.rangPropre === '2' ? 1 : cfg.rangPropre === '3' ? 2 : pick([1, 2])])); // rang (0 = 1er) de l'indice « trop propre » : jamais le premier
   g.auto = Array.from({ length: g.nbSalles }, () => [0, 1, 2].map(() => indiceAuto(g)));
   const sol = new Set(Object.values(g.solution));
   const mains = distribuer(Object.keys(g.cartes).filter(c => !sol.has(c)), ordre);
@@ -311,7 +313,7 @@ export function simulerIndices(cfgJeu, nb = 8) {
     const g = start(ctx, pids);
     adminAction(ctx, g, { type: 'lancer' });
     const P = pids.find(x => g.joueurs[x].perso !== g.solution.perso && !g.joueurs[x].main.includes(`s${i}`)) ?? pids.find(x => g.joueurs[x].perso !== g.solution.perso);
-    const J = g.joueurs[P], ecrits = cfg.indicesSalles?.[i]?.textes || [];
+    const J = g.joueurs[P];
     const indices = [];
     for (let k = 0; k < Math.max(1, Math.min(4, maxSalle(ctx, g))); k++) {
       if (k > 0) for (const x of [(i + 1) % nbSalles, (i + 2) % nbSalles].slice(0, Math.min(k, 2))) adminAction(ctx, g, { type: 'placer', pid: P, salle: `s${x}` });
@@ -320,7 +322,7 @@ export function simulerIndices(cfgJeu, nb = 8) {
       const r = playerAction(ctx, g, P, { type: 'indice' });
       if (!r.ok) break;
       const cle = (J.recus?.[`s${i}`]?.length || 0) > avant ? J.recus[`s${i}`].at(-1) : null; // pas de nouveau repère : indice de secours
-      indices.push({ texte: r.indice, source: cle === 'propre' ? 'propre' : typeof cle !== 'number' ? 'secours' : String(ecrits[cle] ?? '').trim() ? 'écrit' : 'auto', ...(r.complice ? { complice: r.complice } : {}) });
+      indices.push({ texte: r.indice, source: cle === 'propre' ? 'propre' : cle === 'auto' ? 'auto' : cle ? 'écrit' : 'secours', ...(r.complice ? { complice: r.complice } : {}) });
     }
     salles.push({ nom: nom(g, `s${i}`), indices });
   }
@@ -552,31 +554,32 @@ function remplir(g, p, texte, n, nomJoueur = x => x) {
   return { texte: out, elimines };
 }
 
-// Indice de la salle s pour le joueur p : l'indice général « trop propre » d'abord, puis un des 3 indices de la salle tiré selon
-// les chances réglées (1er ou 2e indice du joueur dans cette salle), sans jamais répéter un indice ni citer une carte qu'il connaît.
+// Indice de la salle s pour le joueur p. Trois pools par salle : un pour son 1er indice dans la salle, un pour le 2e, un pour le 3e ;
+// chaque indice du pool a sa chance. L'indice général « trop propre » prend la place du 2e ou du 3e (jamais le 1er).
+// Jamais deux fois le même texte, jamais un indice qui cite une carte déjà connue ; un pool sans indice utilisable donne un fait tiré de la solution.
 function choisirIndice(ctx, g, p, s) {
   const J = g.joueurs[p], n = Number(s.slice(1));
   J.recus ??= {};
-  const recus = J.recus[s] ??= [];
+  const recus = J.recus[s] ??= [], rang = Math.min(J.pris[s] || 0, 2);
   const connu = new Set([...J.main, ...Object.keys(J.vus), ...J.elimines]);
   const norm = x => String(x).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const cite = texte => [...connu].some(id => nom(g, id).length >= 3 && norm(texte).includes(norm(nom(g, id))));
-  if (g.propres?.includes(s) && !recus.includes('propre') && !connu.has(s)) {
+  if (g.propres?.includes(s) && !recus.includes('propre') && !connu.has(s) && rang >= (g.proprePos?.[s] ?? 1)) {
     return { cle: 'propre', texte: String(ctx.cfg.textePropre || ''), concret: true, elim: [s] };
   }
-  const cfgS = ctx.cfg.indicesSalles?.[n] || {};
-  const rang = recus.filter(x => x !== 'propre').length >= 1 ? 'p2' : 'p1';
+  const pool = ctx.cfg.indicesSalles?.[n]?.pools?.[rang] || [];
   const candidats = [];
-  for (let k = 0; k < 3; k++) {
-    if (recus.includes(k)) continue;
-    const ecrit = String(cfgS.textes?.[k] ?? '').trim();
-    const c = ecrit ? { cle: k, texte: ecrit, concret: false, auto: false } : g.auto?.[n]?.[k] ? { cle: k, texte: g.auto[n][k].texte, concret: true, elim: g.auto[n][k].elim, auto: true } : null;
-    if (!c || cite(c.texte)) continue;
-    if (!c.concret && /\{joueur\}/.test(c.texte) && !joueurNommable(g, p).length) continue; // il a déjà eu tous les noms
-    candidats.push({ ...c, poids: Math.max(0, Number(cfgS[rang]?.[k]) || 0) });
+  for (const e of pool) {
+    const texte = String(e?.texte ?? '').trim();
+    if (!texte || recus.includes(texte) || cite(texte)) continue;
+    if (/\{joueur\}/.test(texte) && !joueurNommable(g, p).length) continue; // il a déjà eu tous les noms
+    candidats.push({ cle: texte, texte, concret: false, auto: false, poids: Math.max(0, Number(e.poids) || 0) });
   }
-  if (!candidats.length) return null;
-  let total = candidats.reduce((a, c) => a + c.poids, 0);
+  if (!candidats.length) { // pool vide ou épuisé : un fait vrai tiré de la solution
+    const a = g.auto?.[n]?.[rang];
+    return a && !cite(a.texte) ? { cle: 'auto', texte: a.texte, concret: true, elim: a.elim, auto: true } : null;
+  }
+  let total = candidats.reduce((x, c) => x + c.poids, 0);
   if (total <= 0) { candidats.forEach(c => { c.poids = 1; }); total = candidats.length; }
   let t = Math.random() * total;
   for (const c of candidats) { t -= c.poids; if (t <= 0) return c; }
@@ -1257,7 +1260,7 @@ export function adminView(ctx, g) {
     attente: g.questions.filter(q => q.etat === 'attente').map(q => ({ de: ctx.name(q.de), a: ctx.name(q.a), salle: nom(g, q.salle) })),
     // indices des salles : écrits ou remplis au lancement avec la solution (réservé à l'admin)
     liensSalles: ctx.cfg.liensSalles === false ? [] : deType(g, 'salle').map((sl, n) => ({ n, nom: nom(g, sl), code: codeFixe(g, n) })),
-    indicesSalles: (g.auto || []).map((auto, n) => ({ salle: nom(g, `s${n}`), propre: !!g.propres?.includes(`s${n}`), indices: auto.map((a, k) => ({ texte: String(ctx.cfg.indicesSalles?.[n]?.textes?.[k] ?? '').trim() || a.texte, ecrit: !!String(ctx.cfg.indicesSalles?.[n]?.textes?.[k] ?? '').trim() })) })),
+    indicesSalles: (g.auto || []).map((auto, n) => ({ salle: nom(g, `s${n}`), propre: !!g.propres?.includes(`s${n}`), rangPropre: g.proprePos?.[`s${n}`] ?? null, auto: auto.map(x => x.texte), pools: (ctx.cfg.indicesSalles?.[n]?.pools || []).map(po => po.filter(e => String(e?.texte ?? '').trim()).map(e => ({ texte: String(e.texte).trim(), poids: Number(e.poids) || 0 }))) })),
     taches: (g.taches || []).map((_, n) => { const s = `s${n}`, t = tacheDe(ctx, g, s), se = g.sessions[s]; return { salle: s, nomSalle: nom(g, s), nom: t ? T.nomTache(t) : 'Aucune : indice gratuit', groupe: !!t?.groupe, aucune: !t, etat: se?.etat || 'libre', joueurs: (se?.joueurs || []).map(ctx.name) }; }),
   };
 }
