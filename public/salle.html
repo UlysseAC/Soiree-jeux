@@ -12,6 +12,7 @@
 </head>
 <body data-game="enquete">
 <main class="tablette" id="app"><p class="muted">Connexion…</p></main>
+<button id="plein" class="btn sm" type="button" hidden style="position:fixed;top:10px;right:10px;z-index:20;opacity:.75">⛶ Plein écran</button>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/vendor/morphdom.js"></script>
 <script src="/js/common.js"></script>
@@ -65,6 +66,15 @@ function draw() {
     <div class="tab-pied"><div class="label">Dans la salle</div><div class="pions">${qui}</div></div>`);
 }
 
+// Bouton « Plein écran » : la tablette occupe tout l'écran (le bouton se cache une fois en plein écran ; Échap ou le geste du système pour en sortir).
+const plein = document.getElementById('plein');
+const pleinEcran = () => document.fullscreenElement || document.webkitFullscreenElement;
+if (document.fullscreenEnabled || document.webkitFullscreenEnabled) plein.hidden = false;
+plein.addEventListener('click', () => {
+  const el = document.documentElement;
+  try { (el.requestFullscreen || el.webkitRequestFullscreen).call(el); } catch { /* refusé par le navigateur */ }
+});
+['fullscreenchange', 'webkitfullscreenchange'].forEach(ev => document.addEventListener(ev, () => { plein.hidden = !!pleinEcran(); }));
 app.addEventListener('submit', e => { if (e.target.id === 'login') { e.preventDefault(); login(document.getElementById('code').value); } });
 </script>
 </body>

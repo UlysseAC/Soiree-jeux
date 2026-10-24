@@ -177,3 +177,7 @@ Un complice qui a accepté de devenir tueur peut être **démasqué** par n'impo
 - **Juste :** le complice-tueur ne peut plus tuer (il perd son panneau de tueur) ; il reste dans la partie et peut encore utiliser une arme ramassée comme un joueur normal. L'écran l'annonce : « X (personnage) a été démasqué comme complice du tueur ».
 - **Faux :** la tentative est consommée, sans rien révéler de plus. Le nombre de tentatives se règle dans « Tentatives pour démasquer un complice-tueur » (1 par défaut), séparément des accusations.
 - Le tueur d'origine ne peut pas être démasqué ainsi : il se trouve avec l'accusation normale (personnage, arme, salle).
+
+## Plein écran sur les tablettes
+
+La page de chaque tablette de salle (`/salle?n=…`) a un bouton **« ⛶ Plein écran »** en haut à droite, avant et après la saisie du code orga. Il met la tablette en plein écran ; il disparaît une fois en plein écran. Pour en sortir : Échap, ou le geste du système. Sur un iPad, Safari n'autorise pas le plein écran sur les pages web : le bouton n'apparaît pas, il faut « Ajouter à l'écran d'accueil » puis ouvrir la tablette depuis cette icône.
