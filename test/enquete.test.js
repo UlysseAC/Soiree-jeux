@@ -412,3 +412,25 @@ test('un joueur qui fait le 1er indice des 11 salles reçoit les 11 indices du p
     assert.ok(recus.every(t => /^Premier indice numéro \d+$/.test(t)), 'même dans une salle trop propre, le 1er indice vient du pool 1');
   }
 });
+
+test('sexe des personnages : « {joueur} {sexe} » dit si le personnage du joueur est une femme (réglable, jamais envoyé aux téléphones)', () => {
+  // personnages réglés : tous des femmes sauf « Bob » ; marques explicites
+  const noms = ['Alice | F', 'Berthe | F', 'Claire | F', 'Diane | F', 'Eve | F', 'Fanny | F', 'Bob | H'];
+  assert.deepEqual(E.femmesDe(noms.join('\n')), { alice: true, berthe: true, claire: true, diane: true, eve: true, fanny: true, bob: false });
+  assert.equal(E.femmesDe('Veuve Pervenche\nColonel Moutarde')['veuve pervenche'], true, 'sans marque : ceux d\'origine');
+  assert.equal(E.femmesDe('Veuve Pervenche | H')['veuve pervenche'], false, 'une marque explicite l\'emporte');
+  assert.deepEqual(E.personnagesDe('Léa = Le Docteur | F\nAlice | H\nBob'), ['Le Docteur', 'Alice', 'Bob']);
+  const { g, ctx } = setup(6, c => { c.sallesPropres = 0; c.personnages = noms.join('\n'); return c; });
+  ctx.name = p => 'Joueur-' + p;
+  E.adminAction(ctx, g, { type: 'lancer' });
+  ecrire(g, 0, '{joueur} {sexe}.');
+  const P = Object.keys(g.joueurs)[0];
+  entrer(ctx, g, P, 0);
+  const t = E.playerAction(ctx, g, P, { type: 'indice' }).indice;
+  const m = t.match(/^Joueur-(\w+) (est une femme|n'est pas une femme)\.$/);
+  assert.ok(m, t);
+  const nomPerso = g.cartes[g.joueurs[m[1]].perso].nom;
+  assert.equal(m[2] === 'est une femme', nomPerso !== 'Bob', `${nomPerso} : ${t}`);
+  assert.ok(!/"femmes?":/.test(JSON.stringify(E.playerView(ctx, g, P))), 'le sexe n\'est pas dans la vue du joueur (hors indices)');
+  assert.ok(!/"femmes?":/.test(JSON.stringify(E.screenView(ctx, g))));
+});

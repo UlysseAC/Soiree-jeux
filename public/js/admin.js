@@ -385,17 +385,19 @@ app.addEventListener('change', e => { const pid = e.target.dataset.eqplacer; if 
 app.addEventListener('change', e => { const pid = e.target.dataset.eqperso; if (pid) jeu({ type: 'personnage', pid, perso: e.target.value }); });
 
 // Personnages : un nom par ligne, attribués au hasard aux joueurs au lancement.
+// Personnages : un nom et son sexe par ligne (« Nom | F » = femme, « Nom | H » = non). Sans marque, ceux d'origine gardent le leur.
+const EQ_FEMMES = ['Veuve Pervenche', 'Madame Blanche', 'Miss Scarlette', 'Doctoresse Orchidée', 'Comptesse Ivoire'];
 function eqPersos(c) {
-  const noms = String(c.personnages || '').split(/\r?\n/).map(l => l.split('=').pop().trim()).filter(Boolean);
-  const n = Math.max(14, noms.length + 2);
-  return `<div class="stack" style="gap:6px">${Array.from({ length: n }, (_, i) => `<input class="in" data-eqnom id="eq-perso-${i}" value="${esc(noms[i] || '')}" placeholder="Personnage ${i + 1}" maxlength="40">`).join('')}</div>`;
+  const lignes = String(c.personnages || '').split(/\r?\n/).map(l => { const [n, m] = l.split('=').pop().split('|').map(x => x.trim()); return { n, f: m ? /^f/i.test(m) : EQ_FEMMES.some(x => x.toLowerCase() === String(n).toLowerCase()) }; }).filter(x => x.n);
+  const n = Math.max(14, lignes.length + 2);
+  return `<div class="stack" style="gap:6px">${Array.from({ length: n }, (_, i) => `<div class="row" style="gap:6px;flex-wrap:nowrap"><input class="in" data-eqnom id="eq-perso-${i}" value="${esc(lignes[i]?.n || '')}" placeholder="Personnage ${i + 1}" maxlength="40" style="flex:1;min-width:0"><select class="in" data-eqnom id="eq-sexe-${i}" style="width:auto;flex:none" aria-label="Sexe du personnage ${i + 1}"><option value="H" ${lignes[i]?.f ? '' : 'selected'}>Non</option><option value="F" ${lignes[i]?.f ? 'selected' : ''}>♀ Femme</option></select></div>`).join('')}</div>`;
 }
 // Enregistrés ensemble, une ligne par personnage rempli.
 async function eqSauverNoms(el) {
   const out = [];
   for (let i = 0; document.getElementById(`eq-perso-${i}`); i++) {
-    const n = document.getElementById(`eq-perso-${i}`).value.trim().replace(/=/g, '');
-    if (n) out.push(n);
+    const n = document.getElementById(`eq-perso-${i}`).value.trim().replace(/[=|]/g, '');
+    if (n) out.push(`${n} | ${document.getElementById(`eq-sexe-${i}`)?.value === 'F' ? 'F' : 'H'}`);
   }
   const r = await admin({ type: 'config', scope: 'jeu', gameId: 'enquete', path: 'personnages', value: out.join('\n') });
   if (r.ok) { el.classList.add('saved'); setTimeout(() => el.classList.remove('saved'), 1500); }
@@ -458,7 +460,7 @@ function reglagesEnquete(c) {
       <p class="muted" style="margin:0;font-size:14px">Il y a <strong>3 pools d'indices</strong>, communs à tout le jeu : un pour le <strong>1er</strong> indice qu'un joueur reçoit dans une salle, un pour le <strong>2e</strong>, un pour le <strong>3e</strong>. <strong>Une ligne = un indice.</strong> Ajoute une chance à la fin avec « | » (par exemple « Mon indice | 40 » ; 20 par défaut, 0 = jamais). Au lancement, chaque salle reçoit au hasard un indice de chaque pool (sans doublon ; les indices à forte chance sont plus souvent choisis) : les indices sont donc <strong>placés dans des salles aléatoires</strong> à chaque partie. Écris au moins autant d'indices par pool que de salles : une salle sans indice donne un fait vrai tiré de la solution (🎲 dans l'onglet Partie en cours, après « Révéler »).
       Un joueur reçoit les indices d'une salle un par un : le <strong>1er</strong> en réussissant la tâche de la salle ; le <strong>2e</strong> en réussissant une nouvelle tâche dans cette salle après être passé dans <strong>1 autre salle</strong> ; le <strong>3e</strong> se demande sans tâche, après <strong>2 autres salles</strong>. Il ne reçoit jamais deux fois le même indice, ni un indice qui cite une carte qu'il a déjà.
       Dans un texte : <span class="mono">{carte}</span> = une carte qui n'est pas dans la solution (et que le joueur ne connaît pas encore), <span class="mono">{perso}</span>, <span class="mono">{arme}</span>, <span class="mono">{salle}</span> = idem pour un type ; en phase finale, chacun de ces repères donne deux cartes.
-      Nom d'un joueur : <span class="mono">{joueur}</span> = le nom d'un autre joueur ; avec <span class="mono">{3perso}</span>, les 3 personnages contiennent son vrai personnage (« {joueur} est peut-être {3perso} »).<br>Indice à recouper : <span class="mono">{3salle}</span>, <span class="mono">{3arme}</span>, <span class="mono">{3perso}</span>, <span class="mono">{3carte}</span> = 3 cartes dont au plus une est dans la solution.</p>
+      Nom d'un joueur : <span class="mono">{joueur}</span> = le nom d'un autre joueur ; <span class="mono">{sexe}</span> = « est une femme » ou « n'est pas une femme » selon le personnage de ce joueur (« {joueur} {sexe}. », sexe réglé dans la liste des personnages) ; avec <span class="mono">{3perso}</span>, les 3 personnages contiennent son vrai personnage (« {joueur} est peut-être {3perso} »).<br>Indice à recouper : <span class="mono">{3salle}</span>, <span class="mono">{3arme}</span>, <span class="mono">{3perso}</span>, <span class="mono">{3carte}</span> = 3 cartes dont au plus une est dans la solution.</p>
       <div class="grid-auto">${cfgInput('sallesPropres', c.sallesPropres, 'num', { label: 'Salles « trop propres » (indice général)' })}<label class="field"><span class="label">Indice « trop propre » donné en</span><select class="in" id="c-jeu-enquete-rangPropre" data-cfg="rangPropre" data-kind="text" data-scope="jeu" data-game="enquete">${[['hasard', '2e ou 3e (au hasard)'], ['2', '2e indice'], ['3', '3e indice']].map(([v, l]) => `<option value="${v}" ${String(c.rangPropre) === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label></div>
       <label class="field"><span class="label">Indice général d'une salle « trop propre » (il prend la place du 2e ou du 3e indice, jamais du 1er ; il élimine la salle)</span><textarea class="in" rows="2" id="c-jeu-enquete-textePropre" data-cfg="textePropre" data-kind="area" data-scope="jeu" data-game="enquete">${esc(c.textePropre)}</textarea></label>
       <label class="field"><span class="label">Indices de secours (une ligne = un modèle, tiré au hasard quand un joueur n'a plus d'indice disponible)</span><textarea class="in" rows="3" id="c-jeu-enquete-modeles" data-cfg="modeles" data-kind="area" data-scope="jeu" data-game="enquete">${esc(c.modeles)}</textarea></label>

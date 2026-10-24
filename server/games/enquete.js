@@ -96,7 +96,17 @@ const pick = a => a[Math.floor(Math.random() * a.length)];
 
 // Personnages réglés dans l'admin (un par ligne). Une ancienne ligne « Prénom = Personnage » ne garde que le personnage.
 export function personnagesDe(texte) {
-  return String(texte ?? '').split(/\r?\n/).map(l => l.split('=').pop().trim().slice(0, 40)).filter(Boolean).slice(0, 40);
+  return String(texte ?? '').split(/\r?\n/).map(l => l.split('=').pop().split('|')[0].trim().slice(0, 40)).filter(Boolean).slice(0, 40);
+}
+// Sexe des personnages : « Nom | F » (femme) ou « Nom | H » (non) dans la liste ; sans marque, celui des personnages d'origine (les autres : non).
+const FEMMES_1930 = ['Veuve Pervenche', 'Madame Blanche', 'Miss Scarlette', 'Doctoresse Orchidée', 'Comptesse Ivoire'];
+export function femmesDe(texte) {
+  const out = {};
+  for (const l of String(texte ?? '').split(/\r?\n/)) {
+    const [n, m] = l.split('=').pop().split('|').map(x => x.trim());
+    if (n) out[n.toLowerCase()] = m ? /^f/i.test(m) : FEMMES_1930.some(x => x.toLowerCase() === n.toLowerCase());
+  }
+  return out;
 }
 // Personnage de chaque joueur : tiré au hasard parmi ceux de l'admin qui ne sont pas déjà en jeu.
 function attribuer(ctx, pids, deja = []) {
@@ -212,6 +222,8 @@ export function start(ctx, pids) {
   };
   g.nbSalles = deType(g, 'salle').length;
   g.auto = []; g.propres = [];
+  g.femmes = {}; // cartes de personnages qui sont des femmes (jamais envoyé aux téléphones : sert aux indices)
+  { const f = femmesDe(cfg.personnages); for (const id of deType(g, 'perso')) if (f[g.cartes[id].nom.toLowerCase()]) g.femmes[id] = true; }
   // Solution : celle fixée dans l'admin si elle existe, sinon au hasard.
   const fixe = (t, n) => deType(g, t).find(id => n && g.cartes[id].nom.toLowerCase() === String(n).trim().toLowerCase());
   g.solution = {
@@ -259,7 +271,7 @@ function peutSeRetrouver(g, p, q) {
 }
 const texteComplice = (ctx, g, p, texte) => {
   const c = g.joueurs[p].complice;
-  return String(texte ?? '').replace(/\{complice\}/g, c ? nom(g, g.joueurs[c].perso) : '?').replace(/\{joueur\}/g, c ? ctx.name(c) : '?');
+  return String(texte ?? '').replace(/\{complice\}/g, c ? nom(g, g.joueurs[c].perso) : '?').replace(/\{joueur\}/g, c ? ctx.name(c) : '?').replace(/\{sexe\}/g, c && g.femmes?.[g.joueurs[c].perso] ? 'est une femme' : 'n\'est pas une femme');
 };
 function complice(ctx, g, p, a) {
   const J = g.joueurs[p], C = J.complice && g.joueurs[J.complice];
@@ -544,7 +556,7 @@ function remplir(g, p, texte, n, nomJoueur = x => x) {
   // avec {3perso}, les 3 personnages proposés contiennent le vrai personnage de ce joueur.
   const J0 = g.joueurs[p];
   // parmi les joueurs les moins nommés jusque-là dans la partie
-  const nommables = /\{joueur\}/.test(texte) ? joueurNommable(g, p) : [], min = Math.min(...nommables.map(x => g.nommes?.[x] || 0));
+  const nommables = /\{joueur\}|\{sexe\}/.test(texte) ? joueurNommable(g, p) : [], min = Math.min(...nommables.map(x => g.nommes?.[x] || 0));
   const cible = nommables.filter(x => (g.nommes?.[x] || 0) === min);
   const inconnuPerso = x => !J0.main.includes(g.joueurs[x].perso) && !J0.vus[g.joueurs[x].perso] && !J0.elimines.includes(g.joueurs[x].perso);
   const cibleNom = cible.length ? pick(cible.filter(inconnuPerso).length ? cible.filter(inconnuPerso) : cible) : null;
@@ -575,6 +587,7 @@ function remplir(g, p, texte, n, nomJoueur = x => x) {
   };
   const out = texte
     .replace(/\{joueur\}/g, cibleNom ? nomJoueur(cibleNom) : 'Quelqu\'un')
+    .replace(/\{sexe\}/g, cibleNom ? (g.femmes?.[g.joueurs[cibleNom].perso] ? 'est une femme' : 'n\'est pas une femme') : 'est quelqu\'un')
     .replace(/\{(\d)(carte|salle|perso|arme)s?\}/g, (_, k, t) => groupe(Math.max(2, Number(k)), t === 'carte' ? null : t))
     .replace(/\{(carte|salle|perso|arme)\}/g, (_, k) => prendre(k === 'carte' ? null : k));
   if (vide) return { texte: "Tu as déjà éliminé toutes les pistes que cette salle pouvait t'apprendre : il ne te revient rien de nouveau.", elimines: [] };
@@ -595,7 +608,7 @@ function choisirIndice(ctx, g, p, s) {
     return { cle: 'propre', texte: String(ctx.cfg.textePropre || ''), concret: true, elim: [s] };
   }
   const texte = String(g.indicesSalle?.[n]?.[rang] ?? '').trim();
-  if (texte && !recus.includes(texte) && !cite(texte) && !(/\{joueur\}/.test(texte) && !joueurNommable(g, p).length)) return { cle: texte, texte, concret: false, auto: false };
+  if (texte && !recus.includes(texte) && !cite(texte) && !(/\{joueur\}|\{sexe\}/.test(texte) && !joueurNommable(g, p).length)) return { cle: texte, texte, concret: false, auto: false };
   const a = g.auto?.[n]?.[rang]; // pas d'indice écrit pour cette salle à ce rang (ou inutilisable pour ce joueur) : un fait vrai tiré de la solution
   return a && !cite(a.texte) ? { cle: 'auto', texte: a.texte, concret: true, elim: a.elim, auto: true } : null;
 }
@@ -1113,6 +1126,7 @@ export function ajouterJoueur(ctx, g, p) {
   if (g.finished) return err('La partie est terminée.');
   const i = deType(g, 'perso').length;
   g.cartes[`p${i}`] = { id: `p${i}`, type: 'perso', nom: attribuer(ctx, [p], deType(g, 'perso').map(c => g.cartes[c].nom))[p] };
+  if (femmesDe(ctx.cfg.personnages)[g.cartes[`p${i}`].nom.toLowerCase()]) (g.femmes ??= {})[`p${i}`] = true;
   const sol = new Set(Object.values(g.solution));
   // son personnage est une carte comme les autres : il la tient en main (sinon personne ne la détiendrait)
   const main = [`p${i}`, ...shuffle(Object.keys(g.cartes).filter(c => !sol.has(c) && c !== `p${i}`)).slice(0, 2)];
