@@ -1165,6 +1165,13 @@ export function adminAction(ctx, g, a) {
     J.perso = a.perso;
     return ok(`${ctx.name(a.pid)} est ${nom(g, a.perso)}.`);
   }
+  if (a.type === 'tuerAdmin') { // l'admin « tue » un joueur : il a le QR code de son corps comme s'il avait été assassiné
+    const J = g.joueurs[a.pid];
+    if (!J) return err('Joueur inconnu.');
+    if (J.mort) return err(`${ctx.name(a.pid)} est déjà mort.`);
+    mettreAMort(ctx, g, null, a.pid, { salle: J.salle || pick(deType(g, 'salle')), parAdmin: true });
+    return ok(`${ctx.name(a.pid)} est mort : son téléphone affiche le QR code de son corps.`);
+  }
   if (a.type === 'debloquerComplices') { // l'admin annonce les complices à tous, sans passer par le Bureau
     completerComplices(g);
     let n = 0;

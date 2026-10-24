@@ -725,3 +725,27 @@ test('armes : un délai de première arme plus long que l\'enquête ne bloque pa
   assert.deepEqual(g.planArmes, [], 'aucune arme prévue : la première arrive après la fin');
   assert.deepEqual(g.armesSol || {}, {});
 });
+
+test('l\'admin peut « tuer » un joueur : il reçoit le QR code de son corps, comme un assassiné', () => {
+  const { g, ctx, innocents } = setup();
+  const [v, w] = innocents;
+  placer(ctx, g, 's4', v, w);
+  const r = E.adminAction(ctx, g, { type: 'tuerAdmin', pid: v });
+  assert.equal(r.ok, true);
+  assert.ok(g.joueurs[v].mort);
+  const m = E.playerView(ctx, g, v).mort;
+  assert.ok(m && m.jeton && m.salle, 'le téléphone de la victime affiche le QR code de son corps');
+  assert.equal(E.adminAction(ctx, g, { type: 'tuerAdmin', pid: v }).ok, false, 'déjà mort');
+  assert.equal(E.adminAction(ctx, g, { type: 'tuerAdmin', pid: 'inconnu' }).ok, false);
+  // les autres peuvent fouiller le corps
+  assert.match(act(ctx, g, w, { type: 'corps', victime: v, c: m.jeton }).msg, /Sur le corps/);
+  assert.match(g.feed[0].text, /corps a été trouvé/);
+  // son nom reste dans la salle puis est barré, et il ne joue plus
+  assert.equal(E.screenView(ctx, g).salles[4].joueurs.find(j => j.name === ctx.name(v)).barre, true);
+  assert.match(act(ctx, g, v, { type: 'indice' }).msg, /assassiné/);
+  // un joueur sans salle : le corps est tout de même quelque part
+  const x = innocents[2];
+  g.joueurs[x].salle = null;
+  assert.equal(E.adminAction(ctx, g, { type: 'tuerAdmin', pid: x }).ok, true);
+  assert.ok(E.playerView(ctx, g, x).mort.salle && E.playerView(ctx, g, x).mort.salle !== '?');
+});
