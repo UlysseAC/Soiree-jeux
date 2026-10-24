@@ -717,3 +717,11 @@ test('complices : une partie lancée avant leur arrivée en reçoit ; l\'admin p
   assert.match(scanner(ctx, g, p, SALLE.grenier).msg, /incarné/);
   assert.equal(voir(ctx, g, p).pret, true);
 });
+
+test('armes : un délai de première arme plus long que l\'enquête ne bloque pas le jeu', () => {
+  const { g, ctx, avance } = setup();
+  ctx.cfg.premiereArme = 100000; ctx.cfg.dureeMax = 7200; g.planArmes = null;
+  assert.doesNotThrow(() => { avance(1); avance(5e3); avance(5e3); });
+  assert.deepEqual(g.planArmes, [], 'aucune arme prévue : la première arrive après la fin');
+  assert.deepEqual(g.armesSol || {}, {});
+});

@@ -450,7 +450,10 @@ export class Soiree {
     }
     if (sess.status === 'playing' && sess.game) {
       if (sess.jeuPause) return false; // jeu en pause : le temps est arrêté
-      const changed = this.module.tick(this.ctx(), sess.game);
+      let changed = false;
+      try { changed = this.module.tick(this.ctx(), sess.game); } catch (e) { // une erreur dans un jeu ne doit pas figer toute la soirée
+        if (Date.now() - (this.derniereErreur || 0) > 30e3) { this.derniereErreur = Date.now(); console.error('Erreur dans le jeu :', e); }
+      }
       if (sess.game.finished) { this.finishGame(); return true; }
       return changed;
     }

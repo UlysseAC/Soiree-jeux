@@ -559,7 +559,7 @@ export function tick(ctx, g) {
   for (const m of g.menaces || []) if (m.etat === 'attente' && now >= m.fin) { { const l = cartesLibres(g, m.de, m.a); if (l.length) remettreCarte(ctx, g, m, pick(l)); else m.etat = 'annulee'; changed = true; } }
   if (ctx.cfg.armesJoueurs && g.phase !== 'intro') {
     if (!g.planArmes) planifierArmes(ctx, g, g.debut || now);
-    else if (g.planArmes.at(-1).t < g.endsAt) etendreArmes(ctx, g, g.debut || now);
+    else if ((g.planArmes.at(-1)?.t ?? 0) < g.endsAt) etendreArmes(ctx, g, g.debut || now);
     g.armesSol ??= {};
     for (const e of g.planArmes) {
       if (e.fait || now < e.t) continue;
