@@ -562,6 +562,8 @@ function inconnues(g, p, type = null) {
   const J = g.joueurs[p], sol = new Set(Object.values(g.solution));
   return Object.values(g.cartes).filter(c => !sol.has(c.id) && (!type || c.type === type) && !J.main.includes(c.id) && !J.vus[c.id] && !J.elimines.includes(c.id)).map(c => c.id);
 }
+// Repères qui parlent d'un autre joueur : {joueur}, {sexe}, {nonperso} (« n'est pas A »), {2nonperso}, {3nonperso}.
+const RE_JOUEUR = /\{joueur\}|\{sexe\}|\{\d?nonperso\}/;
 // La prochaine arme prévue au calendrier (pas encore apparue).
 const prochaineArme = (g, now) => (g.planArmes || []).find(e => !e.fait && e.t > now) ?? null;
 // Joueurs dont on peut donner le nom à p dans un indice : vivants, pas lui-même, jamais le même nom deux fois pour lui.
@@ -572,7 +574,7 @@ function remplir(g, p, texte, n, nomJoueur = x => x, now = Date.now()) {
   // avec {3perso}, les 3 personnages proposés contiennent le vrai personnage de ce joueur.
   const J0 = g.joueurs[p];
   // parmi les joueurs les moins nommés jusque-là dans la partie
-  const nommables = /\{joueur\}|\{sexe\}/.test(texte) ? joueurNommable(g, p) : [], min = Math.min(...nommables.map(x => g.nommes?.[x] || 0));
+  const nommables = RE_JOUEUR.test(texte) ? joueurNommable(g, p) : [], min = Math.min(...nommables.map(x => g.nommes?.[x] || 0));
   const cible = nommables.filter(x => (g.nommes?.[x] || 0) === min);
   const inconnuPerso = x => !J0.main.includes(g.joueurs[x].perso) && !J0.vus[g.joueurs[x].perso] && !J0.elimines.includes(g.joueurs[x].perso);
   const cibleNom = cible.length ? pick(cible.filter(inconnuPerso).length ? cible.filter(inconnuPerso) : cible) : null;
@@ -602,6 +604,13 @@ function remplir(g, p, texte, n, nomJoueur = x => x, now = Date.now()) {
     return listeNoms(shuffle(choix).map(c => nom(g, c)));
   };
   const out = texte
+    .replace(/\{(\d)?nonperso\}/g, (_, k) => { // « {joueur} n'est {nonperso} » : des personnages que ce joueur n'incarne pas
+      if (!cibleNom) { vide = true; return '…'; }
+      const k2 = Math.max(1, Math.min(4, Number(k) || 1));
+      const autres = shuffle(deType(g, 'perso').filter(c => c !== g.joueurs[cibleNom].perso && c !== J0.perso)).slice(0, k2).map(c => nom(g, c));
+      if (!autres.length) { vide = true; return '…'; }
+      return autres.length === 1 ? `pas ${autres[0]}` : autres.map(x => `ni ${x}`).join(autres.length > 2 ? ', ' : ' ');
+    })
     .replace(/\{joueur\}/g, cibleNom ? nomJoueur(cibleNom) : 'Quelqu\'un')
     .replace(/\{lieu_arme\}/g, () => { const e = prochaineArme(g, now); if (!e) vide = true; return e ? nom(g, e.salle) : '…'; })
     .replace(/\{heure_arme\}/g, () => { const e = prochaineArme(g, now); if (!e) vide = true; return e ? new Date(e.t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }).replace(':', 'h') : '…'; })
@@ -626,7 +635,7 @@ function choisirIndice(ctx, g, p, s) {
     return { cle: 'propre', texte: String(ctx.cfg.textePropre || ''), concret: true, elim: [s] };
   }
   const texte = String(g.indicesSalle?.[n]?.[rang] ?? '').trim();
-  if (texte && !recus.includes(texte) && !cite(texte) && !(/\{joueur\}|\{sexe\}/.test(texte) && !joueurNommable(g, p).length)) return { cle: texte, texte, concret: false, auto: false };
+  if (texte && !recus.includes(texte) && !cite(texte) && !(RE_JOUEUR.test(texte) && !joueurNommable(g, p).length)) return { cle: texte, texte, concret: false, auto: false };
   const a = g.auto?.[n]?.[rang]; // pas d'indice écrit pour cette salle à ce rang (ou inutilisable pour ce joueur) : un fait vrai tiré de la solution
   return a && !cite(a.texte) ? { cle: 'auto', texte: a.texte, concret: true, elim: a.elim, auto: true } : null;
 }

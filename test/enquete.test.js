@@ -434,3 +434,29 @@ test('sexe des personnages : « {joueur} {sexe} » dit si le personnage du joueu
   assert.ok(!/"femmes?":/.test(JSON.stringify(E.playerView(ctx, g, P))), 'le sexe n\'est pas dans la vue du joueur (hors indices)');
   assert.ok(!/"femmes?":/.test(JSON.stringify(E.screenView(ctx, g))));
 });
+
+test('négations : « {joueur} n\'est {nonperso} » désigne des personnages que ce joueur n\'incarne pas', () => {
+  for (let k = 0; k < 40; k++) {
+    const { g, ctx } = setup(8, c => { c.sallesPropres = 0; return c; });
+    ctx.name = p => 'Joueur-' + p;
+    E.adminAction(ctx, g, { type: 'lancer' });
+    ecrire(g, 0, '{joueur} n\'est {nonperso}.', '{joueur} n\'est {2nonperso}.', '{joueur} n\'est {3nonperso}.');
+    const P = Object.keys(g.joueurs).find(x => g.joueurs[x].perso !== g.solution.perso);
+    entrer(ctx, g, P, 0);
+    const t1 = E.playerAction(ctx, g, P, { type: 'indice' }).indice;
+    detour(ctx, g, P, 0, 1);
+    const t2 = E.playerAction(ctx, g, P, { type: 'indice' }).indice;
+    detour(ctx, g, P, 0, 2);
+    const t3 = E.playerAction(ctx, g, P, { type: 'indice' }).indice;
+    const noms = (t, re) => { const m = t.match(re); assert.ok(m, t); return m; };
+    const m1 = noms(t1, /^Joueur-(\w+) n'est pas (.+)\.$/);
+    const m2 = noms(t2, /^Joueur-(\w+) n'est ni (.+) ni (.+)\.$/);
+    const m3 = noms(t3, /^Joueur-(\w+) n'est ni (.+), ni (.+), ni (.+)\.$/);
+    for (const [m, n] of [[m1, 1], [m2, 2], [m3, 3]]) {
+      const vrai = g.cartes[g.joueurs[m[1]].perso].nom, mien = g.cartes[g.joueurs[P].perso].nom;
+      assert.ok(!m.slice(2).includes(vrai), `${m[0]} : son vrai personnage est ${vrai}`);
+      assert.ok(!m.slice(2).includes(mien), 'jamais le personnage du lecteur');
+      assert.equal(new Set(m.slice(2)).size, n);
+    }
+  }
+});
