@@ -923,9 +923,19 @@ function trouverCorps(ctx, g, p, a) {
 }
 
 // ---------- actions des joueurs ----------
+// Une partie lancée avant l'arrivée des complices : chaque joueur sans complice en reçoit un.
+function completerComplices(g) {
+  const pids = Object.keys(g.joueurs);
+  for (const p of pids) {
+    const J = g.joueurs[p];
+    J.comp ??= { debloque: false, jeu: false, grenier: false, choix: null, fait: false };
+    if (!J.complice) { const autres = pids.filter(x => x !== p && !g.joueurs[x].mort); if (autres.length) J.complice = pick(autres); }
+  }
+}
 export function playerAction(ctx, g, p, a) {
   const J = g.joueurs[p];
   if (!J) return err('Tu ne joues pas à cette partie.');
+  if (ctx.cfg.complices && !J.comp) completerComplices(g);
   if (a.type === 'cocher') { // fiche de détective sur le téléphone : barrer / débarrer une carte
     if (!ctx.cfg.ficheNumerique) return err('La fiche de détective se fait sur papier.');
     if (!g.cartes[a.carte]) return err('Carte inconnue.');
@@ -1134,6 +1144,12 @@ export function adminAction(ctx, g, a) {
     if (autre) autre.perso = J.perso;
     J.perso = a.perso;
     return ok(`${ctx.name(a.pid)} est ${nom(g, a.perso)}.`);
+  }
+  if (a.type === 'debloquerComplices') { // l'admin annonce les complices à tous, sans passer par le Bureau
+    completerComplices(g);
+    let n = 0;
+    for (const J of Object.values(g.joueurs)) if (!J.mort && !J.comp.debloque) { J.comp.debloque = true; (J.notes ??= []).unshift({ t: ctx.now(), salle: J.salle, texte: `🤝 ${texteComplice(ctx, g, Object.keys(g.joueurs).find(x => g.joueurs[x] === J), ctx.cfg.texteBureauComplice)}` }); n++; }
+    return ok(`Complices annoncés à ${n} joueur${n > 1 ? 's' : ''}.`);
   }
   if (a.type === 'nouvelleTache') { // l'admin fait tirer une autre tâche à une salle (tâche bloquée, joueurs partis…)
     const n = Number(String(a.salle).slice(1));

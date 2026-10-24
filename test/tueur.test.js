@@ -700,3 +700,20 @@ test('complices : l\'info de la Salle de jeu arrive aussi quand on a oublié « 
   assert.match(r.msg, /Immobilisé/);
   assert.match(r.msg, new RegExp(g.cartes[g.joueurs[g.joueurs[p].complice].perso].nom), 'l\'info est dans le message, pas seulement dans les indices');
 });
+
+test('complices : une partie lancée avant leur arrivée en reçoit ; l\'admin peut les annoncer à tous', () => {
+  const { g, ctx, innocents } = setup();
+  ctx.cfg.sallesPropres = 0; g.propres = [];
+  const p = innocents[0];
+  for (const J of Object.values(g.joueurs)) { delete J.comp; delete J.complice; } // état d'une ancienne partie
+  scanner(ctx, g, p, SALLE.bureau); // n'importe quelle action remet les complices d'aplomb
+  assert.ok(g.joueurs[p].comp && g.joueurs[p].complice);
+  assert.equal(voir(ctx, g, p), null, 'pas encore annoncé');
+  const r = E.adminAction(ctx, g, { type: 'debloquerComplices' });
+  assert.match(r.msg, /6 joueurs/);
+  assert.ok(voir(ctx, g, p), 'le bouton Complice est là');
+  // les infos arrivent alors en scannant la Salle de jeu puis le Grenier
+  assert.match(scanner(ctx, g, p, SALLE.jeu).msg, /complice/);
+  assert.match(scanner(ctx, g, p, SALLE.grenier).msg, /incarné/);
+  assert.equal(voir(ctx, g, p).pret, true);
+});
