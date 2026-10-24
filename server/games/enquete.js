@@ -147,7 +147,13 @@ export function distribuer(cartes, pids, parJoueur = 3) {
 
 // Code d'une salle pour une fenêtre de temps : 4 chiffres, différents d'une salle à l'autre.
 // Code permanent d'une salle (lien à envoyer aux joueurs) : propre à cette partie.
-export const codeFixe = (g, n) => createHmac('sha256', g.secret).update(`fixe:${n}`).digest('hex').slice(0, 10);
+export const codeFixe = (secret, n) => createHmac('sha256', secret).update(`fixe:${n}`).digest('hex').slice(0, 10);
+// Liens permanents : le secret est celui de la soirée (stable d'une partie à l'autre), donc les liens existent avant même de lancer une partie.
+export function liensSalles(cfg, secret) {
+  if (cfg.liensSalles === false) return [];
+  const salles = lignes(cfg.salles === SALLES_AVANT || cfg.salles === SALLES_V1 ? SALLES_1930 : cfg.salles, 20);
+  return salles.map((nomSalle, n) => ({ n, nom: nomSalle, code: codeFixe(secret, n) }));
+}
 function codesDe(g, w) {
   const out = [], pris = new Set();
   for (let s = 0; s < g.nbSalles; s++) {
@@ -975,7 +981,7 @@ export function playerAction(ctx, g, p, a) {
     const w = fenetre(ctx, g, now);
     const fenetres = [codesDe(g, w), codesDe(g, w - 1)];
     let s = null;
-    const fixe = i => ctx.cfg.liensSalles !== false && code === codeFixe(g, i); // liens permanents des salles (copiés par l'admin)
+    const fixe = i => ctx.cfg.liensSalles !== false && code === codeFixe(ctx.secretLiens || g.secret, i); // liens permanents des salles (copiés par l'admin)
     if (a.salle != null) { const i = Number(a.salle); if (fenetres.some(c => c[i] === code) || fixe(i)) s = i; } else {
       for (const c of fenetres) { const i = c.indexOf(code); if (i >= 0) { s = i; break; } }
     }
@@ -1360,7 +1366,6 @@ export function adminView(ctx, g) {
     })).sort((a, b) => a.name.localeCompare(b.name, 'fr')),
     attente: g.questions.filter(q => q.etat === 'attente').map(q => ({ de: ctx.name(q.de), a: ctx.name(q.a), salle: nom(g, q.salle) })),
     // indices des salles : écrits ou remplis au lancement avec la solution (réservé à l'admin)
-    liensSalles: ctx.cfg.liensSalles === false ? [] : deType(g, 'salle').map((sl, n) => ({ n, nom: nom(g, sl), code: codeFixe(g, n) })),
     indicesSalles: (g.auto || []).map((auto, n) => ({ salle: nom(g, `s${n}`), propre: !!g.propres?.includes(`s${n}`), rangPropre: g.proprePos?.[`s${n}`] ?? null, indices: auto.map((a, k) => ({ texte: RE_PROPRE.test(String(g.indicesSalle?.[n]?.[k] ?? '')) ? textePropre(ctx, g.indicesSalle[n][k]) : String(g.indicesSalle?.[n]?.[k] ?? '').trim() || a.texte, ecrit: !!String(g.indicesSalle?.[n]?.[k] ?? '').trim() })) })),
     taches: (g.taches || []).map((_, n) => { const s = `s${n}`, t = tacheDe(ctx, g, s), se = g.sessions[s]; return { salle: s, nomSalle: nom(g, s), nom: t ? T.nomTache(t) : 'Aucune : indice gratuit', groupe: !!t?.groupe, aucune: !t, etat: se?.etat || 'libre', joueurs: (se?.joueurs || []).map(ctx.name) }; }),
   };

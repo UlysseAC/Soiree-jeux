@@ -6,6 +6,7 @@ import * as minijeux from './games/minijeux.js';
 import * as enquete from './games/enquete.js';
 import { uid, normName, normPrenom, setPath, mergeDefaults, cleanCode } from './util.js';
 import * as classement from './classement.js';
+import { randomBytes } from 'node:crypto';
 
 export const GAMES = { chemin, duel, grandpari, minijeux, enquete };
 // Jeux qui comptent dans le classement de la soirée (les Mini-Jeux ont leur propre classement de la journée).
@@ -24,6 +25,7 @@ export function defaultState() {
       games: Object.fromEntries(Object.values(GAMES).map(m => [m.id, m.defaultConfig()])),
     },
     people: {},
+    secretLiens: randomBytes(16).toString('hex'), // sert aux liens permanents des salles (stable d'une partie à l'autre)
     session: newSession('chemin'),
     history: [],
     bonus: {},
@@ -150,6 +152,7 @@ export class Soiree {
       cfg: this.gameCfg(),
       name: pid => this.s.people[pid]?.name ?? '?',
       sfx: name => this.onSfx?.(name),
+      secretLiens: this.s.secretLiens,
       dossards: this.sess.dossards || {},
       memoire: (this.s.memoire ??= {}), // mots et questions déjà sortis dans la soirée, d'un jeu à l'autre
     };
@@ -601,6 +604,7 @@ export class Soiree {
       soirees: this.s.soirees || [],
       classement: this.classement(),
       journal: (this.s.journal || []).slice(0, 20),
+      liensEnquete: enquete.liensSalles(this.s.config.games.enquete, this.s.secretLiens),
       people: Object.values(this.s.people).map(p => ({ pid: p.id, name: p.name })).sort((a, b) => a.name.localeCompare(b.name, 'fr')),
       gameConfig: this.gameCfg(),
       registered: sess.registered.map(p => ({ pid: p, name: this.s.people[p]?.name, dossard: sess.dossards?.[p] || '' })),

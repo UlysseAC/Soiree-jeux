@@ -136,3 +136,24 @@ test('supprimer tous les joueurs : prénoms libérés, classement archivé et re
   so.sess.status = 'playing';
   assert.equal(so.admin({ type: 'supprimerJoueurs' }).ok, false);
 });
+
+test('liens permanents des salles : ils existent sans partie, restent les mêmes et marchent en jeu', () => {
+  const so = nouvelle();
+  const liens = so.adminView().liensEnquete;
+  assert.equal(liens.length, 11, 'un lien par salle, même sans partie lancée');
+  assert.equal(new Set(liens.map(l => l.code)).size, 11);
+  assert.deepEqual(restore(JSON.parse(JSON.stringify(so.s))).secretLiens, so.s.secretLiens, 'enregistrés avec la soirée');
+  so.admin({ type: 'choisirJeu', gameId: 'enquete' });
+  const j = so.join('tok-x', 'Hugo');
+  for (let i = 0; i < 3; i++) so.join('tok' + i, 'Joueur' + i);
+  so.admin({ type: 'config', scope: 'soiree', path: 'decompte', value: 60 });
+  so.admin({ type: 'demarrer' });
+  Object.keys(so.s.people).forEach(p => so.register(p));
+  so.admin({ type: 'lancerJeu' });
+  so.s.config.games.enquete.panne = false;
+  so.admin({ type: 'jeu', action: { type: 'lancer' } });
+  assert.deepEqual(so.adminView().liensEnquete, liens, 'les mêmes liens pendant la partie');
+  const r = so.player(j.token, { type: 'entrer', salle: 3, code: liens[3].code });
+  assert.equal(r.ok, true, r.msg);
+  assert.equal(so.sess.game.joueurs[j.pid].salle, 's3');
+});

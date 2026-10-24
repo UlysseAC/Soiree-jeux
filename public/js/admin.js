@@ -336,13 +336,14 @@ function eqSimulateur() {
       ${r.complices ? `<div class="label">Complices (pour un joueur simulé dont le complice est ${esc(r.complices.joueur)}, qui joue ${esc(r.complices.personne)})</div><ul style="margin:0"><li>Bureau : ${esc(r.complices.bureau)}</li><li>Salle de jeu : ${esc(r.complices.jeu)}</li><li>Grenier : ${esc(r.complices.grenier)}</li></ul>` : ''}` : ''}</div>`;
 }
 // Liens permanents des salles : une ligne par salle, à copier-coller dans un message pour que chacun clique sur sa salle.
-function eqLiensSalles(g) {
-  if (!g.liensSalles?.length) return '';
+function eqLiensSalles() {
+  const liens = V.liensEnquete || [];
+  if (!liens.length) return '';
   const base = `${location.origin}${SJ.base}/jouer`;
-  const texte = g.liensSalles.map(l => `${l.nom} : ${base}?salle=${l.n}&c=${l.code}`).join('\n');
+  const texte = liens.map(l => `${l.nom} : ${base}?salle=${l.n}&c=${l.code}`).join('\n');
   return `<div class="box"><div class="spread"><h2>🔗 Liens des salles</h2><button class="btn primary" data-act="copierLiens">📋 Copier</button></div>
-    <p class="muted" style="margin:0;font-size:14px">Un lien par salle, valable pour cette partie : un joueur qui clique dessus entre dans la salle, sans scanner la tablette. Attention : quiconque a le lien peut entrer dans la salle sans y être (tu peux désactiver ces liens dans les réglages).</p>
-    <textarea class="in" id="eq-liens" rows="${g.liensSalles.length + 1}" readonly style="font-size:13px;white-space:pre">${esc(texte)}</textarea></div>`;
+    <p class="muted" style="margin:0;font-size:14px">Un lien par salle, valable pour toute la soirée (même avant de lancer une partie, et d'une partie à l'autre) : un joueur qui clique dessus entre dans la salle, sans scanner la tablette. Attention : quiconque a le lien peut entrer dans la salle sans y être (tu peux désactiver ces liens dans les réglages).</p>
+    <textarea class="in" id="eq-liens" rows="${liens.length + 1}" readonly style="font-size:13px;white-space:pre">${esc(texte)}</textarea></div>`;
 }
 function partieEnquete(g) {
   const phase = g.finished ? 'Terminée' : { intro: 'Introduction (texte à l\'écran)', panne: '⚡ Panne de courant', enquete: 'Enquête en cours', finale: '⚡ Phase finale' }[g.phase];
@@ -369,7 +370,7 @@ function partieEnquete(g) {
   const fiche = !!V.gameConfig?.ficheNumerique;
   h += `<div class="box"><div class="spread"><h2>📋 Fiche de détective</h2><button class="btn ${fiche ? 'primary' : ''}" data-act="eqFiche">${fiche ? 'Sur le téléphone · passer au papier' : 'Sur papier · mettre sur le téléphone'}</button></div>
     <p class="muted" style="margin:0;font-size:14px">${fiche ? 'Les joueurs ont un onglet « Fiche » qui se remplit tout seul (leurs cartes, les cartes montrées, les indices) et où ils barrent des cartes.' : 'Pas de fiche sur le téléphone : les joueurs la font sur papier. Ils gardent l\'onglet « Indices » avec tous leurs indices et leurs questions.'} Ça change tout de suite, même en pleine partie.</p></div>`;
-  h += eqLiensSalles(g);
+  h += eqLiensSalles();
   if (V.gameConfig?.complices !== false && !g.finished) h += `<div class="box"><div class="spread"><h2>🤝 Complices</h2><button class="btn" data-jeu="debloquerComplices" data-confirm="Annoncer les complices à tous les joueurs, sans passer par le Bureau ?">Annoncer à tous</button></div><p class="muted" style="margin:0;font-size:14px">Chaque joueur reçoit normalement l'annonce en obtenant un indice dans le Bureau. Ce bouton la donne à tous d'un coup (le bouton « Complice » apparaît sur leur téléphone). Ensuite, les infos arrivent en scannant le QR code de la Salle de jeu et du Grenier. Le tableau des enquêteurs (après « Révéler ») montre où en est chacun.</p></div>`;
   h += eqTestTaches();
   h += `<div class="box"><h2>Tablettes des salles</h2>${eqTablettes(g.salles.length)}</div>`;
@@ -468,6 +469,7 @@ function reglagesEnquete(c) {
       ${[0, 1, 2].map(k => { const nb = eqPoolNb(c.poolsIndices[k]); return `<label class="field"><span class="label">Pool ${k + 1} · ${['1er', '2e', '3e'][k]} indice de chaque salle · ${nb} indice${nb > 1 ? 's' : ''}${nb < salles.length ? ` <span style="color:var(--accent)">(il en faut ${salles.length} pour que chaque salle ait le sien ; les autres salles donnent un fait vrai tiré de la solution)</span>` : ''}</span>
         <textarea class="in" rows="${Math.max(6, Math.min(16, nb + 2))}" id="c-jeu-enquete-poolsIndices-${k}" data-cfg="poolsIndices.${k}" data-kind="area" data-scope="jeu" data-game="enquete" placeholder="Un indice par ligne. Option : une chance à la fin, par exemple « Mon indice | 30 »">${esc(c.poolsIndices[k])}</textarea></label>`; }).join('')}
     </div>
+    ${eqLiensSalles()}
     ${eqSimulateur()}
     ${eqTestTaches()}
     <div class="box"><h2>🤝 Complices</h2>

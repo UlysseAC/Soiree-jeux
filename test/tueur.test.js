@@ -443,14 +443,14 @@ test('rejoindre en cours : un personnage que personne ne joue, qu\'il tient en m
 
 test('lien permanent d\'une salle : on entre sans le code qui change ; désactivable', () => {
   const { g, ctx } = setup();
-  const p = 'p0', c = E.codeFixe(g, 3);
+  const p = 'p0', c = E.codeFixe(g.secret, 3);
   assert.equal(act(ctx, g, p, { type: 'entrer', salle: 3, code: c }).ok, true);
   assert.equal(g.joueurs[p].salle, 's3');
   assert.equal(act(ctx, g, 'p1', { type: 'entrer', salle: 4, code: c }).ok, false, 'le code est propre à la salle');
-  assert.equal(E.adminView(ctx, g).liensSalles.length, 11);
+  assert.equal(E.liensSalles(ctx.cfg, g.secret).length, 11);
   ctx.cfg.liensSalles = false;
   assert.equal(act(ctx, g, 'p2', { type: 'entrer', salle: 3, code: c }).ok, false);
-  assert.equal(E.adminView(ctx, g).liensSalles.length, 0);
+  assert.equal(E.liensSalles(ctx.cfg, g.secret).length, 0);
 });
 
 // ---------- les complices ----------

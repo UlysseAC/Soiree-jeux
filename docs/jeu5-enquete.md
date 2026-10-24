@@ -147,7 +147,7 @@ Avant d'aller ailleurs, chaque joueur doit appuyer sur **« Quitter la salle »*
 - **Tâches des salles.** Une salle ne tire jamais deux fois de suite la même tâche : elle alterne entre sa tâche solo et sa tâche à plusieurs. La chance de tâche solo ne sert qu'au premier tirage de la partie.
 - **Écran.** Les salles sont rangées par étage, dans l'ordre des étages de la liste des salles.
 - **Rejoindre en cours de partie.** Un joueur qui arrive après le lancement voit « Rejoindre la partie » sur son téléphone. Il reçoit un personnage que personne ne joue (tiré dans la liste des personnages), qu'il tient en main comme une carte, plus 2 autres cartes. Désactivable dans les réglages ; refusé s'il ne reste aucun personnage libre. (L'admin peut aussi ajouter quelqu'un à la main.)
-- **Liens des salles.** Dans Partie en cours, le cadre « 🔗 Liens des salles » donne un lien par salle à copier-coller dans un message : cliquer dessus place le joueur dans la salle, sans scanner la tablette. Les liens sont propres à la partie. Quiconque a le lien peut entrer dans la salle sans y être : désactivable dans les réglages.
+- **Liens des salles.** Le cadre « 🔗 Liens des salles » (Partie en cours, et Réglages de L'Enquête) donne un lien par salle à copier-coller dans un message : cliquer dessus place le joueur dans la salle, sans scanner la tablette. Les liens existent **avant de lancer une partie** et restent les mêmes pour toute la soirée (ils sont enregistrés avec elle). Quiconque a le lien peut entrer dans la salle sans y être : désactivable dans les réglages.
 
 ## Les complices
 
