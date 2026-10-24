@@ -328,6 +328,24 @@ export class Soiree {
         this.s.session = newSession(sess.gameId); // réinitialisation complète : les joueurs se réinscrivent
         return { ok: true, msg: 'Nouvelle soirée : le classement repart de zéro.' };
       }
+      case 'supprimerJoueurs': { // efface tous les joueurs connus (leurs prénoms redeviennent libres) : à faire entre deux soirées
+        if (sess.status !== 'idle' && sess.status !== 'finished') return { ok: false, msg: 'Termine d\'abord la partie en cours.' };
+        const n = Object.keys(this.s.people).length;
+        if (sess.status === 'finished') this.archive();
+        if (this.s.history.length) {
+          const c = this.classement();
+          this.s.soirees.push({ fin: this.now(), parties: this.s.history.length, top: c.rows.slice(0, 3).map(r => ({ name: r.name, total: r.total })) });
+        }
+        this.s.people = {};
+        this.s.history = [];
+        this.s.bonus = {};
+        this.s.show = null;
+        this.s.roulette = null;
+        this.reprises = {};
+        this.s.purgeId = uid(); // les téléphones qui se souvenaient d'un prénom l'oublient (sinon ils se réinscriraient tout seuls)
+        this.s.session = newSession(sess.gameId);
+        return { ok: true, msg: `${n} joueur${n > 1 ? 's' : ''} supprimé${n > 1 ? 's' : ''} : les prénoms sont libres, le classement repart de zéro.` };
+      }
       case 'reinitialiserSoiree':
         this.s.history = [];
         this.s.bonus = {};
@@ -512,6 +530,7 @@ export class Soiree {
       inscriptionsAt: sess.status === 'countdown' ? this.endsAt() - this.s.config.inscriptions * 1000 : 0,
       inscriptionsOpen: this.inscriptionsOpen(),
       registeredCount: sess.registered.length,
+      purgeId: this.s.purgeId || '',
       peutRejoindre: sess.status === 'playing' && !!sess.game && !!this.module.peutRejoindre && !!this.module.peutRejoindre(this.ctx(), sess.game).ok,
       message: sess.message,
     };

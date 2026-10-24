@@ -106,3 +106,25 @@ test('anciens indices écrits salle par salle : regroupés dans les 3 pools comm
   u.config.games.enquete.poolsIndices = ['Un', 'Deux', 'Trois'];
   assert.deepEqual(restore(u).config.games.enquete.poolsIndices, ['Un', 'Deux', 'Trois']);
 });
+
+test('supprimer tous les joueurs : prénoms libérés, classement archivé et remis à zéro, refusé pendant une partie', () => {
+  const so = nouvelle();
+  const a = so.join('tok-a', 'Léa'), b = so.join('tok-b', 'Hugo');
+  assert.equal(so.join('tok-c', 'Léa').ok, false, 'prénom déjà pris');
+  so.s.history.push({ gameId: 'chemin', at: 1, results: [{ pid: a.pid, rank: 1 }, { pid: b.pid, rank: 2 }] });
+  so.s.bonus = { [a.pid]: 5 };
+  const avant = so.playerView(a.token).purgeId;
+  const r = so.admin({ type: 'supprimerJoueurs' });
+  assert.equal(r.ok, true);
+  assert.match(r.msg, /2 joueurs supprimés/);
+  assert.deepEqual(so.s.people, {});
+  assert.deepEqual(so.s.history, []);
+  assert.deepEqual(so.s.bonus, {});
+  assert.equal(so.s.soirees.length, 1, 'le classement est archivé');
+  assert.equal(so.join('tok-c', 'Léa').ok, true, 'le prénom est de nouveau libre, sans initiale');
+  assert.notEqual(so.playerView('inconnu').purgeId, avant, 'les téléphones sauront qu\'il faut oublier leur prénom');
+  assert.equal(so.playerView(a.token).me, null, 'l\'ancien téléphone n\'est plus reconnu');
+  // pas pendant une partie
+  so.sess.status = 'playing';
+  assert.equal(so.admin({ type: 'supprimerJoueurs' }).ok, false);
+});

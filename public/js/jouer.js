@@ -30,6 +30,11 @@ function hello() {
 SJ.sock.on('connect', hello);
 let autoJoin = false;
 SJ.sock.on('etat', v => {
+  // Tous les joueurs ont été supprimés par l'admin : ce téléphone oublie son prénom (sinon il se réinscrirait tout seul).
+  if (v.purgeId !== undefined && v.purgeId !== SJ.store('sj-purge')) {
+    if (!v.me) { SJ.store('sj-nom', null); SJ.store(CLE_TOKEN, null); SJ.store('sj-inscrit', null); }
+    SJ.store('sj-purge', v.purgeId);
+  }
   // Le serveur ne nous connaît plus (il a redémarré) : on se réinscrit tout seul avec le même prénom.
   const nom = SJ.store('sj-nom');
   if (!v.me && nom && SJ.store(CLE_TOKEN) && !autoJoin) {

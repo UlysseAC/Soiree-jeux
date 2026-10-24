@@ -30,3 +30,10 @@ Exemples (les 3 jeux joués à la soirée = 210 points max) : rater le Chemin �
 - **Écran public** : le classement s'affiche automatiquement 20 s après la fin de chaque jeu (pendant 40 s), avec les ▲ ▼ ; l'admin peut aussi l'afficher ou lancer le **Grand final** (podium, confettis, fanfare).
 - **Téléphone** : « 🏆 Soirée : 7ᵉ sur 32 · 112 pts », avec le bonus s'il y en a un.
 - **Admin** : détail des points par jeu, multiplicateur, bonus manuels, total.
+
+## Supprimer tous les joueurs
+
+Onglet Classement, bouton **« 🧹 Supprimer tous les joueurs »** (il demande un 2e clic de confirmation) : efface tous les joueurs connus, pour que leurs prénoms soient de nouveau libres (plus besoin d'ajouter une initiale à cause d'un ancien inscrit).
+- Le classement en cours est **archivé** dans les soirées précédentes, puis remis à zéro (comme « Nouvelle soirée »).
+- Impossible pendant une partie (seulement quand aucun jeu n'est en cours ou après la fin d'un jeu).
+- Les téléphones des anciens joueurs **oublient leur prénom** : ils reviennent à l'écran « Écris ton prénom », au lieu de se réinscrire tout seuls.

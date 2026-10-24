@@ -897,7 +897,8 @@ function classementTab() {
   </div><p class="muted" style="margin:0;font-size:14px">Bonus jeu raté = points max des jeux joués à la soirée ÷ points max des jeux joués par le joueur, plafonné. Égalités : jeux gagnés, puis résultat au Duel.</p>
   ${V.soirees?.length ? `<div><h2>Soirées précédentes</h2>${V.soirees.map((s, i) => `<p class="muted" style="margin:0;font-size:14px">Soirée ${i + 1} · ${new Date(s.fin).toLocaleDateString('fr-FR')} · ${s.parties} partie${s.parties > 1 ? 's' : ''} · ${s.top.length ? s.top.map((r, k) => `${k + 1}. ${esc(r.name)} (${r.total})`).join(' · ') : 'pas de points'}</p>`).join('')}</div>` : ''}
   <div class="row"><button class="btn primary" data-act="nouvelleSoiree" data-confirm="Commencer une nouvelle soirée ? Le classement actuel est archivé et repart de zéro.">Nouvelle soirée</button>
-  <button class="btn sm danger" data-act="reinitialiserSoiree" data-confirm="Remettre à zéro le classement de la soirée sans l'archiver ?">Remettre le classement à zéro</button></div></div>`;
+  <button class="btn sm danger" data-act="reinitialiserSoiree" data-confirm="Remettre à zéro le classement de la soirée sans l'archiver ?">Remettre le classement à zéro</button>
+  <button class="btn sm danger" data-act="supprimerJoueurs" data-confirm="Supprimer TOUS les joueurs connus ? Leurs prénoms redeviennent libres, le classement est archivé puis remis à zéro. Pas pendant une partie.">🧹 Supprimer tous les joueurs</button></div></div>`;
   return h;
 }
 
