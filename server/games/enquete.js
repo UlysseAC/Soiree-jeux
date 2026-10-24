@@ -309,9 +309,10 @@ export function simulerIndices(cfgJeu, nb = 8) {
     for (let k = 0; k < Math.max(1, Math.min(4, maxSalle(ctx, g))); k++) {
       if (k > 0) for (const x of [(i + 1) % nbSalles, (i + 2) % nbSalles].slice(0, Math.min(k, 2))) adminAction(ctx, g, { type: 'placer', pid: P, salle: `s${x}` });
       adminAction(ctx, g, { type: 'placer', pid: P, salle: `s${i}` });
+      const avant = J.recus?.[`s${i}`]?.length || 0;
       const r = playerAction(ctx, g, P, { type: 'indice' });
       if (!r.ok) break;
-      const cle = J.recus?.[`s${i}`]?.at(-1);
+      const cle = (J.recus?.[`s${i}`]?.length || 0) > avant ? J.recus[`s${i}`].at(-1) : null; // pas de nouveau repère : indice de secours
       indices.push({ texte: r.indice, source: cle === 'propre' ? 'propre' : typeof cle !== 'number' ? 'secours' : String(ecrits[cle] ?? '').trim() ? 'écrit' : 'auto', ...(r.complice ? { complice: r.complice } : {}) });
     }
     salles.push({ nom: nom(g, `s${i}`), indices });
@@ -757,6 +758,7 @@ function ramasser(ctx, g, p) {
   const J = g.joueurs[p], i = g.armesSol?.[J.salle];
   if (i == null) return err('Il n\'y a rien à ramasser ici.');
   if (J.arme) return err('Tu as déjà une arme : pose-la d\'abord.');
+  if (J.tueur?.arme && !J.tueur.recrue) return err('Tu as déjà l\'arme du crime : tu ne peux pas en porter une deuxième.');
   delete g.armesSol[J.salle];
   donnerArme(ctx, g, p, i);
   return ok(`Tu ramasses : ${nom(g, `a${i}`)}.`);
@@ -898,7 +900,10 @@ export function playerAction(ctx, g, p, a) {
     J.quitteA = 0;
     J.salle = `s${s}`;
     if (change) (J.histo ??= []).push(J.salle);
-    if (J.tueur && !J.tueur.arme && J.salle === J.tueur.cache) J.tueur.arme = true; // le tueur retrouve son arme (rien ne s'affiche ailleurs)
+    if (J.tueur && !J.tueur.recrue && !J.tueur.arme && J.salle === J.tueur.cache) {
+      J.tueur.arme = true; // le tueur retrouve son arme (rien ne s'affiche ailleurs)
+      if (J.arme) { g.armesSol ??= {}; if (g.armesSol[J.salle] == null) g.armesSol[J.salle] = J.arme.i; J.arme = null; } // une seule arme à la fois : l'autre est posée
+    }
     if (change && J.poison && --J.poison.restant <= 0) { // le poison agit : il ne le savait pas
       mettreAMort(ctx, g, J.poison.par, p, { poison: true });
       return err('Tu te sens mal… tes jambes te lâchent. Tout devient noir.');

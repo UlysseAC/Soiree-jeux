@@ -115,6 +115,7 @@ Les joueurs peuvent se servir d'armes les uns contre les autres. Un joueur porte
   - **Chandelier, matraque, club de golf, clé anglaise** : la personne est assommée et ne peut plus quitter la salle pendant une durée réglable.
   - **Corde** : mains liées, même effet, pendant une durée réglable. Le joueur porte un nombre de cordes réglable ; sans corde, l'arme disparaît.
   - **Poison** : la personne ne sait rien ; l'indice qu'elle lira ensuite sera illisible (il compte quand même comme pris).
+- **Une seule arme à la fois.** On ne peut pas en ramasser une deuxième sans poser la première. Le tueur qui a récupéré l'arme du crime ne peut pas non plus en ramasser une autre ; s'il en portait une en la retrouvant, elle est posée dans la salle.
 - **Usure.** Chaque arme a un nombre d'utilisations réglable (3 par défaut, 2 pour la corde, le poison et les armes à feu) : après la dernière, elle se casse.
 - **Menace.** Une personne ne peut jamais donner deux fois la même carte à la même personne. Si elle les a déjà toutes données, on ne peut plus la menacer.
 - **Délais.** Chaque arme a ses délais côté joueur (entre deux victimes dans la même salle, victimes maximum par salle, rechargement après avoir quitté la salle). Réglages dans Réglages, L'Enquête, cadre « Armes ».

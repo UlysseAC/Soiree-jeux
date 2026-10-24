@@ -589,3 +589,20 @@ test('victime d\'un complice recruté : le corps désigne 5 personnages dont cel
   assert.ok(!liste.includes(g.joueurs[x].perso), 'pas la victime');
   assert.match(g.joueurs[w].notes[0].texte, /meurtrier/);
 });
+
+test('une seule arme à la fois : ramasser une deuxième est refusé, le tueur ne cumule pas son arme du crime', () => {
+  const { g, ctx, tueur, innocents } = setup();
+  const i = Number(Object.keys(g.cartes).find(k => g.cartes[k].nom === 'Hache').slice(1));
+  const [a] = innocents;
+  placer(ctx, g, 's2', a);
+  g.armesSol = { s2: i };
+  assert.equal(act(ctx, g, a, { type: 'ramasser' }).ok, true);
+  g.armesSol = { s2: i };
+  assert.match(act(ctx, g, a, { type: 'ramasser' }).msg, /déjà une arme/);
+  assert.equal(g.armesSol.s2, i, 'l\'arme reste par terre');
+  // le tueur qui a récupéré l'arme du crime ne peut plus ramasser
+  armer(ctx, g, tueur);
+  placer(ctx, g, 's3', tueur);
+  g.armesSol = { s3: i };
+  assert.match(act(ctx, g, tueur, { type: 'ramasser' }).msg, /arme du crime/);
+});

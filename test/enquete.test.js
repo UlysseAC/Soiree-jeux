@@ -345,8 +345,8 @@ test('simulateur d\'indices : 3 indices par salle, textes écrits repris, repèr
   assert.ok(r.salles.every(s => s.indices.length === 3), 'trois indices par salle');
   const [a, b, c] = r.salles[0].indices;
   assert.deepEqual([a.texte, a.source], ['Mon indice A', 'écrit']);
-  assert.match(b.texte, /^\w+ est peut-être .+ ou .+/);
-  assert.equal(c.source, 'auto', 'emplacement vide rempli');
+  assert.match(b.texte, /^\S+ est peut-être .+ ou .+/);
+  assert.ok(['auto', 'secours'].includes(c.source), 'emplacement vide rempli (ou indice de secours si le tirage citait une carte déjà connue)');
   assert.ok(r.salles.flatMap(s => s.indices).every(i => !i.texte.includes('{')), 'aucun repère laissé tel quel');
   assert.ok(r.complices.bureau && r.complices.jeu && r.complices.grenier);
 });
