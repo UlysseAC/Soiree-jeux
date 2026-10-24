@@ -47,7 +47,8 @@ export function defaultConfig() {
     etages: ['Sous-sol', 'Sous-sol', 'Rez-de-chaussée', 'Rez-de-chaussée', 'Rez-de-chaussée', 'Rez-de-chaussée', 'Rez-de-chaussée', 'Étage', 'Étage', 'Étage', 'Étage'], // étage de chaque salle (armes à feu : même étage)
     armesJoueurs: true, // des armes traînent dans les salles (et s'obtiennent en réussissant une tâche) : les joueurs s'en servent entre eux
     chanceArmeTache: 25, // chance (%) de trouver une arme en réussissant une tâche
-    apparitionArme: 150, // une arme apparaît dans une salle toutes les … s
+    premiereArme: 150, // la première arme apparaît au bout de … s d'enquête
+    apparitionArme: 150, // ensuite, une arme apparaît dans une salle toutes les … s
     delaiMenace: 60, // une personne menacée doit donner une carte dans ce temps (s), sinon une carte est donnée au hasard
     armesReglages: ARMES_REGLAGES, // une entrée par arme (dans l'ordre des armes) : { tueur, joueur } = { usage, max, recharge, effet }
     panne: true, // début de partie : les plombs ont sauté, chacun va réparer dans sa salle (sinon l'enquête démarre tout de suite)
@@ -246,19 +247,25 @@ function complice(ctx, g, p, a) {
     return { ok: true, msg: `🤝 ${texte}`, indice: texte };
   }
   if (a.op === 'echanger') {
-    if (J.comp.fait) return err('Vous avez déjà échangé une carte.');
-    if (!peutSeRetrouver(g, p, J.complice) && !peutSeRetrouver(g, J.complice, p)) return err('Tu dois être dans la même salle que ton complice, après avoir trouvé qui il est.');
+    // Deux complices l'un de l'autre échangent leurs cartes (quand les deux ont choisi). Sans réciprocité (nombre impair, joueur arrivé en cours de partie),
+    // chacun donne simplement une carte à son complice, qui n'a rien à faire.
+    if (J.comp.fait) return err('Tu as déjà donné une carte à ton complice.');
+    const mutuel = C.complice === p;
+    if (!compPret(J)) return err('Trouve d\'abord qui est ton complice (salle de jeu et grenier).');
+    if (mutuel && !compPret(C)) return err('Ton complice n\'a pas encore trouvé qui tu es : revenez plus tard.');
+    if (C.mort || !J.salle || J.salle !== C.salle) return err('Tu dois être dans la même salle que ton complice.');
     if (!J.main.includes(a.carte)) return err('Choisis une de tes cartes.');
+    const donner = (X, Y, carte, de) => { // Y reçoit la carte de X
+      (Y.vus[carte] ??= []).includes(de) || Y.vus[carte].push(de);
+      (Y.notes ??= []).unshift({ t: ctx.now(), salle: Y.salle, texte: `🤝 ${ctx.name(de)}, ton complice, t'a donné : « ${nom(g, carte)} ».` });
+    };
+    if (!mutuel) { donner(J, C, a.carte, p); J.comp.fait = true; return ok(`🤝 Tu as donné « ${nom(g, a.carte)} » à ton complice.`); }
     J.comp.choix = a.carte;
-    if (C.comp?.choix && !C.comp.fait && C.salle === J.salle) { // les deux ont choisi : chacun reçoit la carte de l'autre
-      const recus = { [p]: C.comp.choix, [J.complice]: J.comp.choix };
-      for (const [x, carte, de] of [[p, C.comp.choix, J.complice], [J.complice, J.comp.choix, p]]) {
-        const X = g.joueurs[x];
-        (X.vus[carte] ??= []).includes(de) || X.vus[carte].push(de);
-        (X.notes ??= []).unshift({ t: ctx.now(), salle: X.salle, texte: `🤝 Ton complice t'a donné : « ${nom(g, carte)} ».` });
-        X.comp.fait = true; X.comp.choix = null;
-      }
-      return ok(`🤝 Échange fait : ton complice t'a donné « ${nom(g, recus[p])} ».`);
+    if (C.comp?.choix && !C.comp.fait) { // les deux ont choisi : chacun reçoit la carte de l'autre
+      const recue = C.comp.choix;
+      donner(C, J, recue, J.complice); donner(J, C, J.comp.choix, p);
+      J.comp.fait = C.comp.fait = true; J.comp.choix = C.comp.choix = null;
+      return ok(`🤝 Échange fait : ton complice t'a donné « ${nom(g, recue)} ».`);
     }
     return ok('Carte choisie : l\'échange se fera quand ton complice aura choisi la sienne.');
   }
@@ -481,7 +488,7 @@ export function tick(ctx, g) {
   }
   for (const m of g.menaces || []) if (m.etat === 'attente' && now >= m.fin) { { const l = cartesLibres(g, m.de, m.a); if (l.length) remettreCarte(ctx, g, m, pick(l)); else m.etat = 'annulee'; changed = true; } }
   if (ctx.cfg.armesJoueurs && g.phase !== 'intro') {
-    g.prochaineArme ||= now + (ctx.cfg.apparitionArme ?? 150) * 1000;
+    g.prochaineArme ||= (g.debut || now) + (ctx.cfg.premiereArme ?? 150) * 1000;
     if (now >= g.prochaineArme) {
       g.prochaineArme = now + (ctx.cfg.apparitionArme ?? 150) * 1000;
       g.armesSol ??= {};
@@ -1105,13 +1112,14 @@ const carteVue = (g, id) => ({ id, ...g.cartes[id] });
 function complicesVue(ctx, g, p) {
   const J = g.joueurs[p], C = J.complice && g.joueurs[J.complice];
   if (!ctx.cfg.complices || !J.comp?.debloque || !C) return null;
-  const sa = sallesComp(ctx, g), pret = compPret(J), ici = peutSeRetrouver(g, p, J.complice) || peutSeRetrouver(g, J.complice, p);
+  const sa = sallesComp(ctx, g), pret = compPret(J), mutuel = C.complice === p, ici = peutSeRetrouver(g, p, J.complice) || peutSeRetrouver(g, J.complice, p);
+  const peutDonner = pret && !C.mort && !!J.salle && J.salle === C.salle && (!mutuel || compPret(C));
   return {
     jeu: J.comp.jeu, grenier: J.comp.grenier, pret, mort: !!C.mort,
     chercher: !J.comp.jeu && J.salle === sa.jeu ? 'jeu' : !J.comp.grenier && J.salle === sa.grenier ? 'grenier' : null,
     nom: pret ? ctx.name(J.complice) : null, perso: pret ? nom(g, C.perso) : null,
-    ici: pret && ici, fait: J.comp.fait, monChoix: J.comp.choix ? carteVue(g, J.comp.choix) : null, sonChoix: !!C.comp?.choix,
-    peutRecruter: !!J.tueur?.actif && !J.tueur.recrute && !C.tueur && ici,
+    ici: peutDonner, mutuel, fait: J.comp.fait, monChoix: J.comp.choix ? carteVue(g, J.comp.choix) : null, sonChoix: !!C.comp?.choix,
+    peutRecruter: !!J.tueur?.actif && !J.tueur.recrute && !C.tueur && ici && pret,
     recrutement: J.tueur?.recrute === 'attente' ? 'attente' : J.tueur?.recrute === 'refuse' ? 'refuse' : J.tueur?.recrute ? 'accepte' : null, recrue: !!J.tueur?.recrue,
   };
 }

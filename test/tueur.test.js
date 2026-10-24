@@ -293,8 +293,9 @@ const equiper = (ctx, g, p, nomArme) => { const i = arme(g, nomArme); g.joueurs[
 
 test('armes de joueur : apparition dans les salles, ramasser, poser', () => {
   const { g, ctx, innocents, avance } = setup();
-  ctx.cfg.apparitionArme = 100;
-  avance(1); avance(101e3);
+  ctx.cfg.apparitionArme = 100; ctx.cfg.premiereArme = 100;
+  avance(1); assert.equal(Object.keys(g.armesSol || {}).length, 0, 'pas avant le délai de la première arme');
+  avance(101e3);
   const [salle, i] = Object.entries(g.armesSol)[0];
   placer(ctx, g, salle, innocents[0], innocents[1]);
   assert.ok(E.playerView(ctx, g, innocents[0]).armeIci);
@@ -605,4 +606,32 @@ test('une seule arme à la fois : ramasser une deuxième est refusé, le tueur n
   placer(ctx, g, 's3', tueur);
   g.armesSol = { s3: i };
   assert.match(act(ctx, g, tueur, { type: 'ramasser' }).msg, /arme du crime/);
+});
+
+// ---------- 13 joueurs au départ, un 14e arrive ----------
+test('13 joueurs puis un 14e : personnage libre, carte en main, complice, échange à sens unique', () => {
+  const { g, ctx, pids } = setup(13);
+  ctx.cfg.sallesPropres = 0; g.propres = [];
+  assert.equal(E.peutRejoindre(ctx, g).ok, true, 'la liste a 14 personnages : un est libre');
+  ctx.name = p => (p === 'n14' ? 'Quatorzième' : `J${p.slice(1)}`);
+  assert.equal(E.ajouterJoueur(ctx, g, 'n14').ok, true);
+  const N = g.joueurs.n14;
+  assert.equal(Object.keys(g.joueurs).length, 14);
+  assert.equal(new Set(Object.values(g.joueurs).map(J => J.perso)).size, 14, '14 personnages différents');
+  assert.ok(N.main.includes(N.perso) && N.main.length === 3);
+  assert.equal(E.peutRejoindre(ctx, g).ok, false, 'plus de personnage libre');
+  assert.ok(N.complice && N.complice !== 'n14');
+  // il retrouve son complice (qui n'a pas forcément fait sa propre enquête) et lui donne une carte
+  const cplc = N.complice;
+  trouver(ctx, g, 'n14');
+  placer(ctx, g, 's3', 'n14', cplc);
+  const v = voir(ctx, g, 'n14');
+  assert.equal(v.ici, true);
+  const carte = N.main[1];
+  assert.match(act(ctx, g, 'n14', { type: 'complice', op: 'echanger', carte }).msg, /Tu as donné/);
+  assert.ok(g.joueurs[cplc].vus[carte].includes('n14'));
+  assert.equal(act(ctx, g, 'n14', { type: 'complice', op: 'echanger', carte }).ok, false, 'une seule fois');
+  // les autres complices (paires et trio) continuent de marcher
+  const mutuels = pids.filter(p => g.joueurs[g.joueurs[p].complice].complice === p);
+  assert.ok(mutuels.length >= 10);
 });

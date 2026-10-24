@@ -107,7 +107,7 @@ Le gagnant est premier. Les autres joueurs sont classés selon le nombre d'indic
 Les joueurs peuvent se servir d'armes les uns contre les autres. Un joueur porte **une arme à la fois**.
 
 - **Où les trouver.**
-  - Une arme apparaît dans une salle au hasard toutes les 2 min 30 (réglable), au plus une par salle. Le premier qui appuie sur « Ramasser » la prend.
+  - La première arme apparaît au bout de 2 min 30 d'enquête (réglable), puis une arme apparaît dans une salle au hasard toutes les 2 min 30 (réglable), au plus une par salle. Le premier qui appuie sur « Ramasser » la prend.
   - Réussir une tâche donne aussi une chance (25 %, réglable) de trouver une arme.
   - On peut reposer son arme dans une salle qui n'en contient pas.
 - **Effets** (sur une personne de la même salle) :
@@ -149,7 +149,7 @@ Chaque joueur a un complice, tiré au hasard au lancement : deux par deux (si le
 1. **Bureau.** Le 1er indice qu'un joueur obtient dans le Bureau est suivi d'un texte (réglable) qui annonce qu'il y a des complices. Un bouton **🤝 Complice** apparaît alors sur son téléphone.
 2. **Salle de jeu.** En scannant le QR code de la salle, le joueur reçoit un texte (réglable) : par exemple « Ton complice est {complice} » (le personnage du complice).
 3. **Grenier.** Même chose en scannant le QR code, avec par exemple « {complice} est incarné par {joueur} » (le joueur qui l'incarne). Les deux salles se font dans n'importe quel ordre, une fois chacune. Ces infos sont en plus des 3 indices de la salle.
-4. **Échange.** Quand le joueur a trouvé ses deux infos et qu'il est dans la même salle que son complice, chacun choisit une carte à donner ; quand les deux ont choisi, chacun voit la carte de l'autre. Un seul échange par paire.
+4. **Échange.** Quand le joueur a trouvé ses deux infos et qu'il est dans la même salle que son complice : si les deux sont complices l'un de l'autre, chacun choisit une carte et, quand les deux ont choisi, chacun voit la carte de l'autre. Sinon (nombre impair de joueurs, joueur arrivé en cours de partie), le joueur donne simplement une carte à son complice, qui n'a rien à faire. Un seul échange par joueur.
 5. **Tueur.** Un tueur actif qui retrouve son complice, dans la même salle, peut lui **proposer** de devenir tueur (une seule proposition). Le complice, dans la même salle, **accepte ou refuse**. S'il accepte, il devient tueur actif, mais n'a pas d'arme : il doit en ramasser une qui traîne dans une salle, qui sert alors comme arme de tueur (avec les réglages « tueur » de cette arme). Tous les tueurs gagnent quand il ne reste aucun innocent. Le corps d'une victime d'un complice recruté, une fois scanné, indique que le meurtrier est l'un de **5 personnages** (dont le sien) : il reste à trouver quel joueur incarne lequel.
 
 Réglages : Réglages, L'Enquête, cadre « 🤝 Complices » (activer, noms des 3 salles, les 3 textes). L'admin voit les complices dans le tableau des enquêteurs, après « Révéler ».

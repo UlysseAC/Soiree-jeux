@@ -617,7 +617,7 @@ function eqComplice(g) {
   else if (c.pret && !c.ici) h += '<p class="muted" style="margin:0">Retrouve-le dans la même salle pour échanger une carte chacun.</p>';
   else if (c.ici) {
     h += c.monChoix ? `<p style="margin:0">Tu donnes : <strong>${esc(c.monChoix.nom)}</strong> ${c.sonChoix ? '' : '· en attente de ton complice…'}</p>`
-      : `<p style="margin:0">Vous êtes ensemble : choisis la carte que tu lui donnes${c.sonChoix ? ' (il a déjà choisi la sienne)' : ''}.</p>`;
+      : `<p style="margin:0">Vous êtes ensemble : choisis la carte que tu lui donnes${c.mutuel ? (c.sonChoix ? ' (il a déjà choisi la sienne)' : ' (il donnera la sienne aussi)') : ' (il n\'a rien à faire en retour)'}.</p>`;
     h += `<div class="pions">${g.main.map(m => `<button class="pion choix" data-act="eqEchanger" data-carte="${esc(m.id)}" aria-pressed="${c.monChoix?.id === m.id}">${esc(m.nom)}</button>`).join('')}</div>`;
   }
   if (c.peutRecruter) h += '<button class="btn danger" data-act="eqRecruter">😈 Proposer à mon complice de devenir tueur</button>';
