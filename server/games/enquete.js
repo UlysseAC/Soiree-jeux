@@ -562,8 +562,8 @@ function inconnues(g, p, type = null) {
   const J = g.joueurs[p], sol = new Set(Object.values(g.solution));
   return Object.values(g.cartes).filter(c => !sol.has(c.id) && (!type || c.type === type) && !J.main.includes(c.id) && !J.vus[c.id] && !J.elimines.includes(c.id)).map(c => c.id);
 }
-// Repères qui parlent d'un autre joueur : {joueur}, {sexe}, {nonperso} (« n'est pas A »), {2nonperso}, {3nonperso}.
-const RE_JOUEUR = /\{joueur\}|\{sexe\}|\{\d?nonperso\}/;
+// Repères qui parlent d'un autre joueur : {joueur}, {sexe}, {nonperso} (« pas A »), {2nonperso} (« ni A ni B »), {5nonpersos} (« A, B, C, D et E » : des innocents qu'il n'incarne pas).
+const RE_JOUEUR = /\{joueur\}|\{sexe\}|\{\d?nonpersos?\}/;
 // La prochaine arme prévue au calendrier (pas encore apparue).
 const prochaineArme = (g, now) => (g.planArmes || []).find(e => !e.fait && e.t > now) ?? null;
 // Joueurs dont on peut donner le nom à p dans un indice : vivants, pas lui-même, jamais le même nom deux fois pour lui.
@@ -604,9 +604,14 @@ function remplir(g, p, texte, n, nomJoueur = x => x, now = Date.now()) {
     return listeNoms(shuffle(choix).map(c => nom(g, c)));
   };
   const out = texte
+    .replace(/\{(\d)?nonpersos\}/g, (_, k) => { // « Il est impossible que {5nonpersos} aient été là : {joueur} n'est aucun d'eux » : des innocents (jamais le coupable) que ce joueur n'incarne pas
+      const innocents = shuffle(deType(g, 'perso').filter(c => c !== g.joueurs[cibleNom ?? p]?.perso && c !== J0.perso && c !== g.solution.perso)).slice(0, Math.max(2, Math.min(8, Number(k) || 3))).map(c => nom(g, c));
+      if (!cibleNom || innocents.length < 2) { vide = true; return '…'; }
+      return `${innocents.slice(0, -1).join(', ')} et ${innocents.at(-1)}`;
+    })
     .replace(/\{(\d)?nonperso\}/g, (_, k) => { // « {joueur} n'est {nonperso} » : des personnages que ce joueur n'incarne pas
       if (!cibleNom) { vide = true; return '…'; }
-      const k2 = Math.max(1, Math.min(4, Number(k) || 1));
+      const k2 = Math.max(1, Math.min(6, Number(k) || 1));
       const autres = shuffle(deType(g, 'perso').filter(c => c !== g.joueurs[cibleNom].perso && c !== J0.perso)).slice(0, k2).map(c => nom(g, c));
       if (!autres.length) { vide = true; return '…'; }
       return autres.length === 1 ? `pas ${autres[0]}` : autres.map(x => `ni ${x}`).join(autres.length > 2 ? ', ' : ' ');

@@ -293,6 +293,7 @@ test('salles « trop propres » : N salles (réglable), jamais la salle du crime
   assert.ok(g.propres.every(s => g.proprePos[s] === 1), 'rang réglé : 2e indice');
   E.adminAction(ctx, g, { type: 'lancer' });
   const s = g.propres[0], n = Number(s.slice(1));
+  ecrire(g, n, 'Un premier indice neutre.', null, 'Un troisième indice neutre.'); // sinon un fait tiré au hasard pourrait déjà éliminer cette salle
   const P = Object.keys(g.joueurs).find(x => g.joueurs[x].perso !== g.solution.perso && !g.joueurs[x].main.includes(s));
   entrer(ctx, g, P, n);
   const r1 = E.playerAction(ctx, g, P, { type: 'indice' });
@@ -458,5 +459,25 @@ test('négations : « {joueur} n\'est {nonperso} » désigne des personnages que
       assert.ok(!m.slice(2).includes(mien), 'jamais le personnage du lecteur');
       assert.equal(new Set(m.slice(2)).size, n);
     }
+  }
+});
+
+test('« Il est impossible que {5nonpersos} aient été là : {joueur} n\'est aucun d\'eux » : 5 innocents que ce joueur n\'incarne pas', () => {
+  for (let k = 0; k < 40; k++) {
+    const { g, ctx } = setup(10, c => { c.sallesPropres = 0; return c; });
+    ctx.name = p => 'Joueur-' + p;
+    E.adminAction(ctx, g, { type: 'lancer' });
+    ecrire(g, 0, 'Il est impossible que {5nonpersos} aient été là : {joueur} n\'est aucun d\'eux.');
+    const P = Object.keys(g.joueurs).find(x => g.joueurs[x].perso !== g.solution.perso);
+    entrer(ctx, g, P, 0);
+    const t = E.playerAction(ctx, g, P, { type: 'indice' }).indice;
+    const m = t.match(/^Il est impossible que (.+) aient été là : Joueur-(\w+) n'est aucun d'eux\.$/);
+    assert.ok(m, t);
+    const liste = m[1].split(/, | et /);
+    assert.equal(liste.length, 5, t);
+    assert.equal(new Set(liste).size, 5);
+    assert.ok(!liste.includes(g.cartes[g.joueurs[m[2]].perso].nom), 'pas le personnage de ce joueur');
+    assert.ok(!liste.includes(g.cartes[g.solution.perso].nom), 'jamais le coupable');
+    assert.ok(!liste.includes(g.cartes[g.joueurs[P].perso].nom), 'pas le personnage du lecteur');
   }
 });
