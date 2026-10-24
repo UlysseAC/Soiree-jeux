@@ -481,3 +481,24 @@ test('« Il est impossible que {5nonpersos} aient été là : {joueur} n\'est au
     assert.ok(!liste.includes(g.cartes[g.joueurs[P].perso].nom), 'pas le personnage du lecteur');
   }
 });
+
+test('tentatives d\'accusation réglables : une fausse accusation consomme un essai, la dernière bloque', () => {
+  const { g, ctx } = setup(6, c => { c.essaisAccusation = 3; return c; });
+  E.adminAction(ctx, g, { type: 'lancer' });
+  const P = Object.keys(g.joueurs).find(x => g.joueurs[x].perso !== g.solution.perso);
+  const faux = { type: 'accuser', salle: g.solution.salle, perso: g.solution.perso, arme: Object.keys(g.cartes).find(c => g.cartes[c].type === 'arme' && c !== g.solution.arme) };
+  assert.equal(E.playerView(ctx, g, P).essais.max, 3);
+  assert.match(E.playerAction(ctx, g, P, faux).msg, /Il te reste 2 essais/);
+  assert.equal(E.playerView(ctx, g, P).accuse, null, 'pas bloqué');
+  assert.match(E.playerAction(ctx, g, P, faux).msg, /Il te reste 1 essai\./);
+  assert.match(g.feed[0].text, /1 essai restant/);
+  assert.match(E.playerAction(ctx, g, P, faux).msg, /Tu ne peux plus accuser/);
+  assert.deepEqual(E.playerView(ctx, g, P).accuse, { juste: false });
+  assert.equal(E.playerAction(ctx, g, P, faux).ok, false, 'plus d\'essai');
+  assert.equal(E.playerView(ctx, g, P).essais.faits, 3);
+  // une accusation juste après quelques fausses gagne
+  const Q = Object.keys(g.joueurs).find(x => x !== P && g.joueurs[x].perso !== g.solution.perso);
+  E.playerAction(ctx, g, Q, faux);
+  assert.equal(E.playerAction(ctx, g, Q, { type: 'accuser', ...g.solution }).ok, true);
+  assert.equal(g.winner, Q);
+});

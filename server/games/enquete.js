@@ -61,6 +61,7 @@ export function defaultConfig() {
     texteBureauComplice: "Dans les tiroirs du bureau, des lettres et des photos : vous avez tous un complice dans cette maison. Retrouve le tien : cherche dans la salle de jeu et au grenier.",
     texteJeuComplice: 'Sous le tapis vert, une carte griffonnée : ton complice est {complice}.',
     texteGrenierComplice: 'Dans une vieille malle, un registre : {complice} est incarné par {joueur}.',
+    essaisAccusation: 1, // nombre de tentatives d'accusation par joueur (une accusation fausse en consomme une)
     ficheNumerique: false, // fiche de détective sur le téléphone (sinon, sur papier)
     indicesParSalle: 3, // indices par joueur et par salle (au plus 3 : les 3 indices écrits de la salle)
     indicesFinale: 3, // pendant la phase finale
@@ -1045,9 +1046,14 @@ export function playerAction(ctx, g, p, a) {
         return err('Ton visage te dit quelque chose… mais le souvenir reste flou : l\'arme ou la salle ne colle pas. Tu as une seconde chance.');
       }
     }
+    if (juste) { J.accuse = { salle, perso, arme, juste, at: now }; terminer(ctx, g, p); return ok('Bravo, tu as résolu l\'enquête !'); }
+    // accusation fausse : elle consomme un essai ; sans essai restant, le joueur ne peut plus accuser
+    const max = Math.max(1, Math.round(Number(ctx.cfg.essaisAccusation) || 1));
+    J.essais = (J.essais || 0) + 1;
+    const reste = max - J.essais;
+    feed(g, ctx, `❌ ${qui(ctx, g, p)} a accusé à tort : ${nom(g, perso)}, ${nom(g, arme)}, ${nom(g, salle)}${reste > 0 ? ` (${reste} essai${reste > 1 ? 's' : ''} restant${reste > 1 ? 's' : ''})` : ''}`);
+    if (reste > 0) return err(`Mauvaise accusation… Il te reste ${reste} essai${reste > 1 ? 's' : ''}.`);
     J.accuse = { salle, perso, arme, juste, at: now };
-    if (juste) { terminer(ctx, g, p); return ok('Bravo, tu as résolu l\'enquête !'); }
-    feed(g, ctx, `❌ ${qui(ctx, g, p)} a accusé à tort : ${nom(g, perso)}, ${nom(g, arme)}, ${nom(g, salle)}`);
     if (Object.values(g.joueurs).every(x => x.accuse || x.mort)) terminer(ctx, g);
     return err('Mauvaise accusation… Tu ne peux plus accuser, mais tu dois toujours répondre aux questions.');
   }
@@ -1296,6 +1302,7 @@ export function playerView(ctx, g, p) {
     indices: J.indices, notes: (J.notes || []).map(n => ({ t: n.t, salle: n.salle ? nom(g, n.salle) : '', texte: n.texte })),
     aRepondre, mesQuestions, fiche, ...listes(g),
     accuse: J.accuse ? { juste: J.accuse.juste } : null,
+    essais: { faits: J.essais || 0, max: Math.max(1, Math.round(Number(ctx.cfg.essaisAccusation) || 1)) },
     winner: g.winner ? ctx.name(g.winner) : null, gagne: g.winner === p,
     revelation: revelation(ctx, g),
     tueur: g.finished && J.perso === g.solution.perso,
@@ -1340,6 +1347,7 @@ export function adminView(ctx, g) {
       pid: p, name: ctx.name(p), perso: carteVue(g, J.perso), main: J.main.map(c => nom(g, c)), salle: J.salle ? nom(g, J.salle) : null,
       panne: g.phase === 'panne' ? { salle: nom(g, g.panne.salles[p]), entre: g.panne.entres.includes(p) } : null,
       complice: J.complice ? ctx.name(J.complice) : null, comp: J.comp ? { debloque: J.comp.debloque, jeu: J.comp.jeu, grenier: J.comp.grenier, fait: J.comp.fait } : null,
+      essais: J.essais || 0,
       indices: J.indices, accuse: J.accuse ? (J.accuse.tueur ? 'tueur' : J.accuse.juste ? 'juste' : 'fausse') : null, mort: !!J.mort, tueurActif: !!J.tueur, victimes: J.tueur?.victimes || 0,
     })).sort((a, b) => a.name.localeCompare(b.name, 'fr')),
     attente: g.questions.filter(q => q.etat === 'attente').map(q => ({ de: ctx.name(q.de), a: ctx.name(q.a), salle: nom(g, q.salle) })),

@@ -46,9 +46,9 @@ Le texte d'introduction s'écrit dans **Réglages des jeux → L'Enquête → Hi
    - le **3e** sans tâche (bouton « Demander le prochain indice »), après être passé dans **2 autres salles** depuis le 2e. Les autres salles doivent être différentes.
 5. **Fiche de détective : sur papier.** Le téléphone garde, dans l'onglet **💡 Indices**, tous les indices obtenus (avec la salle et l'heure) et toutes les questions posées avec la carte montrée.
 6. **Phase finale.** Elle commence automatiquement au bout de 1 h 30, ou quand l'admin la lance avec le bouton. Pendant la phase finale, chaque `{…}` d'un indice donne 2 cartes au lieu d'une. Le nombre d'indices par salle (3) reste réglable pour la phase finale.
-7. **Accuser.** Chaque joueur peut accuser **une seule fois**.
+7. **Accuser.** Chaque joueur a un nombre de **tentatives** réglable (une seule par défaut : Réglages, L'Enquête, « Tentatives d'accusation par joueur »). Une accusation fausse en consomme une.
    - Si l'accusation est juste, il gagne et l'enquête s'arrête.
-   - Sinon, il ne peut plus accuser, mais il doit toujours répondre aux questions.
+   - Sinon, il perd une tentative ; sans tentative restante, il ne peut plus accuser, mais il doit toujours répondre aux questions.
 8. **Fin.** L'enquête s'arrête :
    - quand quelqu'un accuse juste ;
    - à la fin des 2 h ;

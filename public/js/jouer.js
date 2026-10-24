@@ -631,8 +631,8 @@ function eqComplice(g) {
 function eqAccuser(g) {
   if (g.accuse?.juste) return '<div class="card center"><p style="margin:0">Tu as déjà fait ton accusation.</p></div>';
   if (g.accuse) return `<div class="card danger center"><p style="font-size:20px;margin:0">❌ Ton accusation était fausse.</p><p class="muted" style="margin:0">Tu ne peux plus accuser, mais continue de répondre aux questions.</p></div>`;
-  const a = ui.eqAcc || {};
-  return `<div class="card"><p style="margin:0">Tu penses avoir trouvé ? <strong>Une seule accusation</strong> par joueur : si elle est juste, tu gagnes l'enquête ; sinon, tu ne pourras plus accuser.</p>
+  const a = ui.eqAcc || {}, reste = (g.essais?.max || 1) - (g.essais?.faits || 0);
+  return `<div class="card"><p style="margin:0">Tu penses avoir trouvé ? ${(g.essais?.max || 1) > 1 ? `Tu as <strong>${g.essais.max} tentatives</strong> au total (il t'en reste <strong>${reste}</strong>)` : '<strong>Une seule accusation</strong> par joueur'} : si elle est juste, tu gagnes l'enquête ; sinon, ${reste > 1 ? 'tu perds une tentative' : 'tu ne pourras plus accuser'}.</p>
     ${g.secondeChance ? '<p class="muted" style="margin:0">Ton premier essai t\'a laissé un souvenir flou : tu as eu ta seconde chance.</p>' : ''}
     <select class="in" id="eq-acc-perso">${eqOptions(g.persos, a.perso, 'Qui ?')}</select>
     <select class="in" id="eq-acc-arme">${eqOptions(g.armes, a.arme, 'Avec quoi ?')}</select>
