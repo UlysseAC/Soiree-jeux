@@ -71,8 +71,9 @@ export function defaultConfig() {
     // Trois indices écrits par salle, avec la chance (en %) qu'ils soient donnés en premier (p1) puis en deuxième (p2).
     // Un joueur ne reçoit jamais deux fois le même indice, ni un indice qui cite une carte qu'il connaît déjà.
     // Un emplacement vide est rempli au lancement avec un vrai fait tiré de la solution (visible dans l'admin).
-    // 3 pools d'indices par salle : un pour le 1er indice d'un joueur, un pour le 2e, un pour le 3e ; chaque indice a une chance (poids) dans son pool
-    indicesSalles: Array.from({ length: 11 }, () => ({ pools: [0, 1, 2].map(() => Array.from({ length: 5 }, () => ({ texte: '', poids: 20 }))) })),
+    // 3 pools d'indices communs à tout le jeu (1er, 2e et 3e indice) : une ligne = un indice, avec en option sa chance à la fin (« texte | 30 »).
+    // À chaque partie, leurs indices sont répartis au hasard entre les salles.
+    poolsIndices: ['', '', ''],
     rangPropre: 'hasard', // rang auquel une salle « trop propre » donne son indice général : '2', '3' ou 'hasard' (jamais le premier)
     sallesPropres: 2, // nombre de salles « trop propres » (indice général : le crime n'a pas eu lieu ici)
     textePropre: "Cette salle est trop propre : il est impossible qu'un crime y ait eu lieu.",
@@ -170,6 +171,31 @@ function indiceAuto(g) {
   return { texte: `Au moins 2 de ces 3 ${mot} : ${listeNoms(choix)}.`, elim: [] };
 }
 
+// Un pool d'indices : une ligne = un indice ; « texte | 30 » donne sa chance (20 par défaut) ; 0 = jamais.
+export function lirePool(texte) {
+  return String(texte ?? '').split(/\r?\n/).map(l => l.trim()).filter(Boolean).map(l => {
+    const m = l.match(/^(.*?)\s*\|\s*(\d+(?:[.,]\d+)?)\s*$/);
+    return m && m[1] ? { texte: m[1].trim(), poids: Number(m[2].replace(',', '.')) } : { texte: l, poids: 20 };
+  });
+}
+// Au lancement : pour chaque rang (1er, 2e, 3e indice), on tire dans le pool autant d'indices que de salles (selon leurs chances, sans doublon)
+// et on les place dans des salles au hasard. Les salles qui n'en reçoivent pas (pool trop petit) donneront un fait tiré de la solution.
+function repartirIndices(ctx, g) {
+  const n = g.nbSalles, parSalle = Array.from({ length: n }, () => [null, null, null]);
+  [0, 1, 2].forEach(r => {
+    const restants = lirePool(ctx.cfg.poolsIndices?.[r]);
+    const salles = shuffle(Array.from({ length: n }, (_, i) => i));
+    for (const i of salles) {
+      if (!restants.length) break;
+      let total = restants.reduce((a, e) => a + Math.max(0, e.poids), 0), k;
+      if (total <= 0) k = Math.floor(Math.random() * restants.length);
+      else { let t = Math.random() * total; k = restants.findIndex(e => (t -= Math.max(0, e.poids)) <= 0); if (k < 0) k = restants.length - 1; }
+      parSalle[i][r] = restants.splice(k, 1)[0].texte;
+    }
+  });
+  g.indicesSalle = parSalle;
+}
+
 // ---------- départ ----------
 export function start(ctx, pids) {
   const cfg = ctx.cfg;
@@ -197,6 +223,7 @@ export function start(ctx, pids) {
   g.propres = shuffle(deType(g, 'salle').filter(x => x !== g.solution.salle)).slice(0, Math.max(0, Math.round(Number(cfg.sallesPropres) || 0)));
   g.proprePos = Object.fromEntries(g.propres.map(x => [x, cfg.rangPropre === '2' ? 1 : cfg.rangPropre === '3' ? 2 : pick([1, 2])])); // rang (0 = 1er) de l'indice « trop propre » : jamais le premier
   g.auto = Array.from({ length: g.nbSalles }, () => [0, 1, 2].map(() => indiceAuto(g)));
+  repartirIndices(ctx, g);
   const sol = new Set(Object.values(g.solution));
   const mains = distribuer(Object.keys(g.cartes).filter(c => !sol.has(c)), ordre);
   ordre.forEach((p, i) => {
@@ -308,12 +335,13 @@ export function simulerIndices(cfgJeu, nb = 8) {
   const noms = {}, pids = Array.from({ length: n }, (_, i) => { noms[`s${i}`] = PRENOMS[i % PRENOMS.length] + (i >= PRENOMS.length ? i : ''); return `s${i}`; });
   const ctx = { now: () => Date.now(), cfg, name: p => noms[p] ?? '?', sfx: () => {} };
   const nbSalles = lignes(cfg.salles === SALLES_AVANT || cfg.salles === SALLES_V1 ? SALLES_1930 : cfg.salles, 20).length;
-  const salles = [];
+  const salles = [], g = start(ctx, pids);
+  adminAction(ctx, g, { type: 'lancer' });
+  const P = pids.find(x => g.joueurs[x].perso !== g.solution.perso);
+  const J = g.joueurs[P];
   for (let i = 0; i < nbSalles; i++) {
-    const g = start(ctx, pids);
-    adminAction(ctx, g, { type: 'lancer' });
-    const P = pids.find(x => g.joueurs[x].perso !== g.solution.perso && !g.joueurs[x].main.includes(`s${i}`)) ?? pids.find(x => g.joueurs[x].perso !== g.solution.perso);
-    const J = g.joueurs[P];
+    // le joueur simulé repart de zéro pour chaque salle (mêmes indices répartis dans la partie, rien de retenu d'une salle à l'autre)
+    Object.assign(J, { pris: {}, recus: {}, vus: {}, elimines: [], dernier: {}, histo: [], nommes: [], salle: null });
     const indices = [];
     for (let k = 0; k < Math.max(1, Math.min(4, maxSalle(ctx, g))); k++) {
       if (k > 0) for (const x of [(i + 1) % nbSalles, (i + 2) % nbSalles].slice(0, Math.min(k, 2))) adminAction(ctx, g, { type: 'placer', pid: P, salle: `s${x}` });
@@ -327,8 +355,7 @@ export function simulerIndices(cfgJeu, nb = 8) {
     salles.push({ nom: nom(g, `s${i}`), indices });
   }
   // textes des complices vus par un joueur simulé
-  const g = start(ctx, pids), P = pids[0];
-  const complices = { personne: g.joueurs[P].complice ? nom(g, g.joueurs[g.joueurs[P].complice].perso) : '', joueur: g.joueurs[P].complice ? noms[g.joueurs[P].complice] : '',
+  const complices = { personne: J.complice ? nom(g, g.joueurs[J.complice].perso) : '', joueur: J.complice ? noms[J.complice] : '',
     bureau: texteComplice(ctx, g, P, cfg.texteBureauComplice), jeu: texteComplice(ctx, g, P, cfg.texteJeuComplice), grenier: texteComplice(ctx, g, P, cfg.texteGrenierComplice) };
   return { ok: true, joueurs: n, salles, complices: cfg.complices ? complices : null };
 }
@@ -554,9 +581,9 @@ function remplir(g, p, texte, n, nomJoueur = x => x) {
   return { texte: out, elimines };
 }
 
-// Indice de la salle s pour le joueur p. Trois pools par salle : un pour son 1er indice dans la salle, un pour le 2e, un pour le 3e ;
-// chaque indice du pool a sa chance. L'indice général « trop propre » prend la place du 2e ou du 3e (jamais le 1er).
-// Jamais deux fois le même texte, jamais un indice qui cite une carte déjà connue ; un pool sans indice utilisable donne un fait tiré de la solution.
+// Indice de la salle s pour le joueur p : celui que la salle porte à ce rang (1er, 2e ou 3e indice du joueur dans la salle), tiré des 3 pools au lancement.
+// L'indice général « trop propre » prend la place du 2e ou du 3e (jamais le 1er). Jamais deux fois le même texte pour un joueur,
+// jamais un indice qui cite une carte déjà connue : sinon, un fait vrai tiré de la solution.
 function choisirIndice(ctx, g, p, s) {
   const J = g.joueurs[p], n = Number(s.slice(1));
   J.recus ??= {};
@@ -567,23 +594,10 @@ function choisirIndice(ctx, g, p, s) {
   if (g.propres?.includes(s) && !recus.includes('propre') && !connu.has(s) && rang >= (g.proprePos?.[s] ?? 1)) {
     return { cle: 'propre', texte: String(ctx.cfg.textePropre || ''), concret: true, elim: [s] };
   }
-  const pool = ctx.cfg.indicesSalles?.[n]?.pools?.[rang] || [];
-  const candidats = [];
-  for (const e of pool) {
-    const texte = String(e?.texte ?? '').trim();
-    if (!texte || recus.includes(texte) || cite(texte)) continue;
-    if (/\{joueur\}/.test(texte) && !joueurNommable(g, p).length) continue; // il a déjà eu tous les noms
-    candidats.push({ cle: texte, texte, concret: false, auto: false, poids: Math.max(0, Number(e.poids) || 0) });
-  }
-  if (!candidats.length) { // pool vide ou épuisé : un fait vrai tiré de la solution
-    const a = g.auto?.[n]?.[rang];
-    return a && !cite(a.texte) ? { cle: 'auto', texte: a.texte, concret: true, elim: a.elim, auto: true } : null;
-  }
-  let total = candidats.reduce((x, c) => x + c.poids, 0);
-  if (total <= 0) { candidats.forEach(c => { c.poids = 1; }); total = candidats.length; }
-  let t = Math.random() * total;
-  for (const c of candidats) { t -= c.poids; if (t <= 0) return c; }
-  return candidats.at(-1);
+  const texte = String(g.indicesSalle?.[n]?.[rang] ?? '').trim();
+  if (texte && !recus.includes(texte) && !cite(texte) && !(/\{joueur\}/.test(texte) && !joueurNommable(g, p).length)) return { cle: texte, texte, concret: false, auto: false };
+  const a = g.auto?.[n]?.[rang]; // pas d'indice écrit pour cette salle à ce rang (ou inutilisable pour ce joueur) : un fait vrai tiré de la solution
+  return a && !cite(a.texte) ? { cle: 'auto', texte: a.texte, concret: true, elim: a.elim, auto: true } : null;
 }
 
 function indice(ctx, g, p, parTache = false) {
@@ -1260,7 +1274,7 @@ export function adminView(ctx, g) {
     attente: g.questions.filter(q => q.etat === 'attente').map(q => ({ de: ctx.name(q.de), a: ctx.name(q.a), salle: nom(g, q.salle) })),
     // indices des salles : écrits ou remplis au lancement avec la solution (réservé à l'admin)
     liensSalles: ctx.cfg.liensSalles === false ? [] : deType(g, 'salle').map((sl, n) => ({ n, nom: nom(g, sl), code: codeFixe(g, n) })),
-    indicesSalles: (g.auto || []).map((auto, n) => ({ salle: nom(g, `s${n}`), propre: !!g.propres?.includes(`s${n}`), rangPropre: g.proprePos?.[`s${n}`] ?? null, auto: auto.map(x => x.texte), pools: (ctx.cfg.indicesSalles?.[n]?.pools || []).map(po => po.filter(e => String(e?.texte ?? '').trim()).map(e => ({ texte: String(e.texte).trim(), poids: Number(e.poids) || 0 }))) })),
+    indicesSalles: (g.auto || []).map((auto, n) => ({ salle: nom(g, `s${n}`), propre: !!g.propres?.includes(`s${n}`), rangPropre: g.proprePos?.[`s${n}`] ?? null, indices: auto.map((a, k) => ({ texte: String(g.indicesSalle?.[n]?.[k] ?? '').trim() || a.texte, ecrit: !!String(g.indicesSalle?.[n]?.[k] ?? '').trim() })) })),
     taches: (g.taches || []).map((_, n) => { const s = `s${n}`, t = tacheDe(ctx, g, s), se = g.sessions[s]; return { salle: s, nomSalle: nom(g, s), nom: t ? T.nomTache(t) : 'Aucune : indice gratuit', groupe: !!t?.groupe, aucune: !t, etat: se?.etat || 'libre', joueurs: (se?.joueurs || []).map(ctx.name) }; }),
   };
 }

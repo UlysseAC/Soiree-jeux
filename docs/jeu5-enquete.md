@@ -59,9 +59,11 @@ Le texte d'introduction s'écrit dans **Réglages des jeux → L'Enquête → Hi
 
 ## Indices des salles
 
-Dans **Réglages, L'Enquête, cadre « Indices des salles »**, chaque salle a **3 pools d'indices** : un pour le 1er indice qu'un joueur reçoit dans la salle, un pour le 2e, un pour le 3e. Chaque pool contient jusqu'à 5 indices, chacun avec une **chance** (nombre relatif : 20 et 20 = une chance sur deux ; 0 = jamais). À chaque indice, le jeu en tire un dans le pool du bon rang.
+Dans **Réglages, L'Enquête, cadre « Indices des salles »**, il y a **3 pools d'indices communs à tout le jeu** : un pour le 1er indice qu'un joueur reçoit dans une salle, un pour le 2e, un pour le 3e. **Une ligne = un indice** ; on peut ajouter sa **chance** à la fin avec « | » (par exemple « Mon indice | 40 » ; 20 par défaut, 0 = jamais).
 
-- **Pool vide ou épuisé.** Si aucun indice du pool n'est utilisable pour ce joueur, il reçoit un fait vrai tiré de la solution (une carte innocentée, ou « Au moins 2 de ces 3 … »). Tu les vois dans Partie en cours, après « Révéler » (🎲).
+- **Répartition au hasard.** Au lancement, pour chaque pool, le jeu tire autant d'indices que de salles (selon leurs chances, sans doublon) et les place dans des salles au hasard. À chaque partie, les indices ne sont donc pas dans les mêmes salles. Tous les joueurs reçoivent le même indice d'une salle à un rang donné.
+- **Combien en écrire.** Au moins autant par pool que de salles (11). Un pool plus grand laisse les chances décider lesquels servent.
+- **Pas d'indice pour une salle, ou inutilisable.** Si la salle n'a pas d'indice à ce rang (pool trop petit) ou s'il cite une carte déjà connue du joueur, il reçoit un fait vrai tiré de la solution (une carte innocentée, ou « Au moins 2 de ces 3 … »). Tu les vois dans Partie en cours, après « Révéler » (🎲).
 - **Salles « trop propres ».** L'indice général n'est jamais le 1er indice de la salle : il prend la place du 2e ou du 3e (réglable : 2e, 3e, ou au hasard entre les deux). Il élimine la salle.
 - **Jamais deux fois le même.** Un joueur ne reçoit jamais deux fois le même indice dans une salle.
 - **Jamais une carte déjà connue.** Un joueur ne reçoit pas un indice qui cite une carte qu'il a déjà : cartes en main, cartes montrées ou cartes éliminées.

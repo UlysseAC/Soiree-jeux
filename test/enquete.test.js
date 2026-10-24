@@ -15,8 +15,8 @@ function setup(n = 12, tweak = c => c) {
 }
 // code de la salle du moment, comme sur la tablette
 const code = (ctx, g, n) => E.salleView(ctx, g, n).code;
-// Écrit les 3 pools d'indices d'une salle (chaque indice : texte, ou [texte, poids]).
-const ecrire = (c, n, p1 = [], p2 = [], p3 = []) => { c.indicesSalles[n] = { pools: [p1, p2, p3].map(l => l.map(e => (Array.isArray(e) ? { texte: e[0], poids: e[1] } : { texte: e, poids: 1 }))) }; return c; };
+// Les indices qu'une salle porte (1er, 2e, 3e indice), une fois la partie créée : les pools sont répartis au hasard entre les salles au lancement.
+const ecrire = (g, n, ...textes) => { g.indicesSalle[n] = [0, 1, 2].map(k => textes[k] ?? null); return g; };
 // Passe par k autres salles puis revient dans la salle n (nécessaire entre deux indices d'une même salle).
 const detour = (ctx, g, p, n, k = 1) => { const autres = [0, 1, 2, 3].filter(x => x !== n).slice(0, k); autres.forEach(x => E.adminAction(ctx, g, { type: 'placer', pid: p, salle: `s${x}` })); E.adminAction(ctx, g, { type: 'placer', pid: p, salle: `s${n}` }); };
 const entrer = (ctx, g, p, n) => { ctx.cfg.delaiQuitter = 0; E.playerAction(ctx, g, p, { type: 'quitter' }); return E.playerAction(ctx, g, p, { type: 'entrer', salle: n, code: code(ctx, g, n) }); };
@@ -135,8 +135,9 @@ test('sans réponse à temps, une carte au hasard ; sans carte en commun, « auc
 });
 
 test('indices : un par salle (deux en phase finale, avec deux cartes), écrits ou automatiques, tous consultables', () => {
-  const { g, ctx } = setup(12, c => { c.sallesPropres = 0; ecrire(c, 0, ['Un témoin a vu quelque chose près de « {arme} ».'], ['Deuxième indice : {salle}']); c.sallesPropres = 0; c.modeles = "Un souvenir revient : « {carte} » n'a rien à voir avec le crime."; return c; });
+  const { g, ctx } = setup(12, c => { c.sallesPropres = 0; c.sallesPropres = 0; c.modeles = "Un souvenir revient : « {carte} » n'a rien à voir avec le crime."; return c; });
   E.adminAction(ctx, g, { type: 'lancer' });
+  ecrire(g, 0, 'Un témoin a vu quelque chose près de « {arme} ».', 'Deuxième indice : {salle}');
   const P = Object.keys(g.joueurs).find(x => g.joueurs[x].perso !== g.solution.perso); // pas le tueur : ses indices sont plus précis
   entrer(ctx, g, P, 0);
   const r = E.playerAction(ctx, g, P, { type: 'indice' });
@@ -163,8 +164,9 @@ test('indices : un par salle (deux en phase finale, avec deux cartes), écrits o
 test('indice à recouper : 3 cartes du même type, au plus une de la solution, rien de barré', () => {
   let avecSolution = 0;
   for (let k = 0; k < 60; k++) {
-    const { g, ctx } = setup(12, c => { ecrire(c, 0, ['Au moins 2 de ces 3 salles ne sont pas le lieu du crime : {3salle}.']); c.sallesPropres = 0; return c; });
+    const { g, ctx } = setup(12, c => { c.sallesPropres = 0; return c; });
     E.adminAction(ctx, g, { type: 'lancer' });
+    ecrire(g, 0, 'Au moins 2 de ces 3 salles ne sont pas le lieu du crime : {3salle}.');
     entrer(ctx, g, 'p0', 0);
     const r = E.playerAction(ctx, g, 'p0', { type: 'indice' });
     const noms = r.indice.match(/crime : (.+)\.$/)[1].split(/, | et /);
@@ -251,40 +253,41 @@ test('rattrapage : un joueur ajouté en cours reçoit un personnage libre et 3 c
 
 void createHmac;
 
-test('3 indices par salle : chances du 1er et du 2e, jamais deux fois le même, jamais une carte déjà connue', () => {
-  const base = c => { c.sallesPropres = 0; ecrire(c, 0, ['Indice A'], ['Indice B'], ['Indice C']); return c; };
-  const { g, ctx } = setup(6, base);
+test('3 indices par salle : un par rang, jamais deux fois le même, jamais une carte déjà connue', () => {
+  const { g, ctx } = setup(6, c => { c.sallesPropres = 0; return c; });
   E.adminAction(ctx, g, { type: 'lancer' });
+  ecrire(g, 0, 'Indice A', 'Indice B', 'Indice C');
   const P = Object.keys(g.joueurs).find(x => g.joueurs[x].perso !== g.solution.perso);
   entrer(ctx, g, P, 0);
-  assert.equal(E.playerAction(ctx, g, P, { type: 'indice' }).indice, 'Indice A', 'p1 = 100 % pour A en premier');
+  assert.equal(E.playerAction(ctx, g, P, { type: 'indice' }).indice, 'Indice A', '1er indice');
   detour(ctx, g, P, 0, 1);
-  assert.equal(E.playerAction(ctx, g, P, { type: 'indice' }).indice, 'Indice B', 'p2 = 100 % pour B en deuxième');
+  assert.equal(E.playerAction(ctx, g, P, { type: 'indice' }).indice, 'Indice B', '2e indice');
   detour(ctx, g, P, 0, 2);
-  assert.equal(E.playerAction(ctx, g, P, { type: 'indice' }).indice, 'Indice C', 'le troisième est celui qui reste');
-  // jamais deux fois le même, sur beaucoup de tirages
-  for (let k = 0; k < 40; k++) {
-    const { g: g2, ctx: c2 } = setup(6, c => { base(c); ecrire(c, 0, [['Indice A', 30], ['Indice B', 30], ['Indice C', 40]], [['Indice A', 30], ['Indice B', 30], ['Indice C', 40]], [['Indice A', 30], ['Indice B', 30], ['Indice C', 40]]); return c; });
-    E.adminAction(c2, g2, { type: 'lancer' });
-    const Q = Object.keys(g2.joueurs).find(x => g2.joueurs[x].perso !== g2.solution.perso);
-    entrer(c2, g2, Q, 0);
-    const a = E.playerAction(c2, g2, Q, { type: 'indice' }).indice;
-    detour(c2, g2, Q, 0, 1);
-    const b2 = E.playerAction(c2, g2, Q, { type: 'indice' }).indice;
-    assert.ok(/^Indice [ABC]$/.test(a) && /^Indice [ABC]$/.test(b2) && a !== b2, `${a} / ${b2}`);
-  }
+  assert.equal(E.playerAction(ctx, g, P, { type: 'indice' }).indice, 'Indice C', '3e indice');
+  // le même texte dans deux rangs : un joueur ne le reçoit pas deux fois
+  const { g: g2, ctx: c2 } = setup(6, c => { c.sallesPropres = 0; return c; });
+  E.adminAction(c2, g2, { type: 'lancer' });
+  ecrire(g2, 0, 'Indice A', 'Indice A', 'Indice B');
+  const Q = Object.keys(g2.joueurs).find(x => g2.joueurs[x].perso !== g2.solution.perso);
+  entrer(c2, g2, Q, 0);
+  const a = E.playerAction(c2, g2, Q, { type: 'indice' }).indice;
+  detour(c2, g2, Q, 0, 1);
+  const b2 = E.playerAction(c2, g2, Q, { type: 'indice' }).indice;
+  assert.equal(a, 'Indice A');
+  assert.notEqual(b2, 'Indice A', 'pas deux fois le même texte');
   // un indice qui cite une carte déjà dans la main du joueur ne lui est pas donné
-  const { g: g3, ctx: c3 } = setup(6, c => { c.sallesPropres = 0; ecrire(c, 0); return c; });
+  const { g: g3, ctx: c3 } = setup(6, c => { c.sallesPropres = 0; return c; });
   E.adminAction(c3, g3, { type: 'lancer' });
   const R = Object.keys(g3.joueurs).find(x => g3.joueurs[x].perso !== g3.solution.perso);
   const carte = g3.joueurs[R].main[0];
-  g3.auto[0] = [{ texte: `Un souvenir revient : « ${g3.cartes[carte].nom} » n'a rien à voir.`, elim: [carte] }, { texte: 'Autre fait sûr.', elim: [] }, { texte: 'Troisième.', elim: [] }];
+  ecrire(g3, 0, `Un souvenir revient : « ${g3.cartes[carte].nom} » n'a rien à voir.`);
+  g3.auto[0] = [{ texte: 'Autre fait sûr.', elim: [] }, { texte: 'Deuxième.', elim: [] }, { texte: 'Troisième.', elim: [] }];
   entrer(c3, g3, R, 0);
-  for (let k = 0; k < 1; k++) assert.ok(!E.playerAction(c3, g3, R, { type: 'indice' }).indice.includes(g3.cartes[carte].nom));
+  assert.equal(E.playerAction(c3, g3, R, { type: 'indice' }).indice, 'Autre fait sûr.', 'à la place : un fait vrai');
 });
 
 test('salles « trop propres » : N salles (réglable), jamais la salle du crime ; l\'indice général n\'est jamais le 1er, il élimine la salle', () => {
-  const { g, ctx } = setup(6, c => { c.sallesPropres = 3; c.rangPropre = '2'; return ecrire(c, 0); });
+  const { g, ctx } = setup(6, c => { c.sallesPropres = 3; c.rangPropre = '2'; return c; });
   assert.equal(g.propres.length, 3);
   assert.ok(!g.propres.includes(g.solution.salle));
   assert.ok(g.propres.every(s => g.proprePos[s] === 1), 'rang réglé : 2e indice');
@@ -310,35 +313,45 @@ test('salles « trop propres » : N salles (réglable), jamais la salle du crime
   assert.equal(setup(6, c => { c.sallesPropres = 0; return c; }).g.propres.length, 0);
 });
 
-test('3 pools d\'indices par salle : un pool par rang, chances dans chaque pool, jamais le même texte, pool vide = fait vrai', () => {
-  // pool 1 : A (100) ou B (0) → toujours A ; pool 2 : un seul indice C ; pool 3 : vide → fait tiré de la solution
-  const { g, ctx } = setup(6, c => { c.sallesPropres = 0; return ecrire(c, 0, [['Indice A', 100], ['Indice B', 0]], ['Indice C'], []); });
-  E.adminAction(ctx, g, { type: 'lancer' });
-  const P = Object.keys(g.joueurs).find(x => g.joueurs[x].perso !== g.solution.perso);
-  entrer(ctx, g, P, 0);
-  assert.equal(E.playerAction(ctx, g, P, { type: 'indice' }).indice, 'Indice A');
-  detour(ctx, g, P, 0, 1);
-  assert.equal(E.playerAction(ctx, g, P, { type: 'indice' }).indice, 'Indice C');
-  detour(ctx, g, P, 0, 2);
-  const t = E.playerAction(ctx, g, P, { type: 'indice' }).indice;
-  assert.ok(!['Indice A', 'Indice B', 'Indice C'].includes(t), t);
-  assert.ok(t.length > 10, 'pool vide : fait tiré de la solution');
-  // chances : 70 / 30 sur beaucoup de tirages
-  let a = 0;
-  for (let k = 0; k < 400; k++) {
-    const { g: g2, ctx: c2 } = setup(6, c => { c.sallesPropres = 0; return ecrire(c, 0, [['A', 70], ['B', 30]]); });
-    E.adminAction(c2, g2, { type: 'lancer' });
-    const Q = Object.keys(g2.joueurs).find(x => g2.joueurs[x].perso !== g2.solution.perso);
-    entrer(c2, g2, Q, 0);
-    if (E.playerAction(c2, g2, Q, { type: 'indice' }).indice === 'A') a++;
+test('3 pools d\'indices communs : répartis au hasard entre les salles, sans doublon, selon leurs chances', () => {
+  const salles = 11, pool = n => Array.from({ length: n }, (_, i) => `Indice ${n}-${i}`).join('\n');
+  // un pool de 11 indices : chaque salle en reçoit un, tous différents, dans un ordre qui change
+  const ordres = new Set();
+  for (let k = 0; k < 30; k++) {
+    const { g } = setup(6, c => { c.sallesPropres = 0; c.poolsIndices = [pool(11), pool(12), '']; return c; });
+    const p1 = g.indicesSalle.map(x => x[0]), p2 = g.indicesSalle.map(x => x[1]);
+    assert.equal(new Set(p1).size, salles, 'aucun doublon dans le pool 1');
+    assert.ok(p1.every(Boolean) && p2.every(Boolean));
+    assert.ok(g.indicesSalle.every(x => x[2] === null), 'pool 3 vide');
+    ordres.add(p1.join('|'));
   }
-  assert.ok(a > 240 && a < 320, `A tiré ${a} fois sur 400 (attendu environ 280)`);
+  assert.ok(ordres.size > 20, 'les indices ne sont pas toujours dans les mêmes salles');
+  // pool trop petit : les autres salles donnent un fait vrai tiré de la solution
+  const { g, ctx } = setup(6, c => { c.sallesPropres = 0; c.poolsIndices = ['Seul indice', '', '']; return c; });
+  E.adminAction(ctx, g, { type: 'lancer' });
+  assert.equal(g.indicesSalle.filter(x => x[0] === 'Seul indice').length, 1);
+  const P = Object.keys(g.joueurs).find(x => g.joueurs[x].perso !== g.solution.perso);
+  const sans = g.indicesSalle.findIndex(x => x[0] === null);
+  entrer(ctx, g, P, sans);
+  const t = E.playerAction(ctx, g, P, { type: 'indice' }).indice;
+  assert.ok(t && t !== 'Seul indice' && t.length > 10, t);
+  // chances : « RARE | 1 » est rarement tiré quand le pool a plus d'indices que de salles
+  let rare = 0, commun = 0;
+  const lignes = ['RARE | 1', ...Array.from({ length: 11 }, (_, i) => `COMMUN ${i} | 100`)].join('\n');
+  for (let k = 0; k < 200; k++) {
+    const { g: h } = setup(6, c => { c.sallesPropres = 0; c.poolsIndices = [lignes, '', '']; return c; });
+    if (h.indicesSalle.some(x => x[0] === 'RARE')) rare++;
+    if (h.indicesSalle.some(x => x[0] === 'COMMUN 0')) commun++;
+  }
+  assert.ok(rare < 60 && commun > 150, `RARE ${rare}/200, COMMUN 0 ${commun}/200`);
+  assert.deepEqual(E.lirePool('A | 30\n\nB\nC | 0\nD | x'), [{ texte: 'A', poids: 30 }, { texte: 'B', poids: 20 }, { texte: 'C', poids: 0 }, { texte: 'D | x', poids: 20 }]);
 });
 
 test('indice « {joueur} est peut-être {3perso} » : le nom d\'un autre joueur et 3 personnages dont son vrai personnage', () => {
-  const { g, ctx } = setup(6, c => { c.sallesPropres = 0; ecrire(c, 0, ['{joueur} est peut-être {3perso}.']); return c; });
+  const { g, ctx } = setup(6, c => { c.sallesPropres = 0; return c; });
   ctx.name = p => 'Joueur-' + p;
   E.adminAction(ctx, g, { type: 'lancer' });
+  ecrire(g, 0, '{joueur} est peut-être {3perso}.');
   const P = Object.keys(g.joueurs).find(x => g.joueurs[x].perso !== g.solution.perso);
   entrer(ctx, g, P, 0);
   const t = E.playerAction(ctx, g, P, { type: 'indice' }).indice;
@@ -350,9 +363,10 @@ test('indice « {joueur} est peut-être {3perso} » : le nom d\'un autre joueur 
 });
 
 test('{joueur} : jamais deux fois le même nom pour un joueur, noms répartis dans la partie, jamais son propre nom', () => {
-  const { g, ctx } = setup(6, c => { c.sallesPropres = 0; for (let n = 0; n < 4; n++) ecrire(c, n, ['{joueur} est peut-être {3perso}.']); return c; });
+  const { g, ctx } = setup(6, c => { c.sallesPropres = 0; return c; });
   ctx.name = p => 'Joueur-' + p;
   E.adminAction(ctx, g, { type: 'lancer' });
+  for (let n = 0; n < 4; n++) ecrire(g, n, '{joueur} est peut-être {3perso}.');
   const P = Object.keys(g.joueurs).find(x => g.joueurs[x].perso !== g.solution.perso);
   const noms = [];
   for (let n = 0; n < 4; n++) {
@@ -372,14 +386,17 @@ test('{joueur} : jamais deux fois le même nom pour un joueur, noms répartis da
 test('simulateur d\'indices : 3 indices par salle, textes écrits repris, repères remplacés', () => {
   const cfg = E.defaultConfig();
   cfg.sallesPropres = 0;
-  ecrire(cfg, 0, ['Mon indice A'], ['{joueur} est peut-être {3perso}.']);
+  cfg.poolsIndices = [Array.from({ length: 11 }, (_, i) => `Indice ${i}`).join('\n'), Array.from({ length: 11 }, () => '{joueur} est peut-être {3perso}.').join('\n'), ''];
   const r = E.simulerIndices(cfg, 8);
   assert.equal(r.salles.length, 11);
   assert.ok(r.salles.every(s => s.indices.length === 3), 'trois indices par salle');
-  const [a, b, c] = r.salles[0].indices;
-  assert.deepEqual([a.texte, a.source], ['Mon indice A', 'écrit']);
-  assert.match(b.texte, /^\S+ est peut-être .+ ou .+/);
-  assert.ok(['auto', 'secours'].includes(c.source), 'emplacement vide rempli (ou indice de secours si le tirage citait une carte déjà connue)');
+  for (const sl of r.salles) {
+    const [a, b, c] = sl.indices;
+    assert.ok(/^Indice \d+$/.test(a.texte) && a.source === 'écrit', 'pool 1 : ' + a.texte);
+    assert.match(b.texte, /^\S+ est peut-être .+ ou .+/);
+    assert.ok(['auto', 'secours'].includes(c.source), 'pool 3 vide : fait tiré de la solution (ou indice de secours)');
+  }
+  assert.equal(new Set(r.salles.map(sl => sl.indices[0].texte)).size, 11, 'les 11 indices du pool 1 sont dans 11 salles différentes');
   assert.ok(r.salles.flatMap(s => s.indices).every(i => !i.texte.includes('{')), 'aucun repère laissé tel quel');
   assert.ok(r.complices.bureau && r.complices.jeu && r.complices.grenier);
 });

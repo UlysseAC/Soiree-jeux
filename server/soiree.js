@@ -56,20 +56,25 @@ function newSession(gameId) {
 }
 
 // Recharge un état sauvegardé en complétant avec les valeurs par défaut.
-// L'Enquête : l'ancien format des indices d'une salle (3 textes, avec chances du 1er et du 2e) devient 3 pools d'indices.
+// L'Enquête : les anciens indices écrits salle par salle (3 textes avec chances du 1er et du 2e, ou pools par salle) deviennent
+// les 3 pools communs : tous les textes des salles sont regroupés, sans doublon, dans le pool de leur rang.
 function migrerIndices(cfg) {
   const eq = cfg?.games?.enquete;
   if (!eq) return cfg;
-  const vide = () => ({ texte: '', poids: 20 });
-  const pad = l => [...l, ...Array.from({ length: 5 }, vide)].slice(0, 5);
-  if (Array.isArray(eq.indicesSalles)) eq.indicesSalles = eq.indicesSalles.map((x, i) => {
-    if (x?.pools) return x;
-    let textes = (x?.textes || []).map(t => String(t ?? '').trim());
-    if (!textes.some(Boolean) && eq.indices?.[i]) textes = String(eq.indices[i]).split(/\r?\n/).map(t => t.trim()).filter(Boolean).slice(0, 3); // tout premier format : une ligne = un indice
-    const pool = poids => pad(textes.map((texte, k) => ({ texte, poids: Number(poids?.[k]) || 0 })).filter(e => e.texte));
-    return { pools: [pool(x?.p1 || [34, 33, 33]), pool(x?.p2 || [34, 33, 33]), pool([34, 33, 33])] };
-  });
-  delete eq.indices;
+  if (Array.isArray(eq.indicesSalles) && !(eq.poolsIndices || []).some(x => String(x).trim())) {
+    const pools = [new Map(), new Map(), new Map()];
+    const ajouter = (r, texte, poids) => { const t = String(texte ?? '').trim(); if (t && !pools[r].has(t)) pools[r].set(t, Number(poids) >= 0 ? Number(poids) : 20); };
+    eq.indicesSalles.forEach((x, i) => {
+      if (x?.pools) x.pools.forEach((po, r) => (po || []).forEach(e => ajouter(Math.min(r, 2), e?.texte, e?.poids)));
+      else {
+        let textes = (x?.textes || []).map(t => String(t ?? '').trim());
+        if (!textes.some(Boolean) && eq.indices?.[i]) textes = String(eq.indices[i]).split(/\r?\n/).map(t => t.trim()).filter(Boolean).slice(0, 3); // tout premier format : une ligne = un indice
+        textes.forEach((t, k) => { ajouter(0, t, x?.p1?.[k] ?? 20); ajouter(1, t, x?.p2?.[k] ?? 20); ajouter(2, t, 20); });
+      }
+    });
+    eq.poolsIndices = pools.map(m => [...m].map(([t, w]) => (w === 20 ? t : `${t} | ${w}`)).join('\n'));
+  }
+  delete eq.indicesSalles; delete eq.indices;
   return cfg;
 }
 export function restore(saved) {
