@@ -170,3 +170,10 @@ Réglages, L'Enquête, cadre « 🧪 Simulateur d'indices » : le bouton « Simu
 ## Tuer un joueur depuis l'admin
 
 Dans l'onglet Partie en cours, tableau des enquêteurs, le bouton **💀** à côté de chaque joueur vivant (2 clics pour confirmer) le « tue » : son téléphone affiche le **QR code de son corps** et la salle où il est, exactement comme s'il avait été assassiné. Les autres peuvent scanner son corps (cartes récupérées, « corps trouvé » à l'écran, 2e scan = victime identifiée), son nom reste dans la salle puis est barré, et il ne joue plus. Un joueur qui n'est dans aucune salle est placé dans une salle au hasard. Le tueur n'est pas désigné comme auteur.
+
+## Démasquer un complice-tueur
+
+Un complice qui a accepté de devenir tueur peut être **démasqué** par n'importe quel joueur en vie, dans l'onglet **Accuser**, cadre « 🚔 Démasquer un complice du tueur » : il suffit de désigner **un joueur et le personnage qu'il incarne** (pas d'arme ni de salle).
+- **Juste :** le complice-tueur ne peut plus tuer (il perd son panneau de tueur) ; il reste dans la partie et peut encore utiliser une arme ramassée comme un joueur normal. L'écran l'annonce : « X (personnage) a été démasqué comme complice du tueur ».
+- **Faux :** la tentative est consommée, sans rien révéler de plus. Le nombre de tentatives se règle dans « Tentatives pour démasquer un complice-tueur » (1 par défaut), séparément des accusations.
+- Le tueur d'origine ne peut pas être démasqué ainsi : il se trouve avec l'accusation normale (personnage, arme, salle).

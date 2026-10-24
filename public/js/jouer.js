@@ -633,6 +633,18 @@ function eqComplice(g) {
   return h + '</div>';
 }
 
+// Démasquer un complice devenu tueur : on désigne un joueur et son personnage (pas d'arme ni de salle).
+function eqDesigner(g) {
+  const d = g.designation;
+  if (!d || !d.max) return '';
+  if (d.demasque) return '<div class="card danger center"><p style="margin:0">🚔 Tu as été démasqué : tu ne peux plus tuer.</p></div>';
+  const reste = d.max - d.faites, a = ui.eqDes || {};
+  return `<div class="card"><strong>🚔 Démasquer un complice du tueur</strong>
+    <p class="muted" style="margin:0;font-size:14px">Un complice peut avoir accepté de devenir tueur. Désigne un joueur <strong>et le personnage qu'il incarne</strong> : si tu as raison, il ne pourra plus tuer. ${reste > 0 ? `Il te reste <strong>${reste}</strong> tentative${reste > 1 ? 's' : ''}.` : 'Tu n\'as plus de tentative.'}</p>
+    ${reste > 0 ? `<select class="in" id="eq-des-joueur"><option value="">Quel joueur ?</option>${d.joueurs.map(j => `<option value="${esc(j.pid)}" ${a.cible === j.pid ? 'selected' : ''}>${esc(j.name)}</option>`).join('')}</select>
+    <select class="in" id="eq-des-perso">${eqOptions(g.persos, a.perso, 'Quel personnage ?')}</select>
+    <button class="btn primary" data-act="eqDesigner" ${a.cible && a.perso ? '' : 'disabled'}>🚔 Le démasquer</button>` : ''}</div>`;
+}
 function eqAccuser(g) {
   if (g.accuse?.juste) return '<div class="card center"><p style="margin:0">Tu as déjà fait ton accusation.</p></div>';
   if (g.accuse) return `<div class="card danger center"><p style="font-size:20px;margin:0">❌ Ton accusation était fausse.</p><p class="muted" style="margin:0">Tu ne peux plus accuser, mais continue de répondre aux questions.</p></div>`;
@@ -686,7 +698,7 @@ function enquete(g) {
   const tabs = [['salle', g.salle ? '📍 Salle' : '📷 Salle'], ['indices', `💡 Indices (${g.notes.length})`], ...(g.fiche ? [['fiche', '📋 Fiche']] : []), ['accuser', '⚖️ Accuser']];
   if (ui.eqTab === 'fiche' && !g.fiche) ui.eqTab = 'salle';
   h += `<nav class="tabs" style="justify-content:stretch">${tabs.map(([k, l]) => `<button role="tab" style="flex:1" data-eqtab="${k}" aria-selected="${ui.eqTab === k}">${l}</button>`).join('')}</nav>`;
-  h += ui.eqTab === 'indices' ? eqJournal(g) : ui.eqTab === 'fiche' ? eqFiche(g) : ui.eqTab === 'accuser' ? eqAccuser(g) : eqSalle(g) + main;
+  h += ui.eqTab === 'indices' ? eqJournal(g) : ui.eqTab === 'fiche' ? eqFiche(g) : ui.eqTab === 'accuser' ? eqAccuser(g) + eqDesigner(g) : eqSalle(g) + main;
   return h;
 }
 app.addEventListener('change', e => {
@@ -694,6 +706,8 @@ app.addEventListener('change', e => {
   if (id === 'eq-perso') ui.eqPerso = e.target.value;
   else if (id === 'eq-arme') ui.eqArme = e.target.value;
   else if (id.startsWith('eq-acc-')) (ui.eqAcc ??= {})[id.slice(7)] = e.target.value;
+  else if (id === 'eq-des-joueur') (ui.eqDes ??= {}).cible = e.target.value;
+  else if (id === 'eq-des-perso') (ui.eqDes ??= {}).perso = e.target.value;
   else return;
   draw();
 });
@@ -712,6 +726,7 @@ app.addEventListener('click', e => {
     if (!confirm(`Viser ${nomV} ?`)) return;
     act({ type: 'tuer', cible: t.dataset.cible }).then(() => { ui.eqSecret = false; draw(); });
   }
+  if (a === 'eqDesigner') { const d = ui.eqDes || {}; act({ type: 'designer', cible: d.cible, perso: d.perso }).then(r => { if (r.ok) ui.eqDes = {}; draw(); }); }
   if (a === 'eqComp') { ui.eqComp = !ui.eqComp; draw(); }
   if (a === 'eqChercher') act({ type: 'complice', op: 'chercher' });
   if (a === 'eqEchanger') act({ type: 'complice', op: 'echanger', carte: t.dataset.carte });

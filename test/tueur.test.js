@@ -749,3 +749,39 @@ test('l\'admin peut « tuer » un joueur : il reçoit le QR code de son corps, c
   assert.equal(E.adminAction(ctx, g, { type: 'tuerAdmin', pid: x }).ok, true);
   assert.ok(E.playerView(ctx, g, x).mort.salle && E.playerView(ctx, g, x).mort.salle !== '?');
 });
+
+// ---------- démasquer un complice-tueur : joueur + personnage ----------
+test('démasquer un complice-tueur : il suffit de désigner le joueur et son personnage', () => {
+  const { g, ctx, tueur, innocents } = setup(8);
+  armer(ctx, g, tueur);
+  const c = g.joueurs[tueur].complice;
+  g.joueurs[c].tueur = { actif: true, recrue: true, cache: null, arme: false, pret: 0, usage: null, victimes: 0 };
+  const [a, b] = innocents.filter(x => x !== c);
+  const perso = x => g.joueurs[x].perso;
+  const autrePerso = Object.keys(g.cartes).find(k => g.cartes[k].type === 'perso' && k !== perso(c));
+  assert.equal(E.playerView(ctx, g, a).designation.max, 1);
+  assert.ok(E.playerView(ctx, g, a).designation.joueurs.some(j => j.pid === c));
+  assert.ok(!E.playerView(ctx, g, a).designation.joueurs.some(j => j.pid === a), 'pas soi-même');
+  // mauvais personnage : raté, la tentative est consommée
+  assert.match(act(ctx, g, a, { type: 'designer', cible: c, perso: autrePerso }).msg, /Raté.*plus de tentative/);
+  assert.ok(g.joueurs[c].tueur, 'rien ne change');
+  assert.equal(act(ctx, g, a, { type: 'designer', cible: c, perso: perso(c) }).ok, false, 'plus de tentative');
+  // un autre joueur, 2 tentatives : un innocent désigné ne fait rien, le bon est démasqué
+  ctx.cfg.essaisDesignation = 2;
+  assert.match(act(ctx, g, b, { type: 'designer', cible: a, perso: perso(a) }).msg, /Raté.*1 tentative/);
+  const r = act(ctx, g, b, { type: 'designer', cible: c, perso: perso(c) });
+  assert.equal(r.ok, true);
+  assert.equal(g.joueurs[c].tueur, null, 'il ne peut plus tuer');
+  assert.equal(g.joueurs[c].arrete, true);
+  assert.match(g.feed[0].text, /démasqué/);
+  assert.equal(E.playerView(ctx, g, c).secret, null);
+  assert.equal(E.playerView(ctx, g, c).designation.demasque, true);
+  const victime = innocents.find(x => x !== c && x !== a && x !== b) ?? a;
+  placer(ctx, g, 's4', c, victime);
+  assert.equal(act(ctx, g, c, { type: 'tuer', cible: victime }).ok, false);
+  assert.ok(!g.joueurs[victime].mort);
+  // le tueur d'origine, lui, n'est pas concerné (seul un complice recruté peut être démasqué)
+  ctx.cfg.essaisDesignation = 3;
+  assert.equal(act(ctx, g, b, { type: 'designer', cible: tueur, perso: perso(tueur) }).ok, false);
+  assert.ok(g.joueurs[tueur].tueur?.actif);
+});

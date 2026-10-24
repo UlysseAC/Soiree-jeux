@@ -61,6 +61,7 @@ export function defaultConfig() {
     texteBureauComplice: "Dans les tiroirs du bureau, des lettres et des photos : vous avez tous un complice dans cette maison. Retrouve le tien : cherche dans la salle de jeu et au grenier.",
     texteJeuComplice: 'Sous le tapis vert, une carte griffonnée : ton complice est {complice}.',
     texteGrenierComplice: 'Dans une vieille malle, un registre : {complice} est incarné par {joueur}.',
+    essaisDesignation: 1, // tentatives pour désigner un complice-tueur (joueur + personnage), en plus des accusations
     essaisAccusation: 1, // nombre de tentatives d'accusation par joueur (une accusation fausse en consomme une)
     ficheNumerique: false, // fiche de détective sur le téléphone (sinon, sur papier)
     indicesParSalle: 3, // indices par joueur et par salle (au plus 3 : les 3 indices écrits de la salle)
@@ -1042,6 +1043,23 @@ export function playerAction(ctx, g, p, a) {
     return ok(`Tu as montré « ${nom(g, a.carte)} ».`);
   }
 
+  if (a.type === 'designer') { // démasquer un complice devenu tueur : il suffit de désigner le joueur et son personnage
+    if (g.finished) return err('La partie est terminée.');
+    const max = Math.max(0, Math.round(Number(ctx.cfg.essaisDesignation ?? 1)));
+    if ((J.designations || 0) >= max) return err('Tu n\'as plus de tentative pour désigner un complice-tueur.');
+    const C = g.joueurs[a.cible];
+    if (!C || a.cible === p || C.mort) return err('Choisis un autre joueur encore en vie.');
+    if (g.cartes[a.perso]?.type !== 'perso') return err('Choisis son personnage.');
+    J.designations = (J.designations || 0) + 1;
+    if (C.tueur?.recrue && C.perso === a.perso) { // démasqué : il ne peut plus tuer
+      C.tueur = null; C.arrete = true;
+      (C.notes ??= []).unshift({ t: ctx.now(), salle: C.salle, texte: '🚔 Tu as été démasqué : tu ne peux plus tuer.' });
+      feed(g, ctx, `🚔 ${qui(ctx, g, a.cible)} (${nom(g, C.perso)}) a été démasqué comme complice du tueur : il ne peut plus tuer.`);
+      return ok(`🚔 Bien vu : ${ctx.name(a.cible)} est un complice-tueur, il ne peut plus tuer !`);
+    }
+    const reste = max - J.designations;
+    return err(`Raté : ${ctx.name(a.cible)} n'est pas un complice-tueur sous ce personnage.${reste ? ` Il te reste ${reste} tentative${reste > 1 ? 's' : ''}.` : ' Tu n\'as plus de tentative.'}`);
+  }
   if (a.type === 'accuser') {
     if (J.accuse) return err('Tu as déjà accusé.');
     const { salle, perso, arme } = a;
@@ -1323,6 +1341,7 @@ export function playerView(ctx, g, p) {
     indices: J.indices, notes: (J.notes || []).map(n => ({ t: n.t, salle: n.salle ? nom(g, n.salle) : '', texte: n.texte })),
     aRepondre, mesQuestions, fiche, ...listes(g),
     accuse: J.accuse ? { juste: J.accuse.juste } : null,
+    designation: { faites: J.designations || 0, max: Math.max(0, Math.round(Number(ctx.cfg.essaisDesignation ?? 1))), joueurs: Object.keys(g.joueurs).filter(x => x !== p && !g.joueurs[x].mort).map(x => ({ pid: x, name: ctx.name(x) })).sort((a1, b1) => a1.name.localeCompare(b1.name, 'fr')), demasque: !!J.arrete },
     essais: { faits: J.essais || 0, max: Math.max(1, Math.round(Number(ctx.cfg.essaisAccusation) || 1)) },
     winner: g.winner ? ctx.name(g.winner) : null, gagne: g.winner === p,
     revelation: revelation(ctx, g),
@@ -1369,7 +1388,7 @@ export function adminView(ctx, g) {
       panne: g.phase === 'panne' ? { salle: nom(g, g.panne.salles[p]), entre: g.panne.entres.includes(p) } : null,
       complice: J.complice ? ctx.name(J.complice) : null, comp: J.comp ? { debloque: J.comp.debloque, jeu: J.comp.jeu, grenier: J.comp.grenier, fait: J.comp.fait } : null,
       essais: J.essais || 0,
-      indices: J.indices, accuse: J.accuse ? (J.accuse.tueur ? 'tueur' : J.accuse.juste ? 'juste' : 'fausse') : null, mort: !!J.mort, tueurActif: !!J.tueur, victimes: J.tueur?.victimes || 0,
+      indices: J.indices, accuse: J.accuse ? (J.accuse.tueur ? 'tueur' : J.accuse.juste ? 'juste' : 'fausse') : null, mort: !!J.mort, arrete: !!J.arrete, tueurActif: !!J.tueur, victimes: J.tueur?.victimes || 0,
     })).sort((a, b) => a.name.localeCompare(b.name, 'fr')),
     attente: g.questions.filter(q => q.etat === 'attente').map(q => ({ de: ctx.name(q.de), a: ctx.name(q.a), salle: nom(g, q.salle) })),
     // indices des salles : écrits ou remplis au lancement avec la solution (réservé à l'admin)
