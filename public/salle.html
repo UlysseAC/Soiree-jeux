@@ -41,7 +41,7 @@ function draw() {
   }
   if (!V) return;
   const s = V.salle;
-  if (!s) return SJ.render(app, `<div class="tab-attente"><h1 class="tab-nom">L'Enquête</h1><p class="muted">Salle n° ${n + 1} — en attente de la partie…</p></div>`);
+  if (!s) return SJ.render(app, `<div class="tab-attente"><h1 class="tab-nom">${V.nomSalle ? esc(V.nomSalle) : "L'Enquête"}</h1><p class="muted">Salle n° ${n + 1}${V.nomSalle ? ` · ${esc(V.nomSalle)}` : ''} — en attente de la partie…</p></div>`);
   if (s.inconnue) return SJ.render(app, `<div class="tab-attente"><h1 class="tab-nom">Salle n° ${n + 1} ?</h1><p class="muted">Cette salle n'existe pas dans les réglages.</p></div>`);
   const qui = s.joueurs.length ? s.joueurs.map(j => `<span class="pion ${j.barre ? 'barre' : ''}">${esc(j.name)}</span>`).join('') : '<span class="muted">Personne pour l\'instant</span>';
   let centre;

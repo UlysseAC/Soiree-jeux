@@ -316,8 +316,15 @@ function partieJeu() {
 // ---------- jeu 5 : L'Enquête ----------
 const eqPoolNb = t => String(t || '').split(/\r?\n/).filter(l => l.trim()).length;
 const eqLignes = t => String(t || '').split(/\r?\n/).map(x => x.trim()).filter(Boolean);
-const eqTablettes = n => `<div class="row" style="flex-wrap:wrap">${Array.from({ length: n }, (_, i) => `<a class="btn sm" href="${SJ.base}/salle?n=${i}" target="_blank" rel="noopener">Tablette ${i + 1}</a>`).join('')}</div>
-  <p class="muted" style="margin:0;font-size:14px">Ouvre chaque lien sur la tablette de sa salle (le code orga est demandé une fois : ${esc(V.config.orgaCode)}). Le QR code change toutes les ${esc(V.fullConfig.games.enquete.rotationQr)} s : une photo du QR code ne marche pas longtemps.</p>`;
+// Tablettes : un lien par salle, avec son nom, à ouvrir sur la tablette de la salle (avant même de lancer une partie).
+const eqTablettes = n => {
+  const noms = eqLignes(V.fullConfig.games.enquete.salles), origine = `${location.origin}${SJ.base}`;
+  const lien = i => `${origine}/salle?n=${i}`;
+  return `<div class="row" style="flex-wrap:wrap">${Array.from({ length: n }, (_, i) => `<a class="btn sm" href="${SJ.base}/salle?n=${i}" target="_blank" rel="noopener">${i + 1}. ${esc(noms[i] || `Salle ${i + 1}`)}</a>`).join('')}</div>
+  <p class="muted" style="margin:0;font-size:14px">Ouvre chaque lien sur la tablette de sa salle, dès maintenant si tu veux (le code orga est demandé une fois : ${esc(V.config.orgaCode)}). Le QR code change toutes les ${esc(V.fullConfig.games.enquete.rotationQr)} s : une photo du QR code ne marche pas longtemps.</p>
+  <div class="row"><textarea class="in" id="eq-liens-tablettes" rows="${n + 1}" readonly style="font-size:13px;white-space:pre">${esc(Array.from({ length: n }, (_, i) => `${noms[i] || `Salle ${i + 1}`} : ${lien(i)}`).join('\n'))}</textarea></div>
+  <button class="btn sm" data-act="copierTablettes">📋 Copier les liens des tablettes</button>`;
+};
 // Test des tâches : un lien (et son QR code) vers la page qui fait jouer les 22 tâches sans lancer de partie.
 function eqTestTaches() {
   const url = `${location.origin}${SJ.base}/test-taches`;
@@ -1143,6 +1150,13 @@ app.addEventListener('click', async e => {
     if (!r.ok) return SJ.toast(r);
     ui.simIndices = r;
     return draw();
+  }
+  if (a === 'copierTablettes') {
+    const ta = document.getElementById('eq-liens-tablettes');
+    if (!ta) return;
+    ta.select();
+    try { await navigator.clipboard.writeText(ta.value); } catch { document.execCommand?.('copy'); }
+    return SJ.toast({ ok: true, msg: 'Liens des tablettes copiés.' });
   }
   if (a === 'copierLiens') {
     const ta = document.getElementById('eq-liens');

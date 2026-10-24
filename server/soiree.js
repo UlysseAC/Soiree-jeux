@@ -579,7 +579,8 @@ export class Soiree {
   // Tablette d'une salle (L'Enquête) : nom de la salle, code du moment pour le QR code, joueurs présents.
   salleView(n) {
     const sess = this.sess;
-    const base = { ...this.common(), salle: null };
+    const noms = enquete.liensSalles({ ...this.s.config.games.enquete, liensSalles: true }, '').map(l => l.nom);
+    const base = { ...this.common(), salle: null, nomSalle: noms[Number(n)] ?? '' }; // le nom de la salle, même avant la partie : on peut installer les tablettes
     if (sess.gameId !== 'enquete' || !sess.game || !this.module.salleView) return base;
     return { ...base, salle: this.module.salleView(this.ctx(), sess.game, Number(n)) };
   }
