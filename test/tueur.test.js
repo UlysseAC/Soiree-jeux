@@ -18,6 +18,8 @@ function setup(n = 6, arme = 'Poignard') {
 const placer = (ctx, g, salle, ...pids) => pids.forEach(pid => E.adminAction(ctx, g, { type: 'placer', pid, salle }));
 const act = (ctx, g, p, a) => E.playerAction(ctx, g, p, a);
 const code = (ctx, g, n) => E.salleView(ctx, g, n).code;
+// Les indices qu'une salle porte (1er, 2e, 3e), une fois la partie créée.
+const ecrire = (g, n, ...textes) => { g.indicesSalle[n] = [0, 1, 2].map(k => textes[k] ?? null); };
 
 test('le tueur a des indices plus précis : deux cartes innocentées à chaque indice automatique', () => {
   const { g, ctx, tueur, innocents } = setup();
@@ -293,7 +295,7 @@ const equiper = (ctx, g, p, nomArme) => { const i = arme(g, nomArme); g.joueurs[
 
 test('armes de joueur : apparition dans les salles, ramasser, poser', () => {
   const { g, ctx, innocents, avance } = setup();
-  ctx.cfg.apparitionArme = 100; ctx.cfg.premiereArme = 100;
+  ctx.cfg.apparitionArme = 100; ctx.cfg.premiereArme = 100; g.planArmes = null; // le calendrier est refait avec ces délais
   avance(1); assert.equal(Object.keys(g.armesSol || {}).length, 0, 'pas avant le délai de la première arme');
   avance(101e3);
   const [salle, i] = Object.entries(g.armesSol)[0];
@@ -634,4 +636,43 @@ test('13 joueurs puis un 14e : personnage libre, carte en main, complice, échan
   // les autres complices (paires et trio) continuent de marcher
   const mutuels = pids.filter(p => g.joueurs[g.joueurs[p].complice].complice === p);
   assert.ok(mutuels.length >= 10);
+});
+
+// ---------- complices : un seul a tout trouvé ; armes prévues par un indice ----------
+test('complices : dès que l\'un a tout trouvé et que l\'autre a débloqué la 1re étape, ils peuvent échanger', () => {
+  const { g, ctx, pids } = setup();
+  ctx.cfg.sallesPropres = 0; g.propres = [];
+  const a = pids.find(p => g.joueurs[g.joueurs[p].complice].complice === p), b = g.joueurs[a].complice;
+  // a a tout trouvé ; b n'a rien débloqué : pas encore
+  trouver(ctx, g, a);
+  placer(ctx, g, 's3', a, b);
+  assert.equal(voir(ctx, g, a).ici, false);
+  assert.equal(act(ctx, g, a, { type: 'complice', op: 'echanger', carte: g.joueurs[a].main[0] }).ok, false);
+  // b passe au Bureau (1re étape) seulement
+  placer(ctx, g, `s${SALLE.bureau}`, b); ctx.cfg.taches = false; act(ctx, g, b, { type: 'indice' });
+  placer(ctx, g, 's3', b);
+  assert.equal(voir(ctx, g, b).pret, false, 'b ne sait pas encore qui est son complice');
+  assert.equal(voir(ctx, g, b).ici, true, 'mais il sait qu\'il est avec lui');
+  assert.equal(voir(ctx, g, a).ici, true);
+  const ca = g.joueurs[a].main[0], cb = g.joueurs[b].main[0];
+  assert.equal(act(ctx, g, a, { type: 'complice', op: 'echanger', carte: ca }).ok, true);
+  assert.match(act(ctx, g, b, { type: 'complice', op: 'echanger', carte: cb }).msg, /Échange fait/);
+  assert.ok(g.joueurs[b].vus[ca].includes(a) && g.joueurs[a].vus[cb].includes(b));
+});
+
+test('indice « {lieu_arme} / {heure_arme} » : la prochaine arme prévue au calendrier apparaît bien là, à ce moment', () => {
+  const { g, ctx, pids, avance } = setup(6);
+  ctx.cfg.sallesPropres = 0; ctx.cfg.premiereArme = 300; ctx.cfg.apparitionArme = 200; g.planArmes = null;
+  avance(1);
+  ecrire(g, 0, 'Une arme apparaîtra dans {lieu_arme} vers {heure_arme}.');
+  const P = pids.find(p => g.joueurs[p].perso !== g.solution.perso);
+  scanner(ctx, g, P, 0);
+  const t = act(ctx, g, P, { type: 'indice' }).indice;
+  const m = t.match(/^Une arme apparaîtra dans (.+) vers (\d\dh\d\d)\.$/);
+  assert.ok(m, t);
+  const prevue = g.planArmes.find(e => !e.fait);
+  assert.equal(m[1], g.cartes[prevue.salle].nom);
+  assert.equal(m[2], new Date(prevue.t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }).replace(':', 'h'));
+  avance(301e3);
+  assert.equal(g.armesSol[prevue.salle] != null, true, 'l\'arme est apparue à la salle annoncée');
 });

@@ -266,8 +266,12 @@ const compPret = J => !!(J.comp && J.comp.jeu && J.comp.grenier);
 function peutSeRetrouver(g, p, q) {
   const P = g.joueurs[p], Q = g.joueurs[q];
   if (!P || !Q || P.mort || Q.mort || !P.salle || P.salle !== Q.salle) return false;
-  if (P.complice !== q && Q.complice !== p) return false;
-  return (P.complice !== q || compPret(P)) && (Q.complice !== p || compPret(Q));
+  const mutuel = P.complice === q && Q.complice === p;
+  // deux complices l'un de l'autre : il suffit que l'un ait tout trouvé et que l'autre ait débloqué la 1re étape (Bureau)
+  if (mutuel) return (compPret(P) && !!Q.comp?.debloque) || (compPret(Q) && !!P.comp?.debloque);
+  if (P.complice === q) return compPret(P);
+  if (Q.complice === p) return compPret(Q);
+  return false;
 }
 const texteComplice = (ctx, g, p, texte) => {
   const c = g.joueurs[p].complice;
@@ -292,9 +296,8 @@ function complice(ctx, g, p, a) {
     // chacun donne simplement une carte à son complice, qui n'a rien à faire.
     if (J.comp.fait) return err('Tu as déjà donné une carte à ton complice.');
     const mutuel = C.complice === p;
-    if (!compPret(J)) return err('Trouve d\'abord qui est ton complice (salle de jeu et grenier).');
-    if (mutuel && !compPret(C)) return err('Ton complice n\'a pas encore trouvé qui tu es : revenez plus tard.');
     if (C.mort || !J.salle || J.salle !== C.salle) return err('Tu dois être dans la même salle que ton complice.');
+    if (!peutSeRetrouver(g, p, J.complice)) return err(mutuel ? 'Il faut que l\'un de vous deux ait trouvé qui est son complice (salle de jeu et grenier) et que l\'autre ait débloqué les complices (bureau).' : 'Trouve d\'abord qui est ton complice (salle de jeu et grenier).');
     if (!J.main.includes(a.carte)) return err('Choisis une de tes cartes.');
     const donner = (X, Y, carte, de) => { // Y reçoit la carte de X
       (Y.vus[carte] ??= []).includes(de) || Y.vus[carte].push(de);
@@ -389,12 +392,23 @@ function lancer(ctx, g) {
   feed(g, ctx, '⚡ La foudre a frappé : les plombs ont sauté ! Chacun doit rejoindre sa salle pour les réparer.');
   ctx.sfx?.('annonce');
 }
+// Les armes apparaissent selon un calendrier fixé au début de l'enquête (une première après premiereArme s, puis une toutes les apparitionArme s),
+// pour qu'un indice puisse dire où et quand la prochaine arrivera.
+function planifierArmes(ctx, g, now) {
+  const premiere = (ctx.cfg.premiereArme ?? 150) * 1000, pas = Math.max(10, ctx.cfg.apparitionArme ?? 150) * 1000, salles = deType(g, 'salle');
+  let derniere = null;
+  g.planArmes = Array.from({ length: 40 }, (_, k) => {
+    const salle = pick(salles.filter(x => x !== derniere)); derniere = salle;
+    return { t: now + premiere + k * pas, salle, arme: pick(armesNoms(g)), fait: false };
+  });
+}
 // Tous les codes tapés (ou l'admin force) : le courant revient et l'enquête commence.
 function commencer(ctx, g) {
   const now = ctx.now();
   for (const [p, s] of Object.entries(g.panne?.salles ?? {})) if (!g.joueurs[p].salle) g.joueurs[p].salle = s;
   g.phase = 'enquete';
   g.debut = now;
+  planifierArmes(ctx, g, now);
   g.endsAt = now + ctx.cfg.dureeMax * 1000;
   g.finaleAt = ctx.cfg.finaleApres > 0 ? now + ctx.cfg.finaleApres * 1000 : 0;
   g.taches = Array.from({ length: g.nbSalles }, (_, n) => tirerTache(ctx, n));
@@ -529,12 +543,12 @@ export function tick(ctx, g) {
   }
   for (const m of g.menaces || []) if (m.etat === 'attente' && now >= m.fin) { { const l = cartesLibres(g, m.de, m.a); if (l.length) remettreCarte(ctx, g, m, pick(l)); else m.etat = 'annulee'; changed = true; } }
   if (ctx.cfg.armesJoueurs && g.phase !== 'intro') {
-    g.prochaineArme ||= (g.debut || now) + (ctx.cfg.premiereArme ?? 150) * 1000;
-    if (now >= g.prochaineArme) {
-      g.prochaineArme = now + (ctx.cfg.apparitionArme ?? 150) * 1000;
-      g.armesSol ??= {};
-      const libres = deType(g, 'salle').filter(sl => g.armesSol[sl] == null);
-      if (libres.length && Object.keys(g.armesSol).length < Math.max(2, Math.ceil(g.nbSalles / 3))) { g.armesSol[pick(libres)] = pick(armesNoms(g)); changed = true; }
+    if (!g.planArmes) planifierArmes(ctx, g, g.debut || now);
+    g.armesSol ??= {};
+    for (const e of g.planArmes) {
+      if (e.fait || now < e.t) continue;
+      e.fait = true; changed = true;
+      if (g.armesSol[e.salle] == null && Object.keys(g.armesSol).length < Math.max(2, Math.ceil(g.nbSalles / 3))) g.armesSol[e.salle] = e.arme;
     }
   }
   if (g.phase === 'enquete' && g.finaleAt && now >= g.finaleAt) changed = finale(ctx, g) || changed;
@@ -548,9 +562,11 @@ function inconnues(g, p, type = null) {
   const J = g.joueurs[p], sol = new Set(Object.values(g.solution));
   return Object.values(g.cartes).filter(c => !sol.has(c.id) && (!type || c.type === type) && !J.main.includes(c.id) && !J.vus[c.id] && !J.elimines.includes(c.id)).map(c => c.id);
 }
+// La prochaine arme prévue au calendrier (pas encore apparue).
+const prochaineArme = (g, now) => (g.planArmes || []).find(e => !e.fait && e.t > now) ?? null;
 // Joueurs dont on peut donner le nom à p dans un indice : vivants, pas lui-même, jamais le même nom deux fois pour lui.
 const joueurNommable = (g, p) => Object.keys(g.joueurs).filter(x => x !== p && !g.joueurs[x].mort && !(g.joueurs[p].nommes || []).includes(x));
-function remplir(g, p, texte, n, nomJoueur = x => x) {
+function remplir(g, p, texte, n, nomJoueur = x => x, now = Date.now()) {
   const elimines = [];
   // {joueur} : le nom d'un autre joueur (de préférence dont le personnage est encore inconnu de celui qui lit) ;
   // avec {3perso}, les 3 personnages proposés contiennent le vrai personnage de ce joueur.
@@ -587,6 +603,8 @@ function remplir(g, p, texte, n, nomJoueur = x => x) {
   };
   const out = texte
     .replace(/\{joueur\}/g, cibleNom ? nomJoueur(cibleNom) : 'Quelqu\'un')
+    .replace(/\{lieu_arme\}/g, () => { const e = prochaineArme(g, now); if (!e) vide = true; return e ? nom(g, e.salle) : '…'; })
+    .replace(/\{heure_arme\}/g, () => { const e = prochaineArme(g, now); if (!e) vide = true; return e ? new Date(e.t).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }).replace(':', 'h') : '…'; })
     .replace(/\{sexe\}/g, cibleNom ? (g.femmes?.[g.joueurs[cibleNom].perso] ? 'est une femme' : 'n\'est pas une femme') : 'est quelqu\'un')
     .replace(/\{(\d)(carte|salle|perso|arme)s?\}/g, (_, k, t) => groupe(Math.max(2, Number(k)), t === 'carte' ? null : t))
     .replace(/\{(carte|salle|perso|arme)\}/g, (_, k) => prendre(k === 'carte' ? null : k));
@@ -627,7 +645,7 @@ function indice(ctx, g, p, parTache = false) {
   const choix = choisirIndice(ctx, g, p, s);
   let r;
   if (choix && !(tueur && choix.auto)) {
-    r = choix.concret ? { texte: choix.texte, elimines: choix.elim || [] } : remplir(g, p, choix.texte, g.phase === 'finale' ? 2 : 1, ctx.name);
+    r = choix.concret ? { texte: choix.texte, elimines: choix.elim || [] } : remplir(g, p, choix.texte, g.phase === 'finale' ? 2 : 1, ctx.name, ctx.now());
     (J.recus[s] ??= []).push(choix.cle);
   } else { // plus d'indice disponible pour ce joueur dans cette salle : indice automatique de secours
     const brut = tueur ? 'Un souvenir précis te revient : « {carte} » n\'a rien à voir avec le crime.' : modeles.length ? pick(modeles) : "« {carte} » n'a rien à voir avec le crime.";
@@ -1144,13 +1162,13 @@ function complicesVue(ctx, g, p) {
   const J = g.joueurs[p], C = J.complice && g.joueurs[J.complice];
   if (!ctx.cfg.complices || !J.comp?.debloque || !C) return null;
   const sa = sallesComp(ctx, g), pret = compPret(J), mutuel = C.complice === p, ici = peutSeRetrouver(g, p, J.complice) || peutSeRetrouver(g, J.complice, p);
-  const peutDonner = pret && !C.mort && !!J.salle && J.salle === C.salle && (!mutuel || compPret(C));
+  const peutDonner = peutSeRetrouver(g, p, J.complice);
   return {
     jeu: J.comp.jeu, grenier: J.comp.grenier, pret, mort: !!C.mort,
     chercher: !J.comp.jeu && J.salle === sa.jeu ? 'jeu' : !J.comp.grenier && J.salle === sa.grenier ? 'grenier' : null,
     nom: pret ? ctx.name(J.complice) : null, perso: pret ? nom(g, C.perso) : null,
     ici: peutDonner, mutuel, fait: J.comp.fait, monChoix: J.comp.choix ? carteVue(g, J.comp.choix) : null, sonChoix: !!C.comp?.choix,
-    peutRecruter: !!J.tueur?.actif && !J.tueur.recrute && !C.tueur && ici && pret,
+    peutRecruter: !!J.tueur?.actif && !J.tueur.recrute && !C.tueur && ici,
     recrutement: J.tueur?.recrute === 'attente' ? 'attente' : J.tueur?.recrute === 'refuse' ? 'refuse' : J.tueur?.recrute ? 'accepte' : null, recrue: !!J.tueur?.recrue,
   };
 }
