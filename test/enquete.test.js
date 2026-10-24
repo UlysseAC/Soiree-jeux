@@ -400,3 +400,15 @@ test('simulateur d\'indices : 3 indices par salle, textes écrits repris, repèr
   assert.ok(r.salles.flatMap(s => s.indices).every(i => !i.texte.includes('{')), 'aucun repère laissé tel quel');
   assert.ok(r.complices.bureau && r.complices.jeu && r.complices.grenier);
 });
+
+test('un joueur qui fait le 1er indice des 11 salles reçoit les 11 indices du pool 1, une fois chacun', () => {
+  for (let k = 0; k < 20; k++) {
+    const { g, ctx } = setup(6, c => { c.sallesPropres = 2; c.poolsIndices = [Array.from({ length: 11 }, (_, i) => `Premier indice numéro ${i}`).join('\n'), '', '']; return c; });
+    E.adminAction(ctx, g, { type: 'lancer' });
+    const P = Object.keys(g.joueurs)[0];
+    const recus = [];
+    for (let n = 0; n < 11; n++) { E.adminAction(ctx, g, { type: 'placer', pid: P, salle: `s${n}` }); recus.push(E.playerAction(ctx, g, P, { type: 'indice' }).indice); }
+    assert.equal(new Set(recus).size, 11, recus.join(' / '));
+    assert.ok(recus.every(t => /^Premier indice numéro \d+$/.test(t)), 'même dans une salle trop propre, le 1er indice vient du pool 1');
+  }
+});
